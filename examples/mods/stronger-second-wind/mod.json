@@ -1,0 +1,16 @@
+{
+  "id": "stronger-second-wind",
+  "name": "Второе дыхание с Телосложением",
+  "version": "1.0.0",
+  "kind": "mechanics",
+  "author": "Пример из docs/MODS.md",
+  "description": "«Второе дыхание» воина лечит ещё на модификатор Телосложения; у воина появляется «Боевой клич» — бонусным действием.",
+  "entry": "index.js",
+  "translations": {
+    "en": {
+      "name": "Second Wind with Constitution",
+      "author": "Example from docs/MODS.md",
+      "description": "The fighter's Second Wind also heals the Constitution modifier; the fighter gains Battle Cry as a bonus action."
+    }
+  }
+}

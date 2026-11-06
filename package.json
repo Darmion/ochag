@@ -1,0 +1,114 @@
+{
+  "main": "apps/desktop/main.cjs",
+  "description": "Ochag — a virtual tabletop for tabletop role-playing games, with the server on the game master's own computer",
+  "author": "Jasip",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Darmion/ochag.git"
+  },
+  "homepage": "https://github.com/Darmion/ochag",
+  "bugs": {
+    "url": "https://github.com/Darmion/ochag/issues"
+  },
+  "name": "ttrpg-foundation",
+  "version": "0.1.0",
+  "build": {
+    "appId": "local.ttrpg.tabletop",
+    "productName": "Очаг",
+    "executableName": "Ochag",
+    "artifactName": "Ochag-Setup-${version}.${ext}",
+    "copyright": "© 2026 Jasip",
+    "publish": null,
+    "directories": {
+      "output": "release",
+      "buildResources": "branding"
+    },
+    "files": [
+      "apps/desktop/**/*",
+      "apps/client/dist/**/*",
+      "apps/server/**/*",
+      "packages/**/*",
+      "scripts/**/*",
+      "branding/**/*",
+      "mods/**/*",
+      "db/**/*",
+      "node_modules/**/*",
+      "package.json",
+      "LICENSE.md",
+      "NOTICE.md"
+    ],
+    "asar": false,
+    "win": {
+      "icon": "branding/icon.png",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "Очаг",
+      "uninstallDisplayName": "Очаг",
+      "multiLanguageInstaller": true,
+      "installerLanguages": [
+        "en_US",
+        "ru_RU"
+      ]
+    }
+  },
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "desktop:build": "npm --prefix apps/client run build",
+    "desktop": "npm run desktop:build && electron .",
+    "desktop:dist": "npm run desktop:build && electron-builder --win nsis --x64",
+    "start": "node --env-file=.env apps/server/src/main.ts",
+    "dev": "node --watch --env-file=.env apps/server/src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "i18n:extract": "node scripts/i18n-extract.mjs",
+    "i18n:check": "node scripts/i18n-check.mjs",
+    "srd:spell-templates": "node scripts/build-spell-templates.ts",
+    "test": "node --test \"packages/**/*.test.ts\" \"apps/client/test/**/*.test.ts\" \"apps/server/test/**/*.test.ts\" \"mods/**/*.test.ts\"",
+    "db:migrate": "node --env-file=.env scripts/migrate.ts",
+    "db:provision": "node --env-file=.env scripts/provision.ts",
+    "db:backup": "node --env-file=.env scripts/backup.ts",
+    "db:restore": "node --env-file=.env scripts/restore.ts",
+    "ui:sweep": "node scripts/ui-sweep.mjs"
+  },
+  "dependencies": {
+    "@fastify/multipart": "10.1.1",
+    "@fastify/rate-limit": "11.2.0",
+    "@fastify/static": "^10.1.6",
+    "@fastify/websocket": "11.3.0",
+    "embedded-postgres": "^18.4.0-beta.17",
+    "fastify": "5.12.4",
+    "pg": "8.23.0",
+    "ws": "8.21.3"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.8",
+    "@types/node": "22.20.2",
+    "@types/pg": "8.23.1",
+    "@types/ws": "8.18.1",
+    "electron": "44.3.0",
+    "electron-builder": "26.15.3",
+    "typescript": "7.0.2"
+  },
+  "allowScripts": {
+    "@embedded-postgres/windows-x64@18.4.0-beta.17": true,
+    "electron-winstaller@5.4.0": true
+  },
+  "updateRepository": "Darmion/ochag"
+}

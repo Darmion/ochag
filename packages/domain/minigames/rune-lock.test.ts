@@ -1,0 +1,41 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { createRuneLock, actRuneLock, viewRuneLock } from './rune-lock.ts';
+test('rune lock: shared attempts, duplicate guard, and success on final attempt', () => {
+  let game = createRuneLock([0, 1, 0], 'hint', 2, 1);
+  game = actRuneLock(game, { action: 'check' }, false);
+  assert.equal(game.history[0].matches, 2);
+  assert.throws(() => actRuneLock(game, { action: 'check' }, false));
+  game = actRuneLock(game, { action: 'rotate', ring: 1, step: 1 }, false);
+  assert.equal(game.attempts, 1);
+  game = actRuneLock(game, { action: 'check' }, false);
+  assert.equal(game.phase, 'opened');
+  assert.equal(game.attempts, 2);
+  assert.throws(() => actRuneLock(game, { action: 'rotate', ring: 0, step: 1 }, true));
+});
+test('rune lock: jam, manual resolution, permissions and secret projection', () => {
+  const initial = createRuneLock([2, 3, 4], '', 1, 1);
+  assert.equal('solution' in viewRuneLock(initial, false), false);
+  const privateView = viewRuneLock(initial, true);
+  privateView.solution![0] = 0;
+  assert.equal(initial.solution[0], 2);
+  for (const action of ['open', 'cancel', 'reveal'] as const) assert.throws(() => actRuneLock(initial, { action, ring: 0 }, false));
+  const jammed = actRuneLock(initial, { action: 'check' }, false);
+  assert.equal(jammed.phase, 'jammed');
+  assert.equal(initial.attempts, 0);
+  assert.throws(() => actRuneLock(jammed, { action: 'rotate', ring: 0, step: 1 }, true));
+  assert.equal(actRuneLock(jammed, { action: 'open' }, true).phase, 'opened');
+});
+test('rune lock: cyclic rotation, fixed hints and validation without mutation', () => {
+  const initial = createRuneLock([2, 3, 4], '', 6, 1);
+  assert.equal(actRuneLock(initial, { action: 'rotate', ring: 0, step: -1 }, false).rings[0], 5);
+  const revealed = actRuneLock(initial, { action: 'reveal', ring: 0 }, true);
+  assert.equal(revealed.rings[0], 2);
+  assert.equal(revealed.attempts, 0);
+  assert.throws(() => actRuneLock(revealed, { action: 'rotate', ring: 0, step: 1 }, false));
+  assert.throws(() => actRuneLock(initial, { action: 'rotate', ring: 3, step: 1 }, false));
+  assert.throws(() => actRuneLock(initial, { action: 'rotate', ring: 0, step: 6 }, false));
+  assert.throws(() => createRuneLock([0, 6, 0], '', 1, 1));
+  assert.throws(() => createRuneLock([0, 0, 0], '', 0, 1));
+  assert.deepEqual(initial.rings, [0, 0, 0]);
+});

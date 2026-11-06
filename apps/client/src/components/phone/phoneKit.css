@@ -1,0 +1,35 @@
+.card {
+  background: #2d2220;
+  border: 1px solid #5a4636;
+  border-radius: 10px;
+  padding: 14px;
+}
+.link {
+  background: none;
+  border: none;
+  color: #c9a876;
+  text-decoration: underline;
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
+button {
+  padding: 10px 12px;
+  border-radius: 6px;
+  border: 1px solid #5a4636;
+  background: #3a2c26;
+  color: #ead9c4;
+  font-size: 0.95rem;
+  cursor: pointer;
+}
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.muted {
+  color: #a8957e;
+  font-size: 0.85rem;
+}
+h2, h3 {
+  margin: 14px 0 8px;
+}

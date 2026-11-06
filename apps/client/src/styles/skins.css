@@ -1,0 +1,115 @@
+:root[data-ui="game"][data-skin="grove"] {
+  --g-void: #060e0a;
+  --g-table: #223429;
+  --g-stone-1: #233c30;
+  --g-stone-2: #14271f;
+  --g-stone-3: #0b1912;
+  --g-well: #08120d;
+  --g-gold: #c4c58b;
+  --g-gold-hi: #eff0bc;
+  --g-gold-lo: #7c9165;
+  --g-gold-deep: #293c24;
+  --g-text: #e5ead5;
+  --g-text-dim: #b2c2a1;
+  --g-text-faint: #7b9275;
+  --g-accent: #28533e;
+  --g-accent-hi: #3e7a55;
+  --g-accent-text: #f1f7df;
+  --g-line: #344c38;
+  --g-title-font: 'Vollkorn SC', Georgia, serif;
+  --g-display-font: 'Ruslan Display', Georgia, serif;
+  --g-body-font: 'Palatino Linotype', Georgia, serif;
+  --g-glow: color-mix(in srgb,var(--g-gold) 38%,transparent);
+  --page-bg: radial-gradient(ellipse at 20% 0,color-mix(in srgb,var(--g-accent-hi) 25%,transparent),transparent 65%),var(--g-noise),var(--g-void);
+  --button-bg-from: var(--g-stone-1);
+  --button-bg-to: var(--g-stone-3);
+  --table-header-bg: var(--g-stone-2);
+  --theme-radius: 10px;
+}
+:root[data-ui="game"][data-skin="crystal"] {
+  --g-void: #050b1c;
+  --g-table: #1e2b44;
+  --g-stone-1: #243d68;
+  --g-stone-2: #142646;
+  --g-stone-3: #0c1730;
+  --g-well: #080f22;
+  --g-gold: #a8cee9;
+  --g-gold-hi: #eaf7ff;
+  --g-gold-lo: #5b81b0;
+  --g-gold-deep: #253c60;
+  --g-text: #e4effb;
+  --g-text-dim: #aebfd9;
+  --g-text-faint: #788cac;
+  --g-accent: #285b9e;
+  --g-accent-hi: #3c80cc;
+  --g-accent-text: #f4fbff;
+  --g-line: #354b70;
+  --g-title-font: 'Yeseva One', Georgia, serif;
+  --g-display-font: 'Yeseva One', Georgia, serif;
+  --g-body-font: 'Segoe UI', Arial, sans-serif;
+  --g-glow: color-mix(in srgb,var(--g-gold) 38%,transparent);
+  --page-bg: radial-gradient(ellipse at 20% 0,color-mix(in srgb,var(--g-accent-hi) 25%,transparent),transparent 65%),var(--g-noise),var(--g-void);
+  --button-bg-from: var(--g-stone-1);
+  --button-bg-to: var(--g-stone-3);
+  --table-header-bg: var(--g-stone-2);
+  --theme-radius: 8px;
+}
+:root[data-ui="game"][data-skin="astral"] {
+  --g-void: #0b0715;
+  --g-table: #312844;
+  --g-stone-1: #362944;
+  --g-stone-2: #241b32;
+  --g-stone-3: #171024;
+  --g-well: #100b1b;
+  --g-gold: #ceb78a;
+  --g-gold-hi: #f4e5be;
+  --g-gold-lo: #9279ad;
+  --g-gold-deep: #42304f;
+  --g-text: #eee2f3;
+  --g-text-dim: #c0adce;
+  --g-text-faint: #94809e;
+  --g-accent: #5c387a;
+  --g-accent-hi: #8b56a6;
+  --g-accent-text: #fff1ff;
+  --g-line: #4a375b;
+  --g-title-font: 'Yeseva One', Georgia, serif;
+  --g-display-font: 'Yeseva One', Georgia, serif;
+  --g-body-font: Georgia, 'Times New Roman', serif;
+  --g-glow: color-mix(in srgb,var(--g-gold) 38%,transparent);
+  --page-bg: radial-gradient(ellipse at 20% 0,color-mix(in srgb,var(--g-accent-hi) 25%,transparent),transparent 65%),var(--g-noise),var(--g-void);
+  --button-bg-from: var(--g-stone-1);
+  --button-bg-to: var(--g-stone-3);
+  --table-header-bg: var(--g-stone-2);
+  --theme-radius: 12px;
+}
+:root[data-ui="game"][data-skin="crimson"] {
+  --g-void: #10080d;
+  --g-table: #3b2025;
+  --g-stone-1: #3b2931;
+  --g-stone-2: #261921;
+  --g-stone-3: #180f16;
+  --g-well: #100a10;
+  --g-gold: #c7b6b5;
+  --g-gold-hi: #f1e4dc;
+  --g-gold-lo: #8e686f;
+  --g-gold-deep: #492c36;
+  --g-text: #f1e2de;
+  --g-text-dim: #c2a9af;
+  --g-text-faint: #947781;
+  --g-accent: #732b40;
+  --g-accent-hi: #a84359;
+  --g-accent-text: #fff0e9;
+  --g-line: #54333e;
+  --g-title-font: 'Vollkorn SC', Georgia, serif;
+  --g-display-font: 'Vollkorn SC', Georgia, serif;
+  --g-body-font: Georgia, 'Times New Roman', serif;
+  --g-glow: color-mix(in srgb,var(--g-gold) 38%,transparent);
+  --page-bg: radial-gradient(ellipse at 20% 0,color-mix(in srgb,var(--g-accent-hi) 25%,transparent),transparent 65%),var(--g-noise),var(--g-void);
+  --button-bg-from: var(--g-stone-1);
+  --button-bg-to: var(--g-stone-3);
+  --table-header-bg: var(--g-stone-2);
+  --theme-radius: 3px;
+}
+:root[data-ui="game"]:is([data-skin="grove"],[data-skin="crystal"],[data-skin="astral"],[data-skin="crimson"]) :is(.panel,.g-frame,.modal-card){border-radius:var(--theme-radius)}
+:root[data-ui="game"][data-skin="crystal"]{--g-noise:none;--g-cracks:none;--g-stone-panel:linear-gradient(135deg,var(--g-stone-1),var(--g-stone-2) 50%,var(--g-stone-3));--g-ring:inset 0 0 0 1px var(--g-gold-lo),inset 0 0 0 3px var(--g-stone-3),0 0 0 1px var(--g-gold),0 0 16px color-mix(in srgb,var(--g-accent-hi) 25%,transparent)}
+:root[data-ui="game"][data-skin="astral"]{--g-stone-panel:radial-gradient(ellipse at 100% 0,color-mix(in srgb,var(--g-accent-hi) 18%,transparent),transparent 65%),var(--g-noise),linear-gradient(150deg,var(--g-stone-1),var(--g-stone-3))}

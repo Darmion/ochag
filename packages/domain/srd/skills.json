@@ -1,0 +1,164 @@
+[
+  {
+    "index": "acrobatics",
+    "nameEn": "Acrobatics",
+    "nameRu": "Акробатика",
+    "ability": "dex",
+    "abilityRu": "Ловкость",
+    "descRu": "Проверка Ловкости (Акробатика) охватывает вашу попытку удержаться на ногах в сложной ситуации, например, когда вы пытаетесь пробежать по ледяной поверхности, удержать равновесие на канате или устоять на палубе раскачивающегося корабля. Мастер также может потребовать проверку Ловкости (Акробатика), чтобы определить, сможете ли вы выполнить акробатические трюки, включая ныряния, перекаты, кувырки и сальто.",
+    "descEn": "Your Dexterity (Acrobatics) check covers your attempt to stay on your feet in a tricky situation, such as when you're trying to run across a sheet of ice, balance on a tightrope, or stay upright on a rocking ship's deck. The GM might also call for a Dexterity (Acrobatics) check to see if you can perform acrobatic stunts, including dives, rolls, somersaults, and flips."
+  },
+  {
+    "index": "athletics",
+    "nameEn": "Athletics",
+    "nameRu": "Атлетика",
+    "ability": "str",
+    "abilityRu": "Сила",
+    "descRu": "Проверка Силы (Атлетика) охватывает сложные ситуации, с которыми вы сталкиваетесь при лазании, прыжках или плавании.",
+    "descEn": "Your Strength (Athletics) check covers difficult situations you encounter while climbing, jumping, or swimming: climbing a sheer or slippery cliff, avoiding hazards while scaling a wall, clinging to a surface while something tries to knock you off, jumping an unusually long distance, pulling off a stunt midjump, or struggling to swim in treacherous currents or storm-tossed waves."
+  },
+  {
+    "index": "perception",
+    "nameEn": "Perception",
+    "nameRu": "Восприятие",
+    "ability": "wis",
+    "abilityRu": "Мудрость",
+    "descRu": "Проверка Мудрости (Восприятие) позволяет вам заметить, услышать или иным образом обнаружить присутствие чего-либо. Она измеряет вашу общую осведомлённость об окружающей обстановке и остроту ваших чувств. Например, вы можете попытаться услышать разговор через закрытую дверь, подслушать под открытым окном или различить монстров, бесшумно крадущихся по лесу. Либо вы можете попытаться заметить нечто скрытое или малозаметное — будь то орки, устроившие засаду на дороге, бандиты, прячущиеся в тенях переулка, или свет свечи под закрытой потайной дверью.",
+    "descEn": "Your Wisdom (Perception) check lets you spot, hear, or otherwise detect the presence of something. It measures your general awareness of your surroundings and the keenness of your senses: hearing a conversation through a closed door, eavesdropping under an open window, hearing monsters moving stealthily in the forest, or spotting orcs lying in ambush on a road, thugs hiding in the shadows of an alley, or candlelight under a closed secret door."
+  },
+  {
+    "index": "survival",
+    "nameEn": "Survival",
+    "nameRu": "Выживание",
+    "ability": "wis",
+    "abilityRu": "Мудрость",
+    "descRu": "Мастер может потребовать проверку Мудрости (Выживание), чтобы идти по следам, охотиться на дичь, провести вашу группу через ледяные пустоши, распознать признаки того, что неподалёку обитают совомеды, предсказать погоду или избежать зыбучих песков и других природных опасностей.",
+    "descEn": "The GM might ask you to make a Wisdom (Survival) check to follow tracks, hunt wild game, guide your group through frozen wastelands, identify signs that owlbears live nearby, predict the weather, or avoid quicksand and other natural hazards."
+  },
+  {
+    "index": "performance",
+    "nameEn": "Performance",
+    "nameRu": "Выступление",
+    "ability": "cha",
+    "abilityRu": "Харизма",
+    "descRu": "Проверка Харизмы (Выступление) определяет, насколько хорошо вы способны порадовать публику музыкой, танцем, актёрской игрой, рассказом историй или иной формой развлечения.",
+    "descEn": "Your Charisma (Performance) check determines how well you can delight an audience with music, dance, acting, storytelling, or some other form of entertainment."
+  },
+  {
+    "index": "intimidation",
+    "nameEn": "Intimidation",
+    "nameRu": "Запугивание",
+    "ability": "cha",
+    "abilityRu": "Харизма",
+    "descRu": "Когда вы пытаетесь повлиять на кого-либо открытыми угрозами, враждебными действиями или физическим насилием, Мастер может потребовать проверку Харизмы (Запугивание). К примерам относятся попытки выведать сведения у пленника, убедить уличных бандитов отступить от стычки или с помощью осколка разбитой бутылки заставить надменного визиря пересмотреть решение.",
+    "descEn": "When you attempt to influence someone through overt threats, hostile actions, and physical violence, the GM might ask you to make a Charisma (Intimidation) check — prying information out of a prisoner, convincing street thugs to back down from a confrontation, or persuading a sneering vizier to reconsider a decision."
+  },
+  {
+    "index": "history",
+    "nameEn": "History",
+    "nameRu": "История",
+    "ability": "int",
+    "abilityRu": "Интеллект",
+    "descRu": "Проверка Интеллекта (История) измеряет вашу способность вспомнить знания об исторических событиях, легендарных личностях, древних королевствах, былых конфликтах, недавних войнах и исчезнувших цивилизациях.",
+    "descEn": "Your Intelligence (History) check measures your ability to recall lore about historical events, legendary people, ancient kingdoms, past disputes, recent wars, and lost civilizations."
+  },
+  {
+    "index": "sleight-of-hand",
+    "nameEn": "Sleight of Hand",
+    "nameRu": "Ловкость рук",
+    "ability": "dex",
+    "abilityRu": "Ловкость",
+    "descRu": "Всякий раз, когда вы пытаетесь совершить ловкий трюк или ручную хитрость — например, незаметно подложить что-либо другому существу или спрятать предмет при себе, — совершите проверку Ловкости (Ловкость рук). Мастер также может потребовать проверку Ловкости (Ловкость рук), чтобы определить, сможете ли вы стащить кошель с монетами у другого существа или вытащить что-нибудь из его кармана.",
+    "descEn": "Whenever you attempt an act of legerdemain or manual trickery, such as planting something on someone else or concealing an object on your person, make a Dexterity (Sleight of Hand) check. The GM might also call for this check to determine whether you can lift a coin purse off another person or slip something out of another person's pocket."
+  },
+  {
+    "index": "arcana",
+    "nameEn": "Arcana",
+    "nameRu": "Магия",
+    "ability": "int",
+    "abilityRu": "Интеллект",
+    "descRu": "Проверка Интеллекта (Магия) измеряет вашу способность вспомнить знания о заклинаниях, магических предметах, мистических символах, магических традициях, планах существования и обитателях этих планов.",
+    "descEn": "Your Intelligence (Arcana) check measures your ability to recall lore about spells, magic items, eldritch symbols, magical traditions, the planes of existence, and the inhabitants of those planes."
+  },
+  {
+    "index": "medicine",
+    "nameEn": "Medicine",
+    "nameRu": "Медицина",
+    "ability": "wis",
+    "abilityRu": "Мудрость",
+    "descRu": "Проверка Мудрости (Медицина) позволяет попытаться стабилизировать умирающего спутника или поставить диагноз болезни.",
+    "descEn": "A Wisdom (Medicine) check lets you try to stabilize a dying companion or diagnose an illness."
+  },
+  {
+    "index": "deception",
+    "nameEn": "Deception",
+    "nameRu": "Обман",
+    "ability": "cha",
+    "abilityRu": "Харизма",
+    "descRu": "Проверка Харизмы (Обман) определяет, можете ли вы убедительно скрыть правду — словами или действиями. Этот обман может охватывать всё: от введения в заблуждение через двусмысленности до откровенной лжи. Типичные ситуации включают попытки заболтать стражника, обмануть торговца, выиграть деньги в азартных играх, выдать себя за другого с помощью маскировки, усыпить чьи-то подозрения ложными заверениями или сохранять невозмутимое выражение лица, произнося наглую ложь.",
+    "descEn": "Your Charisma (Deception) check determines whether you can convincingly hide the truth, either verbally or through your actions — from misleading others through ambiguity to telling outright lies: fast-talking a guard, conning a merchant, earning money through gambling, passing yourself off in a disguise, or keeping a straight face while telling a blatant lie."
+  },
+  {
+    "index": "nature",
+    "nameEn": "Nature",
+    "nameRu": "Природа",
+    "ability": "int",
+    "abilityRu": "Интеллект",
+    "descRu": "Проверка Интеллекта (Природа) измеряет вашу способность вспомнить знания о местности, растениях и животных, погоде и природных циклах.",
+    "descEn": "Your Intelligence (Nature) check measures your ability to recall lore about terrain, plants and animals, the weather, and natural cycles."
+  },
+  {
+    "index": "insight",
+    "nameEn": "Insight",
+    "nameRu": "Проницательность",
+    "ability": "wis",
+    "abilityRu": "Мудрость",
+    "descRu": "Проверка Мудрости (Проницательность) определяет, способны ли вы распознать истинные намерения существа — например, выявить ложь или предсказать чей-то следующий ход. Для этого нужно улавливать подсказки в языке тела, манере речи и изменениях в поведении.",
+    "descEn": "Your Wisdom (Insight) check decides whether you can determine the true intentions of a creature, such as when searching out a lie or predicting someone's next move. Doing so involves gleaning clues from body language, speech habits, and changes in mannerisms."
+  },
+  {
+    "index": "investigation",
+    "nameEn": "Investigation",
+    "nameRu": "Расследование",
+    "ability": "int",
+    "abilityRu": "Интеллект",
+    "descRu": "Когда вы ищете улики и делаете выводы на их основании, вы совершаете проверку Интеллекта (Расследование). Вы можете установить местонахождение спрятанного предмета, по виду раны определить, каким оружием она нанесена, или найти самое слабое место в туннеле, способное привести к его обрушению. Изучение древних свитков в поисках скрытого фрагмента знаний также может потребовать проверки Интеллекта (Расследование).",
+    "descEn": "When you look around for clues and make deductions based on those clues, you make an Intelligence (Investigation) check. You might deduce the location of a hidden object, discern from a wound what kind of weapon dealt it, or determine the weakest point in a tunnel that could cause it to collapse. Poring through ancient scrolls in search of a hidden fragment of knowledge might also call for this check."
+  },
+  {
+    "index": "religion",
+    "nameEn": "Religion",
+    "nameRu": "Религия",
+    "ability": "int",
+    "abilityRu": "Интеллект",
+    "descRu": "Проверка Интеллекта (Религия) измеряет вашу способность вспомнить знания о божествах, обрядах и молитвах, религиозных иерархиях, священных символах и практиках тайных культов.",
+    "descEn": "Your Intelligence (Religion) check measures your ability to recall lore about deities, rites and prayers, religious hierarchies, holy symbols, and the practices of secret cults."
+  },
+  {
+    "index": "stealth",
+    "nameEn": "Stealth",
+    "nameRu": "Скрытность",
+    "ability": "dex",
+    "abilityRu": "Ловкость",
+    "descRu": "Совершите проверку Ловкости (Скрытность), когда пытаетесь укрыться от врагов, прокрасться мимо стражи, ускользнуть незамеченным или подобраться к кому-либо незаметно и неслышно.",
+    "descEn": "Make a Dexterity (Stealth) check when you attempt to conceal yourself from enemies, slink past guards, slip away without being noticed, or sneak up on someone without being seen or heard."
+  },
+  {
+    "index": "persuasion",
+    "nameEn": "Persuasion",
+    "nameRu": "Убеждение",
+    "ability": "cha",
+    "abilityRu": "Харизма",
+    "descRu": "Когда вы пытаетесь повлиять на кого-либо или на группу людей тактом, светскими манерами или доброжелательностью, Мастер может потребовать проверку Харизмы (Убеждение). Как правило, убеждение применяется при действиях из добрых побуждений: чтобы завязать дружеские отношения, обратиться с учтивой просьбой или соблюсти подобающий этикет. К примерам убеждения относятся попытки уговорить камергера допустить ваш отряд к королю, заключить мир между враждующими племенами или воодушевить толпу горожан.",
+    "descEn": "When you attempt to influence someone or a group of people with tact, social graces, or good nature, the GM might ask you to make a Charisma (Persuasion) check — when acting in good faith, fostering friendships, making cordial requests, or exhibiting proper etiquette: convincing a chamberlain to let your party see the king, negotiating peace between warring tribes, or inspiring a crowd of townsfolk."
+  },
+  {
+    "index": "animal-handling",
+    "nameEn": "Animal Handling",
+    "nameRu": "Уход за животными",
+    "ability": "wis",
+    "abilityRu": "Мудрость",
+    "descRu": "Когда возникает вопрос, можете ли вы успокоить домашнее животное, удержать ездовое животное от испуга или интуитивно понять намерения животного, Мастер может потребовать проверку Мудрости (Уход за животными). Вы также совершаете проверку Мудрости (Уход за животными), чтобы управлять своим ездовым животным, когда пытаетесь выполнить рискованный манёвр.",
+    "descEn": "When there is any question whether you can calm down a domesticated animal, keep a mount from getting spooked, or intuit an animal's intentions, the GM might call for a Wisdom (Animal Handling) check. You also make a Wisdom (Animal Handling) check to control your mount when you attempt a risky maneuver."
+  }
+]

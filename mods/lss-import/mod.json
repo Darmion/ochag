@@ -1,0 +1,16 @@
+{
+  "id": "lss-import",
+  "name": "Импорт листов Long Story Short",
+  "version": "1.0.0",
+  "kind": "mechanics",
+  "author": "Очаг",
+  "description": "Персонажи из файлов .json приложения Long Story Short: предпросмотр, правка полей и сохранение в кампании; заклинания без названий сопоставляются в листе.",
+  "entry": "index.ts",
+  "translations": {
+    "en": {
+      "name": "Long Story Short sheet import",
+      "author": "Ochag",
+      "description": "Characters from Long Story Short .json files: preview, field edits and saving into the campaign; spells without names are matched in the sheet."
+    }
+  }
+}

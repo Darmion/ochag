@@ -1,0 +1,58 @@
+label{margin:0}
+.art-preview{width:72px;height:72px;flex-shrink:0;display:block;overflow:hidden;padding:0;border-radius:8px;border:1px solid var(--g-gold-lo,var(--brass));background:var(--g-well,var(--surface-inset))}
+.art-preview.large{width:84px;height:84px}
+.art-preview img{width:100%;height:100%;object-fit:cover;display:block}
+.art-preview.library img{object-fit:contain;padding:4px;box-sizing:border-box}
+.badge{display:inline-flex;align-items:center;justify-content:center;min-width:22px;height:22px;padding:0 6px;border-radius:11px;font-size:12px;font-weight:700;line-height:1}
+.badge.pending{background:var(--g-warn,#e1a33a);color:#221}
+.badge.bad{background:var(--g-bad,#c0392b);color:#fff}
+.badge.warn{background:var(--g-warn,#e1a33a);color:#221}
+.spell-builder :focus-visible{outline:2px solid var(--g-gold-hi,var(--brass));outline-offset:2px}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end}
+.grow{flex:1;min-width:min(100%,240px)}
+label{display:flex;flex-direction:column;gap:4px;font-size:14px}
+.checkbox-label{flex-direction:row;align-items:center;gap:6px}
+textarea{width:100%}
+.actions-row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.spacer{flex:1}
+button.small{min-height:32px;padding:4px 10px;font-size:13px;box-shadow:none}
+button.quiet{box-shadow:none;background:transparent}
+.help summary{padding:0;font-weight:400;font-family:var(--g-body-font,inherit)}
+.chevron{display:inline-block;transition:transform .15s ease;font-size:12px}
+[aria-expanded="true"]>.chevron{transform:rotate(90deg)}
+[data-path]{scroll-margin-top:56px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px;align-items:end}
+.grid>*{min-width:0}
+.grid .wide{grid-column:1/-1}
+.pair{display:flex;gap:6px;align-items:center}
+.pair select{flex:1 1 0;min-width:0}
+.pair input[type="number"]{flex:0 0 70px;width:70px}
+.flags{display:flex;flex-wrap:wrap;gap:8px 16px}
+.chips{display:flex;flex-wrap:wrap;gap:6px;border:none;padding:0;margin:0}
+.chips legend{font-size:14px;margin-bottom:6px}
+.chip{flex-direction:row;align-items:center;gap:6px;min-height:32px;padding:4px 10px;border:1px solid var(--g-line,var(--brass-light));border-radius:16px;cursor:pointer;font-size:13px}
+.chip input{width:14px;height:14px;margin:0;accent-color:var(--g-gold,var(--brass))}
+.chip.on{background:var(--burgundy);color:var(--burgundy-text)}
+.chip:focus-within{outline:2px solid var(--g-gold-hi,var(--brass));outline-offset:2px}
+.help summary{cursor:pointer;color:var(--g-text-dim,inherit);font-size:13px}
+.help p{margin:6px 0 0;font-size:14px;line-height:1.5;max-width:80ch}
+.hint{margin:0;font-size:14px}
+.add-button{align-self:flex-start;min-height:36px;padding:6px 12px}
+.icon-button{display:inline-flex;align-items:center;justify-content:center;min-width:32px;min-height:32px;text-decoration:none;align-self:end}
+.danger-link.icon-button:hover{color:var(--g-bad,#c0392b)}
+.flash{animation:flash 1.4s ease}
+@keyframes flash{0%,60%{box-shadow:0 0 0 2px var(--g-gold-hi,#e1c04a);border-radius:6px}100%{box-shadow:none}}
+.art-preview.empty img{opacity:.35;filter:grayscale(.4)}
+:root[data-ui="game"] .spell-builder :is(input:not([type="checkbox"]):not([type="radio"]),select,textarea){background:var(--g-well);border-color:var(--g-gold);color:var(--g-text)}
+:root[data-ui="game"] .spell-builder :is(button,input,select,textarea,summary):focus-visible{outline:2px solid var(--g-gold-hi);outline-offset:3px}
+:root[data-ui="game"] .spell-builder ::selection{background:var(--g-gold);color:var(--g-well)}
+:root[data-ui="game"] .art-preview{position:relative;padding:7px;border:0;background:var(--g-well);box-shadow:inset 0 0 12px #000}
+:root[data-ui="game"] .art-preview::after{content:"";position:absolute;inset:0;z-index:0;pointer-events:none;background:var(--sb-frame) center/100% 100% no-repeat}
+:root[data-ui="game"] .art-preview img{position:relative;z-index:1;border-radius:3px}
+:root[data-ui="game"] .art-preview{width:84px;height:84px}
+:root[data-ui="game"] .art-preview.large{width:92px;height:92px}
+:root[data-ui="game"] .art-preview.library img{padding:1px}
+:root[data-ui="game"] [data-path]{scroll-margin-top:68px}
+@media (prefers-reduced-motion:reduce){
+  .spell-builder .flash{outline:2px solid var(--g-gold-hi,#e1c04a);outline-offset:2px}
+}

@@ -1,0 +1,95 @@
+import { unlink } from 'node:fs/promises';
+import { join } from 'node:path';
+import { ASSETS_DIR } from '../../src/system/asset-routes.ts';
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { buildApp } from '../../src/app.ts';
+import { createTestDatabase } from '../helpers.ts';
+
+test('rune API hides secrets, enforces GM rights, isolates campaigns and serializes updates', async t => {
+  const { pg, db } = await createTestDatabase();
+  const app = await buildApp(db, { rateMax: 10000 });
+  t.after(async () => { await app.close(); await pg.close(); });
+  const req = (method: any, url: string, token?: string, payload?: any) => app.inject({ method, url,
+    ...(token ? { headers: { authorization: `Bearer ${token}` } } : {}), ...(payload ? { payload } : {}) });
+  const register = async (username: string) => (await req('POST', '/auth/register', undefined, { username, password: 'x' })).json();
+  const gm = await register('rune_gm'), guest = await register('rune_guest'), stranger = await register('rune_stranger');
+  const campaign = (await req('POST', '/campaigns', gm.token, { name: 'Runes' })).json().id;
+  const invite = (await req('POST', `/campaigns/${campaign}/invites`, gm.token)).json().code;
+  await req('POST', '/campaigns/join', guest.token, { code: invite });
+  const path = `/campaigns/${campaign}/minigames/rune-lock`;
+  const create = { action: 'create', revision: 0, solution: [2, 3, 4], hint: 'A secret door', limit: 2 };
+  assert.equal((await req('GET', path)).statusCode, 401);
+  assert.equal((await req('GET', path, stranger.token)).statusCode, 404);
+  assert.equal((await req('POST', path, stranger.token, create)).statusCode, 404);
+  assert.equal((await req('POST', path, guest.token, create)).statusCode, 403);
+  assert.equal((await req('POST', path, guest.token, { action: 'check', revision: 0 })).statusCode, 404);
+  assert.equal((await req('POST', path, gm.token, { ...create, solution: [0, 9, 0] })).statusCode, 400);
+  const created = await req('POST', path, gm.token, create);
+  assert.equal(created.statusCode, 200, created.body);
+  assert.deepEqual(created.json().game.solution, [2, 3, 4]);
+  let game = (await req('GET', path, guest.token)).json().game;
+  assert.equal('solution' in game, false);
+  for (const command of [{ action: 'open' }, { action: 'cancel' }, { action: 'reveal', ring: 0 }]) {
+    assert.equal((await req('POST', path, guest.token, { ...command, revision: game.revision })).statusCode, 403);
+  }
+  const command = { action: 'rotate', ring: 0, step: -1, revision: game.revision };
+  const rotations = await Promise.all([req('POST', path, guest.token, command), req('POST', path, guest.token, command)]);
+  assert.deepEqual(rotations.map(r => r.statusCode).sort(), [200, 409]);
+  game = rotations.find(r => r.statusCode === 200)!.json().game;
+  assert.equal('solution' in game, false);
+  assert.deepEqual(game.rings, [5, 0, 0]);
+  assert.equal(game.attempts, 0);
+  assert.equal((await req('POST', path, guest.token, { action: 'rotate', revision: game.revision, ring: 0, step: 1, solution: [0, 0, 0] })).statusCode, 400);
+  game = (await req('POST', path, guest.token, { action: 'check', revision: game.revision })).json().game;
+  assert.equal('solution' in game, false);
+  assert.equal(game.attempts, 1);
+  assert.equal((await req('POST', path, guest.token, { action: 'check', revision: game.revision })).statusCode, 409);
+  game = (await req('POST', path, gm.token, { action: 'reveal', ring: 0, revision: game.revision })).json().game;
+  assert.equal(game.rings[0], 2);
+  assert.equal((await req('POST', path, guest.token, { action: 'rotate', ring: 0, step: 1, revision: game.revision })).statusCode, 409);
+  game = (await req('POST', path, guest.token, { action: 'check', revision: game.revision })).json().game;
+  assert.equal(game.phase, 'jammed');
+  assert.equal('solution' in game, false);
+  assert.equal((await req('POST', path, guest.token, { action: 'rotate', ring: 1, step: 1, revision: game.revision })).statusCode, 409);
+  game = (await req('POST', path, gm.token, { action: 'open', revision: game.revision })).json().game;
+  assert.equal(game.phase, 'opened');
+  assert.equal('solution' in (await req('GET', path, guest.token)).json().game, false);
+  assert.equal((await req('POST', path, gm.token, create)).statusCode, 409);
+  assert.equal((await req('POST', path, gm.token, { ...create, revision: game.revision })).statusCode, 200);
+  const other = (await req('POST', '/campaigns', gm.token, { name: 'Other' })).json().id;
+  assert.equal((await req('GET', `/campaigns/${other}/minigames/rune-lock`, gm.token)).json().game, null);
+  const boundary = 'RuneImageBoundary';
+  const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZkAAAAASUVORK5CYII=', 'base64');
+  const upload = await app.inject({ method: 'POST', url: '/campaigns/' + campaign + '/assets?kind=art_sprite',
+    headers: { authorization: 'Bearer ' + gm.token, 'content-type': 'multipart/form-data; boundary=' + boundary },
+    payload: Buffer.concat([Buffer.from('--' + boundary + '\r\nContent-Disposition: form-data; name="file"; filename="rune.png"\r\nContent-Type: image/png\r\n\r\n'), png, Buffer.from('\r\n--' + boundary + '--\r\n')]) });
+  assert.equal(upload.statusCode, 201, upload.body);
+  const assetId = upload.json().id;
+  t.after(() => unlink(join(ASSETS_DIR, assetId + '.png')).catch(() => {}));
+  const symbols = Array.from({ length: 6 }, (_, i) => ({ name: 'Символ ' + i, assetId: i === 0 ? assetId : null }));
+  game = (await req('GET', path, gm.token)).json().game;
+  assert.equal((await req('POST', path, guest.token, { action: 'symbols', revision: game.revision, symbols })).statusCode, 403);
+  const changed = await req('POST', path, gm.token, { action: 'symbols', revision: game.revision, symbols });
+  assert.equal(changed.statusCode, 200, changed.body);
+  game = (await req('GET', path, guest.token)).json().game;
+  assert.deepEqual(game.symbols, symbols); assert.equal('solution' in game, false);
+  assert.equal((await req('GET', '/campaigns/' + campaign + '/assets/' + assetId, guest.token)).statusCode, 200);
+  assert.equal((await req('POST', '/campaigns/' + other + '/minigames/rune-lock', gm.token, { ...create, symbols })).statusCode, 400);
+  const removed = symbols.map(s => ({ ...s, assetId: null }));
+  assert.equal((await req('POST', path, gm.token, { action: 'symbols', revision: game.revision, symbols: removed })).statusCode, 200);
+  const ritualPath = '/campaigns/' + campaign + '/minigames/seal-ritual';
+  assert.equal((await req('GET', ritualPath, stranger.token)).statusCode, 404);
+  assert.equal((await req('POST', ritualPath, guest.token, { action: 'create', revision: 0, limit: 10 })).statusCode, 403);
+  let ritual = (await req('POST', ritualPath, gm.token, { action: 'create', revision: 0, limit: 10 })).json().game;
+  const from = ritual.energy.indexOf(6);
+  const transfer = { action: 'transfer', revision: ritual.revision, from, direction: 1, amount: 1 };
+  const concurrent = await Promise.all([req('POST', ritualPath, guest.token, transfer), req('POST', ritualPath, guest.token, transfer)]);
+  assert.deepEqual(concurrent.map(r => r.statusCode).sort(), [200, 409]);
+  ritual = (await req('GET', ritualPath, guest.token)).json().game;
+  assert.equal(ritual.moves, 1);
+  assert.equal((await req('POST', ritualPath, guest.token, { action: 'cancel', revision: ritual.revision })).statusCode, 403);
+  assert.equal((await req('POST', ritualPath, gm.token, { action: 'cancel', revision: ritual.revision })).json().game.phase, 'cancelled');
+  assert.equal((await req('GET', '/campaigns/' + other + '/minigames/seal-ritual', gm.token)).json().game, null);
+
+});

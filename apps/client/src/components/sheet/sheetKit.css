@@ -1,0 +1,25 @@
+.sheet-tab label{display:block;position:relative;margin-bottom:10px}
+.sheet-tab h3{font:700 18px var(--heading-font);margin:0 0 10px;display:flex;align-items:center;gap:8px}
+.sheet-parchment button{border-radius:var(--sheet-radius);box-shadow:none;text-shadow:none;transition:background-color .12s,border-color .12s}
+.sheet-parchment button:where(:not(.primary):not([aria-pressed="true"])){background:var(--surface-inset);color:var(--ink);border:1px solid var(--brass-light)}
+.sheet-parchment button:hover:not(:disabled){border-color:var(--brass);background:color-mix(in srgb,var(--brass) 16%,var(--input-bg));color:var(--ink);box-shadow:none;filter:none}
+.sheet-parchment button:active:not(:disabled){transform:translateY(1px)}
+.sheet-parchment :is(button,input,select,textarea,summary):focus-visible{outline:2px solid var(--brass);outline-offset:3px}
+.sheet-parchment button:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.sheet-tab :is(input,select,textarea){max-width:100%;box-sizing:border-box}
+table{width:100%;border-collapse:collapse;margin-bottom:10px}
+table td{padding:4px 6px;border-bottom:1px solid var(--brass-light);font-size:14px}
+table td:first-child{font-weight:700;text-transform:capitalize;white-space:normal}
+.sheet-section-lead{display:grid;gap:3px;padding-bottom:12px;margin-bottom:14px;border-bottom:1px solid var(--brass-light)}
+.sheet-section-lead .section-kicker{font-size:10px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:var(--brass)}
+.sheet-section-lead h3{margin:0;font-size:22px}
+.sheet-section-lead p{margin:0;color:var(--muted-ink);font-size:13px}
+.gear-block{padding:14px;border:1px solid var(--brass-light);border-radius:7px;background:color-mix(in srgb,var(--surface-inset) 62%,transparent);min-width:0}
+.gear-block-head,.effects-block-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px}
+.gear-block-head > span,.effects-block-head > span{display:flex;flex-direction:column;min-width:0}
+.gear-block-head small,.effects-block-head small{font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted-ink)}
+.gear-block-head h4,.effects-block-head h4{margin:0;font:700 17px var(--heading-font)}
+.block-help{margin:-7px 0 12px}
+.level-up-button{margin-top:6px;align-self:flex-start}
+.xp-bar{height:8px;border:1px solid var(--brass,#8a6a35);border-radius:4px;background:#0003;overflow:hidden}
+.xp-bar span{display:block;height:100%;background:var(--brass)}

@@ -1,0 +1,16 @@
+.spells-panel h4{margin:0;font:700 16px var(--heading-font)}
+.slot-pips{display:inline-flex;gap:3px}
+.slot-pips i{width:10px;height:10px;border-radius:50%;background:var(--burgundy,#7a2e2e);box-shadow:0 0 0 1px var(--brass,#c9a227)}
+.slot-pips i.spent{background:transparent}
+.spells-panel label.checkbox-label{margin:0;gap:7px;font-weight:500}
+.pane-head{display:flex;align-items:center;justify-content:space-between;gap:8px}
+.pane-head h4{margin:0;font:700 16px var(--heading-font)}
+.pane-head h4{white-space:nowrap}
+.pane-head h4 small{display:inline;font:600 12px "Segoe UI",Arial,sans-serif;margin:0 0 0 4px}
+.empty{margin:8px 2px}
+.status{flex:none;padding:1px 8px;border-radius:5px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid}
+.status.known{color:color-mix(in srgb,#2f9e5e 62%,var(--ink));border-color:color-mix(in srgb,#2f9e5e 55%,transparent);background:color-mix(in srgb,#2f9e5e 12%,transparent)}
+.status.unprepared{color:color-mix(in srgb,#c7892b 62%,var(--ink));border-color:color-mix(in srgb,#c7892b 55%,transparent);background:color-mix(in srgb,#c7892b 10%,transparent)}
+.status.granted{color:color-mix(in srgb,#8b6fd6 62%,var(--ink));border-color:color-mix(in srgb,#8b6fd6 55%,transparent);background:color-mix(in srgb,#8b6fd6 12%,transparent)}
+.status.unknown{color:var(--muted-ink);border-color:color-mix(in srgb,var(--muted-ink) 40%,transparent)}
+.danger-link{background:none;box-shadow:none;border:0;padding:0;min-height:0;color:var(--burgundy-light);text-decoration:underline;font-size:13px}

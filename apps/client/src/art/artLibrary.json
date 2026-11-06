@@ -1,0 +1,2487 @@
+{
+ "groups": [
+  {
+   "id": "items/weapons/swords",
+   "label": "Оружие · Мечи",
+   "section": "Оружие",
+   "items": [
+    {
+     "path": "items/weapons/swords/longsword",
+     "label": "Длинный меч"
+    },
+    {
+     "path": "items/weapons/swords/sword-rusty",
+     "label": "Ржавый меч"
+    },
+    {
+     "path": "items/weapons/swords/shortsword",
+     "label": "Короткий меч"
+    },
+    {
+     "path": "items/weapons/swords/sword-wooden",
+     "label": "Деревянный меч (тренировочный)"
+    },
+    {
+     "path": "items/weapons/swords/sword-wooden-broad",
+     "label": "Широкий деревянный меч"
+    },
+    {
+     "path": "items/weapons/swords/sword-broken",
+     "label": "Сломанный меч"
+    },
+    {
+     "path": "items/weapons/swords/scimitar-green-hilt",
+     "label": "Ятаган с зелёной рукоятью"
+    },
+    {
+     "path": "items/weapons/swords/broadsword",
+     "label": "Широкий меч"
+    },
+    {
+     "path": "items/weapons/swords/saber-knuckle-guard",
+     "label": "Сабля с дужкой"
+    },
+    {
+     "path": "items/weapons/swords/sword-bronze",
+     "label": "Бронзовый меч"
+    },
+    {
+     "path": "items/weapons/swords/sword-ice",
+     "label": "Ледяной меч"
+    },
+    {
+     "path": "items/weapons/swords/sword-steel",
+     "label": "Стальной меч"
+    },
+    {
+     "path": "items/weapons/swords/sword-steel-2",
+     "label": "Стальной меч (вариант)"
+    },
+    {
+     "path": "items/weapons/swords/sword-ruby",
+     "label": "Меч с рубином"
+    },
+    {
+     "path": "items/weapons/swords/sword-gold-guard",
+     "label": "Меч с золотой гардой"
+    },
+    {
+     "path": "items/weapons/swords/sword-black",
+     "label": "Чёрный меч"
+    },
+    {
+     "path": "items/weapons/swords/sword-engraved",
+     "label": "Меч с золотой гравировкой"
+    },
+    {
+     "path": "items/weapons/swords/sword-runic",
+     "label": "Рунный меч"
+    },
+    {
+     "path": "items/weapons/swords/sword-plain",
+     "label": "Простой меч"
+    },
+    {
+     "path": "items/weapons/swords/flamberge",
+     "label": "Фламберг (волнистый клинок)"
+    },
+    {
+     "path": "items/weapons/swords/sword-crystal",
+     "label": "Хрустальный меч"
+    },
+    {
+     "path": "items/weapons/swords/sword-bronze-guard",
+     "label": "Меч с бронзовой гардой"
+    },
+    {
+     "path": "items/weapons/swords/longsword-cross",
+     "label": "Длинный меч с двойной гардой"
+    },
+    {
+     "path": "items/weapons/swords/greatsword-cleaver",
+     "label": "Двуручный тесак"
+    },
+    {
+     "path": "items/weapons/swords/greatsword-dark",
+     "label": "Тёмный двуручный меч"
+    },
+    {
+     "path": "items/weapons/swords/greatsword-stone",
+     "label": "Каменный двуручный меч"
+    },
+    {
+     "path": "items/weapons/swords/greatsword",
+     "label": "Двуручный меч"
+    },
+    {
+     "path": "items/weapons/swords/greatsword-serrated",
+     "label": "Зазубренный двуручный меч"
+    },
+    {
+     "path": "items/weapons/swords/greatsword-black",
+     "label": "Чёрный двуручный тесак"
+    },
+    {
+     "path": "items/weapons/swords/sword-lava",
+     "label": "Огненный (лавовый) меч"
+    },
+    {
+     "path": "items/weapons/swords/falchion",
+     "label": "Фальшион"
+    },
+    {
+     "path": "items/weapons/swords/katana-black",
+     "label": "Катана (чёрная оплётка)"
+    },
+    {
+     "path": "items/weapons/swords/katana-gold",
+     "label": "Катана (золотая)"
+    },
+    {
+     "path": "items/weapons/swords/katana",
+     "label": "Катана"
+    },
+    {
+     "path": "items/weapons/swords/katana-red",
+     "label": "Катана (красная рукоять)"
+    },
+    {
+     "path": "items/weapons/swords/cutlass-gold",
+     "label": "Абордажная сабля (золотая гарда)"
+    },
+    {
+     "path": "items/weapons/swords/cutlass",
+     "label": "Абордажная сабля"
+    },
+    {
+     "path": "items/weapons/swords/scimitar",
+     "label": "Скимитар"
+    },
+    {
+     "path": "items/weapons/swords/saber",
+     "label": "Сабля"
+    },
+    {
+     "path": "items/weapons/swords/scimitar-wide",
+     "label": "Широкий скимитар"
+    },
+    {
+     "path": "items/weapons/swords/rapier-dark",
+     "label": "Тёмная рапира"
+    },
+    {
+     "path": "items/weapons/swords/rapier",
+     "label": "Рапира"
+    },
+    {
+     "path": "items/weapons/swords/rapier-gold-basket",
+     "label": "Рапира с золотой корзинкой"
+    },
+    {
+     "path": "items/weapons/swords/rapier-gold",
+     "label": "Рапира (золотая)"
+    },
+    {
+     "path": "items/weapons/swords/rapier-steel-guard",
+     "label": "Рапира (стальная гарда)"
+    },
+    {
+     "path": "items/weapons/swords/estoc",
+     "label": "Эсток (узкий колющий меч)"
+    },
+    {
+     "path": "items/weapons/swords/rapier-pink",
+     "label": "Рапира (розовая гарда)"
+    },
+    {
+     "path": "items/weapons/swords/rapier-green",
+     "label": "Рапира (зелёная)"
+    },
+    {
+     "path": "items/weapons/swords/epee",
+     "label": "Шпага"
+    },
+    {
+     "path": "items/weapons/swords/longsword-narrow",
+     "label": "Узкий длинный меч"
+    }
+   ]
+  },
+  {
+   "id": "items/weapons/daggers",
+   "label": "Оружие · Кинжалы и ножи",
+   "section": "Оружие",
+   "items": [
+    {
+     "path": "items/weapons/daggers/dagger-ice",
+     "label": "Ледяной кинжал"
+    },
+    {
+     "path": "items/weapons/daggers/dagger-plain",
+     "label": "Простой кинжал"
+    },
+    {
+     "path": "items/weapons/daggers/dagger-bronze",
+     "label": "Бронзовый кинжал"
+    },
+    {
+     "path": "items/weapons/daggers/dagger",
+     "label": "Кинжал"
+    },
+    {
+     "path": "items/weapons/daggers/dagger-2",
+     "label": "Кинжал (вариант)"
+    },
+    {
+     "path": "items/weapons/daggers/dagger-poisoned",
+     "label": "Отравленный кинжал"
+    },
+    {
+     "path": "items/weapons/daggers/dagger-3",
+     "label": "Кинжал (вариант 2)"
+    },
+    {
+     "path": "items/weapons/daggers/dagger-fuller",
+     "label": "Кинжал с долом"
+    },
+    {
+     "path": "items/weapons/daggers/knife",
+     "label": "Боевой нож"
+    },
+    {
+     "path": "items/weapons/daggers/dagger-4",
+     "label": "Кинжал (вариант 3)"
+    },
+    {
+     "path": "items/weapons/daggers/dagger-gold",
+     "label": "Золотой кинжал с изумрудом"
+    },
+    {
+     "path": "items/weapons/daggers/kris",
+     "label": "Крис (волнистый кинжал)"
+    },
+    {
+     "path": "items/weapons/daggers/dagger-obsidian",
+     "label": "Обсидиановый кинжал"
+    },
+    {
+     "path": "items/weapons/daggers/dagger-bone",
+     "label": "Костяной кинжал"
+    },
+    {
+     "path": "items/weapons/daggers/dagger-blood",
+     "label": "Кровавый кинжал"
+    },
+    {
+     "path": "items/weapons/daggers/dagger-serrated-dark",
+     "label": "Зазубренный тёмный кинжал"
+    }
+   ]
+  },
+  {
+   "id": "items/weapons/axes",
+   "label": "Оружие · Топоры и секиры",
+   "section": "Оружие",
+   "items": [
+    {
+     "path": "items/weapons/axes/bardiche",
+     "label": "Бердыш"
+    },
+    {
+     "path": "items/weapons/axes/poleaxe",
+     "label": "Секира на древке"
+    },
+    {
+     "path": "items/weapons/axes/crescent-axe",
+     "label": "Секира-полумесяц"
+    },
+    {
+     "path": "items/weapons/axes/greataxe",
+     "label": "Двуручная секира (двусторонняя)"
+    }
+   ]
+  },
+  {
+   "id": "items/weapons/polearms",
+   "label": "Оружие · Копья и древковое",
+   "section": "Оружие",
+   "items": [
+    {
+     "path": "items/weapons/polearms/boat-hook",
+     "label": "Багор (крюк на древке)"
+    },
+    {
+     "path": "items/weapons/polearms/trident-steel",
+     "label": "Трезубец (стальной)"
+    },
+    {
+     "path": "items/weapons/polearms/trident-gold",
+     "label": "Золотой трезубец"
+    },
+    {
+     "path": "items/weapons/polearms/trident",
+     "label": "Трезубец"
+    },
+    {
+     "path": "items/weapons/polearms/pitchfork",
+     "label": "Вилы"
+    },
+    {
+     "path": "items/weapons/polearms/spear-broad",
+     "label": "Копьё с широким наконечником"
+    },
+    {
+     "path": "items/weapons/polearms/spear-wooden",
+     "label": "Деревянное копьё (бронзовый наконечник)"
+    },
+    {
+     "path": "items/weapons/polearms/javelin",
+     "label": "Метательное копьё"
+    },
+    {
+     "path": "items/weapons/polearms/pike",
+     "label": "Пика (цельнометаллическая)"
+    },
+    {
+     "path": "items/weapons/polearms/spear-living",
+     "label": "Живое (зелёное) копьё"
+    },
+    {
+     "path": "items/weapons/polearms/spear",
+     "label": "Копьё"
+    },
+    {
+     "path": "items/weapons/polearms/spear-2",
+     "label": "Копьё (вариант)"
+    },
+    {
+     "path": "items/weapons/polearms/spear-light",
+     "label": "Лёгкое копьё"
+    },
+    {
+     "path": "items/weapons/polearms/spear-spiked",
+     "label": "Копьё с шипами"
+    },
+    {
+     "path": "items/weapons/polearms/spear-double",
+     "label": "Двустороннее копьё"
+    },
+    {
+     "path": "items/weapons/polearms/halberd-double",
+     "label": "Алебарда с двойным лезвием"
+    },
+    {
+     "path": "items/weapons/polearms/halberd",
+     "label": "Алебарда"
+    },
+    {
+     "path": "items/weapons/polearms/halberd-2",
+     "label": "Алебарда (вариант)"
+    },
+    {
+     "path": "items/weapons/polearms/glaive",
+     "label": "Глефа"
+    },
+    {
+     "path": "items/weapons/polearms/halberd-3",
+     "label": "Алебарда (вариант 2)"
+    },
+    {
+     "path": "items/weapons/polearms/halberd-dark",
+     "label": "Алебарда (тёмная сталь)"
+    }
+   ]
+  },
+  {
+   "id": "items/weapons/scythes",
+   "label": "Оружие · Косы и серпы",
+   "section": "Оружие",
+   "items": [
+    {
+     "path": "items/weapons/scythes/scythe",
+     "label": "Коса"
+    },
+    {
+     "path": "items/weapons/scythes/scythe-2",
+     "label": "Коса (вариант)"
+    },
+    {
+     "path": "items/weapons/scythes/scythe-dark",
+     "label": "Тёмная коса"
+    },
+    {
+     "path": "items/weapons/scythes/sickle",
+     "label": "Серп"
+    },
+    {
+     "path": "items/weapons/scythes/war-scythe",
+     "label": "Боевая коса (короткое лезвие на древке)"
+    }
+   ]
+  },
+  {
+   "id": "items/weapons/clubs",
+   "label": "Оружие · Дубины, булавы, молоты",
+   "section": "Оружие",
+   "items": [
+    {
+     "path": "items/weapons/clubs/club-lava",
+     "label": "Лавовая дубина"
+    }
+   ]
+  },
+  {
+   "id": "items/weapons/staves",
+   "label": "Оружие · Посохи",
+   "section": "Оружие",
+   "items": [
+    {
+     "path": "items/weapons/staves/quarterstaff",
+     "label": "Боевой посох"
+    },
+    {
+     "path": "items/weapons/staves/staff-plain",
+     "label": "Простой посох (палка)"
+    }
+   ]
+  },
+  {
+   "id": "items/weapons/thrown",
+   "label": "Оружие · Метательное",
+   "section": "Оружие",
+   "items": [
+    {
+     "path": "items/weapons/thrown/throwing-knives",
+     "label": "Метательные ножи"
+    },
+    {
+     "path": "items/weapons/thrown/kunai",
+     "label": "Кунай"
+    },
+    {
+     "path": "items/weapons/thrown/shuriken",
+     "label": "Сюрикен"
+    },
+    {
+     "path": "items/weapons/thrown/kunai-dark",
+     "label": "Тёмный кунай"
+    },
+    {
+     "path": "items/weapons/thrown/dart",
+     "label": "Дротик"
+    }
+   ]
+  },
+  {
+   "id": "items/weapons/bows",
+   "label": "Оружие · Луки",
+   "section": "Оружие",
+   "items": [
+    {
+     "path": "items/weapons/bows/bow-light",
+     "label": "Лук (светлое дерево)"
+    },
+    {
+     "path": "items/weapons/bows/recurve-dark",
+     "label": "Изогнутый лук (тёмное дерево)"
+    },
+    {
+     "path": "items/weapons/bows/recurve",
+     "label": "Изогнутый лук"
+    },
+    {
+     "path": "items/weapons/bows/bow-2",
+     "label": "Лук (вариант)"
+    },
+    {
+     "path": "items/weapons/bows/bow-3",
+     "label": "Лук (вариант 2)"
+    },
+    {
+     "path": "items/weapons/bows/bow-wrapped",
+     "label": "Лук с обмоткой"
+    },
+    {
+     "path": "items/weapons/bows/bow-grey",
+     "label": "Серый лук"
+    },
+    {
+     "path": "items/weapons/bows/bow-small",
+     "label": "Малый лук"
+    },
+    {
+     "path": "items/weapons/bows/bow-small-2",
+     "label": "Малый лук (вариант)"
+    },
+    {
+     "path": "items/weapons/bows/shortbow",
+     "label": "Короткий лук"
+    },
+    {
+     "path": "items/weapons/bows/bow-silver-tips",
+     "label": "Большой лук с серебряными концами"
+    },
+    {
+     "path": "items/weapons/bows/longbow",
+     "label": "Длинный лук"
+    },
+    {
+     "path": "items/weapons/bows/recurve-large",
+     "label": "Большой изогнутый лук"
+    },
+    {
+     "path": "items/weapons/bows/bow-large-light",
+     "label": "Большой лук (светлый)"
+    },
+    {
+     "path": "items/weapons/bows/bow-scope",
+     "label": "Лук с прицелом"
+    },
+    {
+     "path": "items/weapons/bows/bow-green-wrap",
+     "label": "Лук с зелёной обмоткой"
+    },
+    {
+     "path": "items/weapons/bows/bow-large-dark",
+     "label": "Большой тёмный лук"
+    },
+    {
+     "path": "items/weapons/bows/bow-hunter",
+     "label": "Охотничий лук"
+    },
+    {
+     "path": "items/weapons/bows/bow-antler",
+     "label": "Лук из рогов/ветвей"
+    },
+    {
+     "path": "items/weapons/bows/recurve-dark-large",
+     "label": "Большой тёмный изогнутый лук"
+    },
+    {
+     "path": "items/weapons/bows/bow-silver",
+     "label": "Серебряный лук"
+    },
+    {
+     "path": "items/weapons/bows/bow-vine",
+     "label": "Лук из лозы"
+    },
+    {
+     "path": "items/weapons/bows/bow-arcane",
+     "label": "Аметистовый лук"
+    },
+    {
+     "path": "items/weapons/bows/bow-leaf",
+     "label": "Эльфийский лук из листьев"
+    },
+    {
+     "path": "items/weapons/bows/bow-bone",
+     "label": "Костяной лук"
+    },
+    {
+     "path": "items/weapons/bows/bow-gold",
+     "label": "Золотой лук"
+    },
+    {
+     "path": "items/weapons/bows/bow-emerald",
+     "label": "Лук с изумрудом"
+    },
+    {
+     "path": "items/weapons/bows/bow-yellow",
+     "label": "Жёлто-зелёный лук"
+    },
+    {
+     "path": "items/weapons/bows/bow-shadow",
+     "label": "Теневой лук"
+    },
+    {
+     "path": "items/weapons/bows/bow-ice",
+     "label": "Ледяной лук"
+    }
+   ]
+  },
+  {
+   "id": "items/weapons/crossbows",
+   "label": "Оружие · Арбалеты",
+   "section": "Оружие",
+   "items": [
+    {
+     "path": "items/weapons/crossbows/light-crossbow",
+     "label": "Лёгкий арбалет"
+    },
+    {
+     "path": "items/weapons/crossbows/light-crossbow-2",
+     "label": "Лёгкий арбалет (вариант)"
+    },
+    {
+     "path": "items/weapons/crossbows/crossbow-light",
+     "label": "Лёгкий арбалет"
+    },
+    {
+     "path": "items/weapons/crossbows/light-crossbow-3",
+     "label": "Лёгкий арбалет (светлый)"
+    },
+    {
+     "path": "items/weapons/crossbows/light-crossbow-4",
+     "label": "Лёгкий арбалет (вариант 2)"
+    },
+    {
+     "path": "items/weapons/crossbows/hand-crossbow-2",
+     "label": "Ручной арбалет (вариант)"
+    },
+    {
+     "path": "items/weapons/crossbows/hand-crossbow-3",
+     "label": "Ручной арбалет (вариант 2)"
+    },
+    {
+     "path": "items/weapons/crossbows/crossbow-hand",
+     "label": "Ручной арбалет"
+    },
+    {
+     "path": "items/weapons/crossbows/hand-crossbow-4",
+     "label": "Ручной арбалет (деревянное ложе)"
+    },
+    {
+     "path": "items/weapons/crossbows/crossbow-spiked",
+     "label": "Арбалет с шипами"
+    },
+    {
+     "path": "items/weapons/crossbows/crossbow-scope",
+     "label": "Арбалет с прицелом"
+    },
+    {
+     "path": "items/weapons/crossbows/heavy-crossbow-2",
+     "label": "Тяжёлый арбалет (вариант)"
+    },
+    {
+     "path": "items/weapons/crossbows/heavy-crossbow-3",
+     "label": "Тяжёлый арбалет (вариант 2)"
+    },
+    {
+     "path": "items/weapons/crossbows/crossbow-heavy",
+     "label": "Тяжёлый арбалет (со стременем)"
+    },
+    {
+     "path": "items/weapons/crossbows/heavy-crossbow-steel",
+     "label": "Тяжёлый стальной арбалет"
+    },
+    {
+     "path": "items/weapons/crossbows/crossbow-gold",
+     "label": "Золотой арбалет"
+    },
+    {
+     "path": "items/weapons/crossbows/crossbow-repeating",
+     "label": "Многозарядный арбалет"
+    },
+    {
+     "path": "items/weapons/crossbows/heavy-crossbow-4",
+     "label": "Тяжёлый арбалет (деревянный, со стременем)"
+    },
+    {
+     "path": "items/weapons/crossbows/heavy-crossbow-5",
+     "label": "Тяжёлый стальной арбалет (вариант)"
+    }
+   ]
+  },
+  {
+   "id": "items/weapons/firearms",
+   "label": "Оружие · Огнестрельное",
+   "section": "Оружие",
+   "items": [
+    {
+     "path": "items/weapons/firearms/pistol-flintlock",
+     "label": "Кремнёвый пистоль"
+    }
+   ]
+  },
+  {
+   "id": "items/ammo/arrows",
+   "label": "Боеприпасы · Стрелы и болты",
+   "section": "Боеприпасы",
+   "items": [
+    {
+     "path": "items/ammo/arrows/arrow",
+     "label": "Стрела"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-2",
+     "label": "Стрела (вариант)"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-3",
+     "label": "Стрела (вариант 2)"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-4",
+     "label": "Стрела (вариант 3)"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-dark",
+     "label": "Тёмная стрела"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-banded",
+     "label": "Стрела с обмоткой"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-silver",
+     "label": "Серебряная стрела"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-black",
+     "label": "Чёрная стрела"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-5",
+     "label": "Стрела (вариант 4)"
+    },
+    {
+     "path": "items/ammo/arrows/crossbow-bolt",
+     "label": "Арбалетный болт"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-broken",
+     "label": "Обломок стрелы"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-fire",
+     "label": "Огненная стрела"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-ice",
+     "label": "Ледяная стрела"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-poison",
+     "label": "Ядовитая стрела"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-lightning",
+     "label": "Стрела молнии"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-arcane",
+     "label": "Аметистовая стрела"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-white",
+     "label": "Белая стрела"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-incendiary",
+     "label": "Зажигательная стрела"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-blood",
+     "label": "Кровавая стрела"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-pink",
+     "label": "Розовая стрела"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-shadow",
+     "label": "Теневая стрела"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-grapple",
+     "label": "Стрела-кошка"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-steel",
+     "label": "Стальная стрела"
+    },
+    {
+     "path": "items/ammo/arrows/arrow-cyan",
+     "label": "Бирюзовая стрела"
+    }
+   ]
+  },
+  {
+   "id": "items/ammo/quivers",
+   "label": "Боеприпасы · Колчаны",
+   "section": "Боеприпасы",
+   "items": [
+    {
+     "path": "items/ammo/quivers/quiver-leather",
+     "label": "Кожаный колчан со стрелами"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-fur",
+     "label": "Колчан с меховой отделкой"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-red",
+     "label": "Красный колчан"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-green",
+     "label": "Зелёный колчан"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-wicker",
+     "label": "Плетёный колчан"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-dark",
+     "label": "Тёмный кожаный колчан"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-hunter",
+     "label": "Охотничий колчан"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-canvas",
+     "label": "Холщовый колчан"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-blue",
+     "label": "Колчан с голубой отделкой"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-elven-white",
+     "label": "Белый эльфийский колчан"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-elven-gold",
+     "label": "Золотой эльфийский колчан"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-black",
+     "label": "Чёрный колчан"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-scaled",
+     "label": "Колчан из чешуи"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-runic",
+     "label": "Рунный колчан"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-bone",
+     "label": "Колчан с костяной обмоткой"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-steel",
+     "label": "Стальной колчан"
+    },
+    {
+     "path": "items/ammo/quivers/bolt-case",
+     "label": "Футляр для болтов (пустой)"
+    },
+    {
+     "path": "items/ammo/quivers/quiver-empty",
+     "label": "Пустой колчан"
+    }
+   ]
+  },
+  {
+   "id": "items/ammo",
+   "label": "Боеприпасы · Наконечники",
+   "section": "Боеприпасы",
+   "items": [
+    {
+     "path": "items/ammo/arrowhead",
+     "label": "Наконечник стрелы"
+    }
+   ]
+  },
+  {
+   "id": "items/potions",
+   "label": "Вещи · Зелья и склянки",
+   "section": "Вещи",
+   "items": [
+    {
+     "path": "items/potions/weapon-poison",
+     "label": "Яд для оружия (флакон)"
+    },
+    {
+     "path": "items/potions/red-round",
+     "label": "Зелье лечения"
+    },
+    {
+     "path": "items/potions/red-round-large",
+     "label": "Большое красное зелье"
+    },
+    {
+     "path": "items/potions/red-tube",
+     "label": "Красное зелье (пробирка)"
+    },
+    {
+     "path": "items/potions/red-heart",
+     "label": "Красное зелье (сердце)"
+    },
+    {
+     "path": "items/potions/red-cube",
+     "label": "Красное зелье (куб)"
+    },
+    {
+     "path": "items/potions/red-small",
+     "label": "Малое красное зелье"
+    },
+    {
+     "path": "items/potions/red-jug",
+     "label": "Кувшин красного зелья"
+    },
+    {
+     "path": "items/potions/red-conical",
+     "label": "Розовое зелье (колба)"
+    },
+    {
+     "path": "items/potions/red-tube-2",
+     "label": "Красное зелье (пробирка, вариант)"
+    },
+    {
+     "path": "items/potions/poison-skull",
+     "label": "Яд (зелье с черепом)"
+    },
+    {
+     "path": "items/potions/blue-jar",
+     "label": "Банка синего зелья"
+    },
+    {
+     "path": "items/potions/blue-round",
+     "label": "Синее зелье"
+    },
+    {
+     "path": "items/potions/blue-star",
+     "label": "Синее зелье (звезда)"
+    },
+    {
+     "path": "items/potions/blue-drop",
+     "label": "Синее зелье (капля)"
+    },
+    {
+     "path": "items/potions/light-blue",
+     "label": "Голубое зелье"
+    },
+    {
+     "path": "items/potions/crystal-vial",
+     "label": "Кристальный флакон"
+    },
+    {
+     "path": "items/potions/dark-blue",
+     "label": "Тёмно-синее зелье"
+    },
+    {
+     "path": "items/potions/lightning-flask",
+     "label": "Зелье молнии"
+    },
+    {
+     "path": "items/potions/swirl-flask",
+     "label": "Зелье с вихрем"
+    },
+    {
+     "path": "items/potions/blue-cube",
+     "label": "Синее зелье (куб)"
+    },
+    {
+     "path": "items/potions/broken-bottle",
+     "label": "Разбитая бутылка"
+    },
+    {
+     "path": "items/potions/green-tube",
+     "label": "Зелёная пробирка"
+    },
+    {
+     "path": "items/potions/green-flask",
+     "label": "Зелёное зелье (колба)"
+    },
+    {
+     "path": "items/potions/yellow",
+     "label": "Жёлтое зелье"
+    },
+    {
+     "path": "items/potions/orange",
+     "label": "Оранжевое зелье"
+    },
+    {
+     "path": "items/potions/purple",
+     "label": "Фиолетовое зелье"
+    },
+    {
+     "path": "items/potions/bubbling-green",
+     "label": "Бурлящая колба"
+    },
+    {
+     "path": "items/potions/golden-oil",
+     "label": "Золотистое масло"
+    },
+    {
+     "path": "items/potions/black-ink",
+     "label": "Чёрная жидкость (чернила)"
+    },
+    {
+     "path": "items/potions/empty-bottle",
+     "label": "Пустая бутылка"
+    }
+   ]
+  },
+  {
+   "id": "items/food",
+   "label": "Вещи · Еда",
+   "section": "Вещи",
+   "items": [
+    {
+     "path": "items/food/pie",
+     "label": "Пирог"
+    },
+    {
+     "path": "items/food/bread",
+     "label": "Хлеб"
+    },
+    {
+     "path": "items/food/drumstick",
+     "label": "Куриная ножка"
+    },
+    {
+     "path": "items/food/apple",
+     "label": "Яблоко"
+    },
+    {
+     "path": "items/food/cheese",
+     "label": "Сыр"
+    },
+    {
+     "path": "items/food/fish",
+     "label": "Рыба"
+    },
+    {
+     "path": "items/food/steak",
+     "label": "Мясо"
+    },
+    {
+     "path": "items/food/grapes",
+     "label": "Виноград"
+    },
+    {
+     "path": "items/food/carrot",
+     "label": "Морковь"
+    },
+    {
+     "path": "items/food/stew",
+     "label": "Похлёбка"
+    }
+   ]
+  },
+  {
+   "id": "items/valuables",
+   "label": "Вещи · Монеты и драгоценности",
+   "section": "Вещи",
+   "items": [
+    {
+     "path": "items/valuables/pearl",
+     "label": "Жемчужина"
+    },
+    {
+     "path": "items/valuables/coin-gold",
+     "label": "Золотая монета"
+    },
+    {
+     "path": "items/valuables/coin-stacks",
+     "label": "Стопки монет"
+    },
+    {
+     "path": "items/valuables/coin-silver",
+     "label": "Серебряная монета"
+    },
+    {
+     "path": "items/valuables/money-bag",
+     "label": "Мешок денег"
+    },
+    {
+     "path": "items/valuables/ruby",
+     "label": "Рубин"
+    },
+    {
+     "path": "items/valuables/sapphire",
+     "label": "Сапфир"
+    },
+    {
+     "path": "items/valuables/emerald",
+     "label": "Изумруд"
+    },
+    {
+     "path": "items/valuables/diamond",
+     "label": "Алмаз"
+    },
+    {
+     "path": "items/valuables/gold-ingot",
+     "label": "Золотой слиток"
+    }
+   ]
+  },
+  {
+   "id": "items/documents",
+   "label": "Вещи · Книги, свитки, письма",
+   "section": "Вещи",
+   "items": [
+    {
+     "path": "items/documents/quest-notice",
+     "label": "Объявление о задании"
+    },
+    {
+     "path": "items/documents/scroll",
+     "label": "Свиток"
+    },
+    {
+     "path": "items/documents/map",
+     "label": "Карта"
+    },
+    {
+     "path": "items/documents/letter-sealed",
+     "label": "Письмо с печатью"
+    },
+    {
+     "path": "items/documents/tome-gem",
+     "label": "Фолиант с самоцветом"
+    }
+   ]
+  },
+  {
+   "id": "items/keys",
+   "label": "Вещи · Ключи",
+   "section": "Вещи",
+   "items": [
+    {
+     "path": "items/keys/key-gold",
+     "label": "Золотой ключ"
+    },
+    {
+     "path": "items/keys/key-rusty",
+     "label": "Ржавый ключ"
+    },
+    {
+     "path": "items/keys/key-silver",
+     "label": "Серебряный ключ"
+    },
+    {
+     "path": "items/keys/key-skull",
+     "label": "Ключ с черепом"
+    }
+   ]
+  },
+  {
+   "id": "items/gear",
+   "label": "Вещи · Снаряжение",
+   "section": "Вещи",
+   "items": [
+    {
+     "path": "items/gear/torch",
+     "label": "Факел"
+    },
+    {
+     "path": "items/gear/case-leather",
+     "label": "Кожаный футляр (для карт и свитков)"
+    },
+    {
+     "path": "items/gear/belt-pouch",
+     "label": "Пояс с подсумком"
+    },
+    {
+     "path": "items/gear/feathers",
+     "label": "Перья (для оперения)"
+    },
+    {
+     "path": "items/gear/bowstring-coil",
+     "label": "Моток тетивы"
+    },
+    {
+     "path": "items/gear/compass",
+     "label": "Компас"
+    },
+    {
+     "path": "items/gear/pickaxe",
+     "label": "Кирка"
+    }
+   ]
+  },
+  {
+   "id": "items/magic/arcane",
+   "label": "Магия · Тайное",
+   "section": "Магия",
+   "items": [
+    {
+     "path": "items/magic/arcane/staff-infinity",
+     "label": "Посох бесконечности"
+    },
+    {
+     "path": "items/magic/arcane/star-glass",
+     "label": "Звёздное стекло (космос)"
+    },
+    {
+     "path": "items/magic/arcane/hourglass-staff",
+     "label": "Песочные часы (время)"
+    },
+    {
+     "path": "items/magic/arcane/planet-staff",
+     "label": "Посох-планета (астрал)"
+    },
+    {
+     "path": "items/magic/arcane/prism-wand",
+     "label": "Радужная призма"
+    },
+    {
+     "path": "items/magic/arcane/gear-staff",
+     "label": "Посох из шестерён (механизм)"
+    },
+    {
+     "path": "items/magic/arcane/crystal-wand",
+     "label": "Жезл с кристаллом"
+    },
+    {
+     "path": "items/magic/arcane/caduceus",
+     "label": "Кадуцей"
+    },
+    {
+     "path": "items/magic/arcane/hand-mirror",
+     "label": "Ручное зеркало"
+    },
+    {
+     "path": "items/magic/arcane/book-staff",
+     "label": "Книга на посохе"
+    }
+   ]
+  },
+  {
+   "id": "items/magic/fire",
+   "label": "Магия · Огонь",
+   "section": "Магия",
+   "items": [
+    {
+     "path": "items/magic/fire/volcano-staff",
+     "label": "Вулканический посох"
+    },
+    {
+     "path": "items/magic/fire/fireball-staff",
+     "label": "Посох огненного шара"
+    },
+    {
+     "path": "items/magic/fire/ruby-staff",
+     "label": "Рубиновый посох"
+    },
+    {
+     "path": "items/magic/fire/burning-branch",
+     "label": "Горящая ветвь"
+    },
+    {
+     "path": "items/magic/fire/dragon-staff",
+     "label": "Драконий посох"
+    },
+    {
+     "path": "items/magic/fire/phoenix-feather",
+     "label": "Перо феникса"
+    },
+    {
+     "path": "items/magic/fire/smoldering-torch",
+     "label": "Тлеющий жезл"
+    },
+    {
+     "path": "items/magic/fire/brazier-staff",
+     "label": "Посох-жаровня"
+    }
+   ]
+  },
+  {
+   "id": "items/magic/cold",
+   "label": "Магия · Холод",
+   "section": "Магия",
+   "items": [
+    {
+     "path": "items/magic/cold/snowball-staff",
+     "label": "Посох со снежным шаром"
+    },
+    {
+     "path": "items/magic/cold/snowflake-staff",
+     "label": "Посох-снежинка"
+    },
+    {
+     "path": "items/magic/cold/icicle",
+     "label": "Сосулька"
+    },
+    {
+     "path": "items/magic/cold/ice-cube-staff",
+     "label": "Посох с ледяным кубом"
+    },
+    {
+     "path": "items/magic/cold/diamond-staff",
+     "label": "Посох с алмазом"
+    },
+    {
+     "path": "items/magic/cold/frost-branch",
+     "label": "Заиндевевшая ветвь"
+    },
+    {
+     "path": "items/magic/cold/ice-blade",
+     "label": "Ледяное лезвие"
+    },
+    {
+     "path": "items/magic/cold/frost-wind",
+     "label": "Посох морозного ветра"
+    },
+    {
+     "path": "items/magic/cold/ice-crystal-staff",
+     "label": "Посох с ледяным кристаллом"
+    },
+    {
+     "path": "items/magic/cold/polar-bear-staff",
+     "label": "Посох с белым медведем"
+    }
+   ]
+  },
+  {
+   "id": "items/magic/storm",
+   "label": "Магия · Гроза и ветер",
+   "section": "Магия",
+   "items": [
+    {
+     "path": "items/magic/storm/tornado-staff",
+     "label": "Посох-смерч"
+    },
+    {
+     "path": "items/magic/storm/lightning-bolt",
+     "label": "Молния"
+    },
+    {
+     "path": "items/magic/storm/yellow-crystal",
+     "label": "Жёлтый кристалл"
+    },
+    {
+     "path": "items/magic/storm/storm-cloud",
+     "label": "Грозовая туча"
+    },
+    {
+     "path": "items/magic/storm/tesla-coil",
+     "label": "Катушка с разрядами"
+    },
+    {
+     "path": "items/magic/storm/spark-wand",
+     "label": "Жезл искр"
+    },
+    {
+     "path": "items/magic/storm/weathervane",
+     "label": "Флюгер"
+    },
+    {
+     "path": "items/magic/storm/wind-spiral",
+     "label": "Спираль ветра"
+    },
+    {
+     "path": "items/magic/storm/charged-rod",
+     "label": "Заряженный стержень"
+    },
+    {
+     "path": "items/magic/storm/blue-crystal",
+     "label": "Синий кристалл с разрядами"
+    }
+   ]
+  },
+  {
+   "id": "items/magic/nature",
+   "label": "Магия · Природа",
+   "section": "Магия",
+   "items": [
+    {
+     "path": "items/magic/nature/treant-staff",
+     "label": "Посох-древень"
+    },
+    {
+     "path": "items/magic/nature/branch",
+     "label": "Ветвистый посох"
+    },
+    {
+     "path": "items/magic/nature/flower-staff",
+     "label": "Радужный цветок"
+    },
+    {
+     "path": "items/magic/nature/vine-staff",
+     "label": "Посох из лозы"
+    },
+    {
+     "path": "items/magic/nature/leaf-staff",
+     "label": "Посох с листом"
+    },
+    {
+     "path": "items/magic/nature/emerald-staff",
+     "label": "Изумрудный посох"
+    },
+    {
+     "path": "items/magic/nature/dead-tree-staff",
+     "label": "Посох-сухое дерево"
+    },
+    {
+     "path": "items/magic/nature/mossy-log",
+     "label": "Замшелый посох"
+    },
+    {
+     "path": "items/magic/nature/mushroom-staff",
+     "label": "Грибной посох"
+    },
+    {
+     "path": "items/magic/nature/deer-skull",
+     "label": "Посох с черепом оленя"
+    }
+   ]
+  },
+  {
+   "id": "items/magic/death",
+   "label": "Магия · Смерть",
+   "section": "Магия",
+   "items": [
+    {
+     "path": "items/magic/death/blighted-branch",
+     "label": "Ветвь с аметистовой порчей"
+    },
+    {
+     "path": "items/magic/death/skull-staff",
+     "label": "Посох с черепом"
+    },
+    {
+     "path": "items/magic/death/spine-staff",
+     "label": "Посох-позвоночник"
+    },
+    {
+     "path": "items/magic/death/soul-lantern",
+     "label": "Фонарь душ"
+    },
+    {
+     "path": "items/magic/death/ribcage-staff",
+     "label": "Посох с рёбрами"
+    },
+    {
+     "path": "items/magic/death/bone-hand-orb",
+     "label": "Костяная рука с шаром"
+    },
+    {
+     "path": "items/magic/death/bone",
+     "label": "Кость"
+    },
+    {
+     "path": "items/magic/death/blood-eye",
+     "label": "Кровавый глаз"
+    },
+    {
+     "path": "items/magic/death/ghost-skull",
+     "label": "Призрачный череп"
+    },
+    {
+     "path": "items/magic/death/black-skull",
+     "label": "Чёрный череп"
+    }
+   ]
+  },
+  {
+   "id": "items/magic/light",
+   "label": "Магия · Свет",
+   "section": "Магия",
+   "items": [
+    {
+     "path": "items/magic/light/star-staff",
+     "label": "Звёздный посох"
+    },
+    {
+     "path": "items/magic/light/ring-staff",
+     "label": "Посох-кольцо"
+    },
+    {
+     "path": "items/magic/light/sun-staff",
+     "label": "Солнечный посох"
+    },
+    {
+     "path": "items/magic/light/cross-staff",
+     "label": "Посох с крестом"
+    },
+    {
+     "path": "items/magic/light/winged-staff",
+     "label": "Крылатый посох"
+    },
+    {
+     "path": "items/magic/light/pearl-staff",
+     "label": "Жемчужный посох"
+    },
+    {
+     "path": "items/magic/light/light-orb",
+     "label": "Светящийся шар"
+    },
+    {
+     "path": "items/magic/light/halo-staff",
+     "label": "Посох-нимб"
+    },
+    {
+     "path": "items/magic/light/shepherd-crook",
+     "label": "Пастуший посох"
+    },
+    {
+     "path": "items/magic/light/silver-scepter",
+     "label": "Серебряный скипетр"
+    }
+   ]
+  },
+  {
+   "id": "items/magic/shadow",
+   "label": "Магия · Тьма",
+   "section": "Магия",
+   "items": [
+    {
+     "path": "items/magic/shadow/demon-head",
+     "label": "Голова демона"
+    },
+    {
+     "path": "items/magic/shadow/purple-eye",
+     "label": "Всевидящее око"
+    },
+    {
+     "path": "items/magic/shadow/dark-orb",
+     "label": "Тёмная сфера"
+    },
+    {
+     "path": "items/magic/shadow/tentacle",
+     "label": "Щупальце"
+    },
+    {
+     "path": "items/magic/shadow/portal-vortex",
+     "label": "Вихрь-портал"
+    },
+    {
+     "path": "items/magic/shadow/obsidian-spike",
+     "label": "Обсидиановое остриё"
+    },
+    {
+     "path": "items/magic/shadow/black-hole",
+     "label": "Чёрная дыра"
+    },
+    {
+     "path": "items/magic/shadow/rune-slab",
+     "label": "Рунный камень"
+    },
+    {
+     "path": "items/magic/shadow/serpent",
+     "label": "Змея"
+    },
+    {
+     "path": "items/magic/shadow/violet-flame",
+     "label": "Фиолетовое пламя"
+    }
+   ]
+  },
+  {
+   "id": "items/magic/wands",
+   "label": "Магия · Палочки",
+   "section": "Магия",
+   "items": [
+    {
+     "path": "items/magic/wands/green-sprig",
+     "label": "Ветка омелы"
+    },
+    {
+     "path": "items/magic/wands/twisted-branch",
+     "label": "Кривая ветвь"
+    },
+    {
+     "path": "items/magic/wands/conjurer-wand",
+     "label": "Палочка фокусника"
+    },
+    {
+     "path": "items/magic/wands/wooden-wand",
+     "label": "Деревянная палочка"
+    },
+    {
+     "path": "items/magic/wands/birch-wand",
+     "label": "Берёзовая палочка"
+    },
+    {
+     "path": "items/magic/wands/branch-wand",
+     "label": "Палочка-ветка"
+    },
+    {
+     "path": "items/magic/wands/red-wand",
+     "label": "Красная палочка"
+    },
+    {
+     "path": "items/magic/wands/star-wand",
+     "label": "Палочка со звездой"
+    }
+   ]
+  },
+  {
+   "id": "items/magic/scepters",
+   "label": "Магия · Скипетры",
+   "section": "Магия",
+   "items": [
+    {
+     "path": "items/magic/scepters/moon-scepter",
+     "label": "Лунный скипетр"
+    },
+    {
+     "path": "items/magic/scepters/gold-crystal-staff",
+     "label": "Золотой посох с кристаллом"
+    },
+    {
+     "path": "items/magic/scepters/ruby-wand",
+     "label": "Рубиновая палочка"
+    },
+    {
+     "path": "items/magic/scepters/sapphire-wand",
+     "label": "Сапфировая палочка"
+    },
+    {
+     "path": "items/magic/scepters/ice-crystal-wand",
+     "label": "Палочка с ледяным кристаллом"
+    },
+    {
+     "path": "items/magic/scepters/spiral-staff",
+     "label": "Посох-спираль"
+    },
+    {
+     "path": "items/magic/scepters/bone-claw",
+     "label": "Костяной коготь на рукояти"
+    },
+    {
+     "path": "items/magic/scepters/fairy-star-wand",
+     "label": "Палочка феи"
+    },
+    {
+     "path": "items/magic/scepters/royal-scepter",
+     "label": "Королевский скипетр"
+    },
+    {
+     "path": "items/magic/scepters/rune-scepter",
+     "label": "Рунный скипетр"
+    }
+   ]
+  },
+  {
+   "id": "scene/containers/chests",
+   "label": "Сцена · Сундуки",
+   "section": "Сцена",
+   "items": [
+    {
+     "path": "scene/containers/chests/chest-small-closed",
+     "label": "Маленький сундук (закрыт)"
+    },
+    {
+     "path": "scene/containers/chests/chest-wooden-closed",
+     "label": "Деревянный сундук (закрыт)"
+    },
+    {
+     "path": "scene/containers/chests/chest-ironbound-closed",
+     "label": "Окованный сундук (закрыт)"
+    },
+    {
+     "path": "scene/containers/chests/chest-gold-closed",
+     "label": "Золотой сундук (закрыт)"
+    },
+    {
+     "path": "scene/containers/chests/chest-mossy-closed",
+     "label": "Замшелый сундук (закрыт)"
+    },
+    {
+     "path": "scene/containers/chests/chest-silver-closed",
+     "label": "Серебряный сундук (закрыт)"
+    },
+    {
+     "path": "scene/containers/chests/chest-royal-closed",
+     "label": "Королевский сундук (закрыт)"
+    },
+    {
+     "path": "scene/containers/chests/chest-arcane-closed",
+     "label": "Стальной рунический сундук (закрыт)"
+    },
+    {
+     "path": "scene/containers/chests/chest-dark-closed",
+     "label": "Тёмный сундук с золотом (закрыт)"
+    },
+    {
+     "path": "scene/containers/chests/mimic-closed",
+     "label": "Мимик (притворяется сундуком)"
+    },
+    {
+     "path": "scene/containers/chests/chest-small-open",
+     "label": "Маленький сундук (открыт)"
+    },
+    {
+     "path": "scene/containers/chests/chest-wooden-open",
+     "label": "Деревянный сундук (открыт)"
+    },
+    {
+     "path": "scene/containers/chests/chest-ironbound-gold",
+     "label": "Окованный сундук с золотом"
+    },
+    {
+     "path": "scene/containers/chests/chest-ironbound-empty",
+     "label": "Окованный сундук (пустой)"
+    },
+    {
+     "path": "scene/containers/chests/chest-gold-treasure",
+     "label": "Золотой сундук с сокровищами"
+    },
+    {
+     "path": "scene/containers/chests/chest-mossy-open",
+     "label": "Замшелый сундук (открыт)"
+    },
+    {
+     "path": "scene/containers/chests/chest-royal-gems",
+     "label": "Королевский сундук с самоцветами"
+    },
+    {
+     "path": "scene/containers/chests/chest-arcane-open",
+     "label": "Стальной рунический сундук (открыт)"
+    },
+    {
+     "path": "scene/containers/chests/chest-dark-coins",
+     "label": "Тёмный сундук с монетами"
+    },
+    {
+     "path": "scene/containers/chests/mimic-open",
+     "label": "Мимик (раскрыл пасть)"
+    }
+   ]
+  },
+  {
+   "id": "scene/containers",
+   "label": "Сцена · Бочки, ящики, вазы",
+   "section": "Сцена",
+   "items": [
+    {
+     "path": "scene/containers/crate-light",
+     "label": "Ящик (светлые доски)"
+    },
+    {
+     "path": "scene/containers/barrel",
+     "label": "Бочка"
+    },
+    {
+     "path": "scene/containers/barrel-apples",
+     "label": "Бочка с яблоками"
+    },
+    {
+     "path": "scene/containers/barrel-broken",
+     "label": "Разбитая бочка"
+    },
+    {
+     "path": "scene/containers/barrel-flammable",
+     "label": "Красная бочка со знаком огня"
+    },
+    {
+     "path": "scene/containers/crate",
+     "label": "Ящик"
+    },
+    {
+     "path": "scene/containers/crate-old",
+     "label": "Старый ящик"
+    },
+    {
+     "path": "scene/containers/vase-porcelain",
+     "label": "Фарфоровая ваза"
+    },
+    {
+     "path": "scene/containers/pot-clay-handles",
+     "label": "Глиняный горшок с ручками"
+    },
+    {
+     "path": "scene/containers/vase-porcelain-2",
+     "label": "Фарфоровая ваза (вариант)"
+    },
+    {
+     "path": "scene/containers/amphora-painted",
+     "label": "Расписная амфора"
+    },
+    {
+     "path": "scene/containers/vase-gold",
+     "label": "Золотая ваза"
+    },
+    {
+     "path": "scene/containers/flowerpot",
+     "label": "Цветочный горшок"
+    },
+    {
+     "path": "scene/containers/pot-cracked",
+     "label": "Треснувший горшок"
+    },
+    {
+     "path": "scene/containers/amphora",
+     "label": "Амфора"
+    },
+    {
+     "path": "scene/containers/pot-round",
+     "label": "Круглый горшок"
+    },
+    {
+     "path": "scene/containers/cauldron",
+     "label": "Чугунный котелок"
+    }
+   ]
+  },
+  {
+   "id": "scene/props",
+   "label": "Сцена · Обстановка",
+   "section": "Сцена",
+   "items": [
+    {
+     "path": "scene/props/arrow-rack",
+     "label": "Стойка со стрелами"
+    },
+    {
+     "path": "scene/props/banner-red",
+     "label": "Красное знамя"
+    }
+   ]
+  },
+  {
+   "id": "scene/nature/trees-conifer",
+   "label": "Природа · Хвойные деревья",
+   "section": "Природа",
+   "items": [
+    {
+     "path": "scene/nature/trees-conifer/fir",
+     "label": "Ель"
+    },
+    {
+     "path": "scene/nature/trees-conifer/spruce",
+     "label": "Ель (густая)"
+    },
+    {
+     "path": "scene/nature/trees-conifer/blue-spruce",
+     "label": "Голубая ель"
+    },
+    {
+     "path": "scene/nature/trees-conifer/fir-snowy",
+     "label": "Заснеженная ель"
+    },
+    {
+     "path": "scene/nature/trees-conifer/cypress",
+     "label": "Кипарис"
+    },
+    {
+     "path": "scene/nature/trees-conifer/fir-young",
+     "label": "Молодая ёлка"
+    },
+    {
+     "path": "scene/nature/trees-conifer/firs-pair",
+     "label": "Две ели"
+    },
+    {
+     "path": "scene/nature/trees-conifer/pine-dead",
+     "label": "Сухая сосна"
+    },
+    {
+     "path": "scene/nature/trees-conifer/sequoia-trunk",
+     "label": "Ствол секвойи"
+    },
+    {
+     "path": "scene/nature/trees-conifer/pine-cones",
+     "label": "Сосна с шишками"
+    }
+   ]
+  },
+  {
+   "id": "scene/nature/trees-leafy",
+   "label": "Природа · Лиственные деревья",
+   "section": "Природа",
+   "items": [
+    {
+     "path": "scene/nature/trees-leafy/sapling",
+     "label": "Молодое деревце"
+    },
+    {
+     "path": "scene/nature/trees-leafy/oak",
+     "label": "Дуб"
+    },
+    {
+     "path": "scene/nature/trees-leafy/tree-light",
+     "label": "Светлое лиственное дерево"
+    },
+    {
+     "path": "scene/nature/trees-leafy/tree-autumn",
+     "label": "Осеннее дерево"
+    },
+    {
+     "path": "scene/nature/trees-leafy/birch-autumn",
+     "label": "Осенняя берёза"
+    },
+    {
+     "path": "scene/nature/trees-leafy/sakura",
+     "label": "Сакура"
+    },
+    {
+     "path": "scene/nature/trees-leafy/apple-tree",
+     "label": "Яблоня"
+    },
+    {
+     "path": "scene/nature/trees-leafy/willow",
+     "label": "Ива"
+    },
+    {
+     "path": "scene/nature/trees-leafy/tree-broad",
+     "label": "Раскидистое дерево"
+    },
+    {
+     "path": "scene/nature/trees-leafy/oak-ancient",
+     "label": "Древний дуб"
+    }
+   ]
+  },
+  {
+   "id": "scene/nature/trees-dead",
+   "label": "Природа · Мёртвые деревья",
+   "section": "Природа",
+   "items": [
+    {
+     "path": "scene/nature/trees-dead/bush-dead",
+     "label": "Сухой куст"
+    },
+    {
+     "path": "scene/nature/trees-dead/tree-grey",
+     "label": "Серое мёртвое дерево"
+    },
+    {
+     "path": "scene/nature/trees-dead/tree-twisted",
+     "label": "Кривое мёртвое дерево"
+    },
+    {
+     "path": "scene/nature/trees-dead/tree-black",
+     "label": "Чёрное мёртвое дерево"
+    },
+    {
+     "path": "scene/nature/trees-dead/tree-swamp",
+     "label": "Болотное дерево со мхом"
+    },
+    {
+     "path": "scene/nature/trees-dead/stump-broken",
+     "label": "Сломанный ствол"
+    },
+    {
+     "path": "scene/nature/trees-dead/tree-hollow",
+     "label": "Дуплистое дерево"
+    },
+    {
+     "path": "scene/nature/trees-dead/tree-lightning",
+     "label": "Дерево, разбитое молнией"
+    },
+    {
+     "path": "scene/nature/trees-dead/tree-bare",
+     "label": "Голое дерево"
+    },
+    {
+     "path": "scene/nature/trees-dead/stumps-broken",
+     "label": "Обломки стволов"
+    }
+   ]
+  },
+  {
+   "id": "scene/nature/bushes",
+   "label": "Природа · Кусты",
+   "section": "Природа",
+   "items": [
+    {
+     "path": "scene/nature/bushes/hedge-square",
+     "label": "Квадратная живая изгородь"
+    },
+    {
+     "path": "scene/nature/bushes/bush",
+     "label": "Куст"
+    },
+    {
+     "path": "scene/nature/bushes/bush-berries",
+     "label": "Ягодный куст"
+    },
+    {
+     "path": "scene/nature/bushes/bush-flowers",
+     "label": "Цветущий куст"
+    },
+    {
+     "path": "scene/nature/bushes/hedge",
+     "label": "Живая изгородь"
+    },
+    {
+     "path": "scene/nature/bushes/bush-dry",
+     "label": "Сухой куст"
+    },
+    {
+     "path": "scene/nature/bushes/bush-thorns",
+     "label": "Колючий куст"
+    },
+    {
+     "path": "scene/nature/bushes/bush-snowy",
+     "label": "Заснеженный куст"
+    },
+    {
+     "path": "scene/nature/bushes/bush-autumn",
+     "label": "Осенний куст"
+    },
+    {
+     "path": "scene/nature/bushes/fern",
+     "label": "Папоротник"
+    }
+   ]
+  },
+  {
+   "id": "scene/nature/grass",
+   "label": "Природа · Трава и цветы",
+   "section": "Природа",
+   "items": [
+    {
+     "path": "scene/nature/grass/grass",
+     "label": "Трава"
+    },
+    {
+     "path": "scene/nature/grass/grass-tuft",
+     "label": "Пучок травы"
+    },
+    {
+     "path": "scene/nature/grass/wheat",
+     "label": "Пшеница"
+    },
+    {
+     "path": "scene/nature/grass/grass-tall",
+     "label": "Высокая трава"
+    },
+    {
+     "path": "scene/nature/grass/cattails",
+     "label": "Камыш"
+    },
+    {
+     "path": "scene/nature/grass/grass-dry",
+     "label": "Сухая трава"
+    },
+    {
+     "path": "scene/nature/grass/fern-small",
+     "label": "Папоротник (малый)"
+    },
+    {
+     "path": "scene/nature/grass/grass-purple",
+     "label": "Фиолетовая трава"
+    },
+    {
+     "path": "scene/nature/grass/daisies",
+     "label": "Ромашки"
+    },
+    {
+     "path": "scene/nature/grass/clover",
+     "label": "Клевер"
+    }
+   ]
+  },
+  {
+   "id": "scene/nature/mushrooms",
+   "label": "Природа · Грибы",
+   "section": "Природа",
+   "items": [
+    {
+     "path": "scene/nature/mushrooms/star-mushroom",
+     "label": "Гриб-звезда"
+    },
+    {
+     "path": "scene/nature/mushrooms/fly-agaric",
+     "label": "Мухомор"
+    },
+    {
+     "path": "scene/nature/mushrooms/glowing-blue",
+     "label": "Светящийся синий гриб"
+    },
+    {
+     "path": "scene/nature/mushrooms/porcini",
+     "label": "Боровик"
+    },
+    {
+     "path": "scene/nature/mushrooms/cluster",
+     "label": "Грибная семейка"
+    },
+    {
+     "path": "scene/nature/mushrooms/green",
+     "label": "Зелёные грибы"
+    },
+    {
+     "path": "scene/nature/mushrooms/purple",
+     "label": "Фиолетовые грибы"
+    },
+    {
+     "path": "scene/nature/mushrooms/bracket",
+     "label": "Трутовики"
+    },
+    {
+     "path": "scene/nature/mushrooms/thin",
+     "label": "Тонкий гриб"
+    },
+    {
+     "path": "scene/nature/mushrooms/glowing-toxic",
+     "label": "Ядовито светящийся гриб"
+    }
+   ]
+  },
+  {
+   "id": "scene/nature/rocks",
+   "label": "Природа · Камни и кристаллы",
+   "section": "Природа",
+   "items": [
+    {
+     "path": "scene/nature/rocks/ice-crystals",
+     "label": "Ледяные кристаллы"
+    },
+    {
+     "path": "scene/nature/rocks/rock-vines",
+     "label": "Камень в лозе"
+    },
+    {
+     "path": "scene/nature/rocks/boulder",
+     "label": "Валун"
+    },
+    {
+     "path": "scene/nature/rocks/rocks-mossy",
+     "label": "Замшелые камни"
+    },
+    {
+     "path": "scene/nature/rocks/boulder-cracked",
+     "label": "Треснувший валун"
+    },
+    {
+     "path": "scene/nature/rocks/rock-flat",
+     "label": "Плоский камень"
+    },
+    {
+     "path": "scene/nature/rocks/lava-rock",
+     "label": "Лавовая глыба"
+    },
+    {
+     "path": "scene/nature/rocks/sandstone",
+     "label": "Песчаник"
+    },
+    {
+     "path": "scene/nature/rocks/rock-sharp",
+     "label": "Острая скала"
+    },
+    {
+     "path": "scene/nature/rocks/crystal-rock",
+     "label": "Камень с кристаллами"
+    },
+    {
+     "path": "scene/nature/rocks/stone-platform",
+     "label": "Каменная плита с лозой"
+    },
+    {
+     "path": "scene/nature/rocks/pebbles",
+     "label": "Галька"
+    },
+    {
+     "path": "scene/nature/rocks/stones",
+     "label": "Камни"
+    },
+    {
+     "path": "scene/nature/rocks/boulder-round",
+     "label": "Круглый валун"
+    },
+    {
+     "path": "scene/nature/rocks/rock-spire",
+     "label": "Скальный шпиль"
+    },
+    {
+     "path": "scene/nature/rocks/stones-mossy",
+     "label": "Камни со мхом"
+    },
+    {
+     "path": "scene/nature/rocks/rocks-mossy-pile",
+     "label": "Груда замшелых камней"
+    },
+    {
+     "path": "scene/nature/rocks/gravel",
+     "label": "Щебень"
+    },
+    {
+     "path": "scene/nature/rocks/crystals-colored",
+     "label": "Цветные кристаллы"
+    },
+    {
+     "path": "scene/nature/rocks/cairn",
+     "label": "Груда камней"
+    },
+    {
+     "path": "scene/nature/rocks/stone-slab",
+     "label": "Каменная плита"
+    }
+   ]
+  },
+  {
+   "id": "scene/nature/wood",
+   "label": "Природа · Брёвна и пни",
+   "section": "Природа",
+   "items": [
+    {
+     "path": "scene/nature/wood/burrow",
+     "label": "Нора"
+    },
+    {
+     "path": "scene/nature/wood/log",
+     "label": "Бревно"
+    },
+    {
+     "path": "scene/nature/wood/log-branch",
+     "label": "Бревно с сучком"
+    },
+    {
+     "path": "scene/nature/wood/log-hollow",
+     "label": "Полое бревно"
+    },
+    {
+     "path": "scene/nature/wood/stump",
+     "label": "Пень"
+    },
+    {
+     "path": "scene/nature/wood/stump-cracked",
+     "label": "Треснувший пень"
+    },
+    {
+     "path": "scene/nature/wood/leaf-pile",
+     "label": "Куча листьев"
+    },
+    {
+     "path": "scene/nature/wood/firewood",
+     "label": "Хворост"
+    },
+    {
+     "path": "scene/nature/wood/stump-roots",
+     "label": "Пень с корнями"
+    },
+    {
+     "path": "scene/nature/wood/mud",
+     "label": "Лужа грязи"
+    }
+   ]
+  },
+  {
+   "id": "scene/nature/exotic",
+   "label": "Природа · Юг и экзотика",
+   "section": "Природа",
+   "items": [
+    {
+     "path": "scene/nature/exotic/agave-purple",
+     "label": "Фиолетовая агава"
+    },
+    {
+     "path": "scene/nature/exotic/cactus",
+     "label": "Кактус"
+    },
+    {
+     "path": "scene/nature/exotic/cactus-barrel",
+     "label": "Круглый кактус"
+    },
+    {
+     "path": "scene/nature/exotic/tumbleweed",
+     "label": "Перекати-поле"
+    },
+    {
+     "path": "scene/nature/exotic/palm",
+     "label": "Пальма"
+    },
+    {
+     "path": "scene/nature/exotic/agave",
+     "label": "Агава"
+    },
+    {
+     "path": "scene/nature/exotic/flower-tropical",
+     "label": "Тропический цветок"
+    },
+    {
+     "path": "scene/nature/exotic/lily-pad",
+     "label": "Лист кувшинки"
+    },
+    {
+     "path": "scene/nature/exotic/bamboo",
+     "label": "Бамбук"
+    }
+   ]
+  },
+  {
+   "id": "ui/symbols",
+   "label": "Интерфейс · Символы",
+   "section": "Интерфейс",
+   "items": [
+    {
+     "path": "ui/symbols/sword",
+     "label": "Меч (атака)"
+    },
+    {
+     "path": "ui/symbols/hearts",
+     "label": "Три сердца (хиты)"
+    },
+    {
+     "path": "ui/symbols/magic-wand",
+     "label": "Волшебная палочка (магия)"
+    },
+    {
+     "path": "ui/symbols/hand-open",
+     "label": "Открытая ладонь (взаимодействие)"
+    },
+    {
+     "path": "ui/symbols/hand-palm",
+     "label": "Ладонь (стоп / взять)"
+    },
+    {
+     "path": "ui/symbols/hourglass",
+     "label": "Песочные часы (ход, ожидание)"
+    },
+    {
+     "path": "ui/symbols/magnifier",
+     "label": "Лупа (осмотр, поиск)"
+    },
+    {
+     "path": "ui/symbols/target",
+     "label": "Прицел (цель)"
+    },
+    {
+     "path": "ui/symbols/speech",
+     "label": "Реплика (разговор)"
+    },
+    {
+     "path": "ui/symbols/vial-red",
+     "label": "Красная пробирка (зелье)"
+    },
+    {
+     "path": "ui/symbols/locked-slot",
+     "label": "Замок в рамке (заперто)"
+    },
+    {
+     "path": "ui/symbols/vial-empty",
+     "label": "Пустая пробирка"
+    },
+    {
+     "path": "ui/symbols/paper-note",
+     "label": "Записка"
+    },
+    {
+     "path": "ui/symbols/heart",
+     "label": "Сердце"
+    },
+    {
+     "path": "ui/symbols/selection-corners",
+     "label": "Рамка выделения"
+    },
+    {
+     "path": "ui/symbols/crosshair",
+     "label": "Перекрестие"
+    },
+    {
+     "path": "ui/symbols/eye",
+     "label": "Глаз (видимость)"
+    }
+   ]
+  },
+  {
+   "id": "ui/frames",
+   "label": "Интерфейс · Рамки и ячейки",
+   "section": "Интерфейс",
+   "items": [
+    {
+     "path": "ui/frames/round-silver",
+     "label": "Круглая серебряная рамка"
+    },
+    {
+     "path": "ui/frames/slot-wood",
+     "label": "Ячейка: дерево"
+    },
+    {
+     "path": "ui/frames/slot-stone",
+     "label": "Ячейка: камень"
+    },
+    {
+     "path": "ui/frames/slot-rusty",
+     "label": "Ячейка: ржавая"
+    },
+    {
+     "path": "ui/frames/slot-gold-ornate",
+     "label": "Ячейка: золотая с узором"
+    },
+    {
+     "path": "ui/frames/slot-silver-ornate",
+     "label": "Ячейка: серебряная с узором"
+    },
+    {
+     "path": "ui/frames/slot-black",
+     "label": "Ячейка: чёрная"
+    },
+    {
+     "path": "ui/frames/slot-parchment",
+     "label": "Ячейка: пергамент"
+    },
+    {
+     "path": "ui/frames/scroll-banner",
+     "label": "Лента-свиток (заголовок)"
+    },
+    {
+     "path": "ui/frames/slot-weapon",
+     "label": "Пустая ячейка: оружие"
+    },
+    {
+     "path": "ui/frames/slot-blue-glow",
+     "label": "Ячейка: голубое свечение"
+    },
+    {
+     "path": "ui/frames/slot-stone-cracked",
+     "label": "Ячейка: треснувший камень"
+    },
+    {
+     "path": "ui/frames/slot-green-wood",
+     "label": "Ячейка: зелёное дерево"
+    },
+    {
+     "path": "ui/frames/slot-red-rusty",
+     "label": "Ячейка: красная ржавая"
+    },
+    {
+     "path": "ui/frames/slot-selected",
+     "label": "Ячейка: выбрана (уголки)"
+    },
+    {
+     "path": "ui/frames/slot-gold-glow",
+     "label": "Ячейка: золотое свечение"
+    },
+    {
+     "path": "ui/frames/slot-helmet",
+     "label": "Пустая ячейка: шлем"
+    },
+    {
+     "path": "ui/frames/slot-armor",
+     "label": "Пустая ячейка: доспех"
+    },
+    {
+     "path": "ui/frames/plate-metal",
+     "label": "Плашка: клёпаный металл"
+    },
+    {
+     "path": "ui/frames/plate-wood",
+     "label": "Плашка: дерево"
+    },
+    {
+     "path": "ui/frames/plate-stone",
+     "label": "Плашка: камень"
+    }
+   ]
+  },
+  {
+   "id": "ui/cursors",
+   "label": "Интерфейс · Курсоры",
+   "section": "Интерфейс",
+   "items": [
+    {
+     "path": "ui/cursors/arrow-white",
+     "label": "Курсор-стрелка (белый)"
+    },
+    {
+     "path": "ui/cursors/arrow-black",
+     "label": "Курсор-стрелка (чёрный)"
+    },
+    {
+     "path": "ui/cursors/gauntlet-silver",
+     "label": "Курсор: латная перчатка"
+    },
+    {
+     "path": "ui/cursors/glove-leather",
+     "label": "Курсор: кожаная перчатка"
+    },
+    {
+     "path": "ui/cursors/skeleton-hand",
+     "label": "Курсор: рука скелета"
+    }
+   ]
+  }
+ ]
+}

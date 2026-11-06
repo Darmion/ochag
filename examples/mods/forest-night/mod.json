@@ -1,0 +1,16 @@
+{
+  "id": "forest-night",
+  "name": "Лесная ночь",
+  "version": "1.0.0",
+  "kind": "visual",
+  "author": "Пример из docs/MODS.md",
+  "description": "Тёмно-зелёное оформление окон и панелей с фактурой листвы.",
+  "styles": ["theme.css"],
+  "translations": {
+    "en": {
+      "name": "Forest Night",
+      "author": "Example from docs/MODS.md",
+      "description": "Dark green windows and panels with a leaf texture."
+    }
+  }
+}

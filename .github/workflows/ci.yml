@@ -1,0 +1,57 @@
+name: Checks
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: checks-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  checks:
+    # The app targets Windows, and so do some tests (process names, paths).
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      # No test starts Electron; its binary is only needed to run or package the app.
+      ELECTRON_SKIP_BINARY_DOWNLOAD: '1'
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            apps/client/package-lock.json
+
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm --prefix apps/client ci
+
+      - name: Type check
+        run: |
+          npm run typecheck
+          npm --prefix apps/client exec vue-tsc -- -b
+
+      - name: Tests
+        run: npm test
+
+      - name: Build the client
+        run: npm --prefix apps/client run build
+
+      - name: Interface strings are up to date
+        shell: bash
+        run: |
+          npm run i18n:extract
+          git diff --exit-code -- apps/client/src/locales
+
+      - name: Every interface string has English
+        run: npm run i18n:check

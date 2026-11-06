@@ -1,0 +1,44 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { buildApp } from '../../src/app.ts';
+import { createTestDatabase } from '../helpers.ts';
+
+test('minigames API: campaign access, shared state, revision and turn guards', async t => {
+  const { pg, db } = await createTestDatabase();
+  const app = await buildApp(db, { rateMax: 10000 });
+  t.after(async () => { await app.close(); await pg.close(); });
+  const request = (method: any, url: string, token?: string, payload?: any) => app.inject({ method, url,
+    ...(token ? { headers: { authorization: `Bearer ${token}` } } : {}), ...(payload ? { payload } : {}) });
+  const register = async (username: string) => (await request('POST', '/auth/register', undefined, { username, password: 'x' })).json();
+  const gm = await register('dice_gm'), guest = await register('dice_guest'), stranger = await register('dice_stranger');
+  const campaign = (await request('POST', '/campaigns', gm.token, { name: 'Dice' })).json().id;
+  const invite = (await request('POST', `/campaigns/${campaign}/invites`, gm.token)).json().code;
+  await request('POST', '/campaigns/join', guest.token, { code: invite });
+  const path = `/campaigns/${campaign}/minigames/dragon-dice`;
+  assert.equal((await request('GET', path)).statusCode, 401);
+  assert.equal((await request('GET', path, stranger.token)).statusCode, 404);
+  assert.equal((await request('POST', path, stranger.token, { action: 'create', revision: 0 })).statusCode, 404);
+  assert.equal((await request('GET', path, gm.token)).json().game, null);
+  let result = await request('POST', path, gm.token, { action: 'create', revision: 0 });
+  assert.equal(result.statusCode, 200, result.body);
+  let game = result.json().game;
+  result = await request('POST', path, guest.token, { action: 'join', revision: game.revision });
+  game = result.json().game; assert.equal(game.players.length, 2);
+  assert.equal((await request('GET', path, guest.token)).json().game.revision, game.revision);
+  assert.equal((await request('POST', path, guest.token, { action: 'start', revision: game.revision })).statusCode, 409);
+  game = (await request('POST', path, gm.token, { action: 'start', revision: game.revision })).json().game;
+  assert.equal((await request('POST', path, guest.token, { action: 'roll', revision: game.revision })).statusCode, 409);
+  const rolls = await Promise.all([request('POST', path, gm.token, { action: 'roll', revision: game.revision }), request('POST', path, gm.token, { action: 'roll', revision: game.revision })]);
+  assert.deepEqual(rolls.map(r => r.statusCode).sort(), [200, 409]);
+  game = (await request('GET', path, gm.token)).json().game;
+  assert.equal(game.rolls, 1); assert.ok(game.lastDie >= 1 && game.lastDie <= 6);
+  assert.equal((await request('POST', path, gm.token, { action: 'roll', revision: game.revision, die: 6 })).statusCode, 400);
+  const other = (await request('POST', '/campaigns', gm.token, { name: 'Other' })).json().id;
+  assert.equal((await request('GET', `/campaigns/${other}/minigames/dragon-dice`, gm.token)).json().game, null);
+  game = (await request('POST', path, gm.token, { action: 'cancel', revision: game.revision })).json().game;
+  assert.equal(game.phase, 'cancelled');
+  const next = (await request('POST', path, guest.token, { action: 'create', revision: game.revision })).json().game;
+  assert.ok(next.revision > game.revision);
+  assert.equal(next.hostId, guest.user.id);
+  assert.equal((await request('POST', path, gm.token, { action: 'cancel', revision: next.revision })).json().game.phase, 'cancelled');
+});

@@ -1,0 +1,49 @@
+/* Example visual mod (docs/MODS.md): styles only, overriding the app's theme
+   variables (apps/client/src/styles/fantasy.css, game.css, skins.css).
+   html:root[data-ui][data-skin] is more specific than every built-in theme
+   selector, so the mod wins whatever skin is chosen. */
+html:root[data-ui][data-skin] {
+  --ink: #e4f0dc;
+  --muted-ink: #a7c09a;
+  --ivory: #eef6e8;
+  --brass: #6f9a4e;
+  --brass-light: #3e5a2e;
+  --burgundy: #2f5d3a;
+  --burgundy-light: #4f8a5c;
+  --burgundy-text: #f2fbef;
+  /* An image next to the stylesheet: the app inlines it. */
+  --parchment-background: url("leaves.svg"), linear-gradient(170deg, #1d2b1c, #121c12);
+  --page-bg: radial-gradient(120% 90% at 30% 0%, #23361f, #0b120b), #0b120b;
+  --panel-border: #3e5a2e;
+  --panel-ornament: #8fbf6a;
+  --input-bg: #142014;
+  --input-border: #3e5a2e;
+  --button-bg-from: #24361f;
+  --button-bg-to: #162316;
+  --button-border: #6f9a4e;
+  --table-header-bg: #1d2b1c;
+  --table-header-color: #d7ecc9;
+  --focus-ring: rgba(143, 191, 106, .55);
+}
+
+/* The default game UI takes its colours from its own --g-* variables
+   (apps/client/src/styles/game.css): stone, frame gold, text, accent. */
+html:root[data-ui][data-skin] {
+  --g-void: #050805;
+  --g-stone-1: #1f2b1d;
+  --g-stone-2: #152014;
+  --g-stone-3: #0d150d;
+  --g-well: #081008;
+  --g-gold: #8fbf6a;
+  --g-gold-hi: #d4f0b8;
+  --g-gold-lo: #4a6b34;
+  --g-gold-deep: #1f3318;
+  --g-text: #e4f0dc;
+  --g-text-dim: #a7c09a;
+  --g-text-faint: #6f8a63;
+  --g-accent: #2f5d3a;
+  --g-accent-hi: #4f8a5c;
+  --g-accent-text: #f2fbef;
+  --g-glow: rgba(170, 230, 140, .4);
+  --g-line: #2a3b25;
+}

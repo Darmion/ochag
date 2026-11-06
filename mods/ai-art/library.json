@@ -1,0 +1,1283 @@
+{
+ "groups": [
+  {
+   "id": "items/weapons/axes",
+   "label": "Оружие · Топоры и секиры",
+   "section": "Оружие",
+   "items": [
+    {
+     "path": "items/weapons/axes/handaxe",
+     "label": "Ручной топор"
+    },
+    {
+     "path": "items/weapons/axes/battleaxe",
+     "label": "Боевой топор"
+    }
+   ]
+  },
+  {
+   "id": "items/weapons/clubs",
+   "label": "Оружие · Дубины, булавы, молоты",
+   "section": "Оружие",
+   "items": [
+    {
+     "path": "items/weapons/clubs/club",
+     "label": "Дубинка"
+    },
+    {
+     "path": "items/weapons/clubs/greatclub",
+     "label": "Палица"
+    },
+    {
+     "path": "items/weapons/clubs/mace",
+     "label": "Булава"
+    },
+    {
+     "path": "items/weapons/clubs/morningstar",
+     "label": "Моргенштерн"
+    },
+    {
+     "path": "items/weapons/clubs/flail",
+     "label": "Цеп"
+    },
+    {
+     "path": "items/weapons/clubs/light-hammer",
+     "label": "Лёгкий молот"
+    },
+    {
+     "path": "items/weapons/clubs/maul",
+     "label": "Молот"
+    },
+    {
+     "path": "items/weapons/clubs/warhammer",
+     "label": "Боевой молот"
+    }
+   ]
+  },
+  {
+   "id": "items/weapons/misc",
+   "label": "Оружие · Кнут, праща, сеть",
+   "section": "Оружие",
+   "items": [
+    {
+     "path": "items/weapons/misc/whip",
+     "label": "Кнут"
+    },
+    {
+     "path": "items/weapons/misc/sling",
+     "label": "Праща"
+    },
+    {
+     "path": "items/weapons/misc/net",
+     "label": "Сеть"
+    },
+    {
+     "path": "items/weapons/misc/blowgun",
+     "label": "Духовая трубка"
+    },
+    {
+     "path": "items/weapons/misc/unarmed-strike",
+     "label": "Безоружный удар"
+    }
+   ]
+  },
+  {
+   "id": "items/armor",
+   "label": "Доспехи · Доспехи и щиты",
+   "section": "Доспехи",
+   "items": [
+    {
+     "path": "items/armor/padded-armor",
+     "label": "Стёганый доспех"
+    },
+    {
+     "path": "items/armor/leather-armor",
+     "label": "Кожаный доспех"
+    },
+    {
+     "path": "items/armor/studded-leather-armor",
+     "label": "Проклёпанная кожа"
+    },
+    {
+     "path": "items/armor/hide-armor",
+     "label": "Шкурный доспех"
+    },
+    {
+     "path": "items/armor/chain-shirt",
+     "label": "Кольчужная рубаха"
+    },
+    {
+     "path": "items/armor/scale-mail",
+     "label": "Чешуйчатый доспех"
+    },
+    {
+     "path": "items/armor/breastplate",
+     "label": "Кираса"
+    },
+    {
+     "path": "items/armor/half-plate",
+     "label": "Полулаты"
+    },
+    {
+     "path": "items/armor/ring-mail",
+     "label": "Колечный доспех"
+    },
+    {
+     "path": "items/armor/chain-mail",
+     "label": "Кольчуга"
+    },
+    {
+     "path": "items/armor/splint-armor",
+     "label": "Наборный доспех"
+    },
+    {
+     "path": "items/armor/plate-armor",
+     "label": "Латы"
+    },
+    {
+     "path": "items/armor/shield",
+     "label": "Щит"
+    }
+   ]
+  },
+  {
+   "id": "items/valuables",
+   "label": "Вещи · Монеты и драгоценности",
+   "section": "Вещи",
+   "items": [
+    {
+     "path": "items/valuables/coin-copper",
+     "label": "Медная монета"
+    },
+    {
+     "path": "items/valuables/coin-electrum",
+     "label": "Электровая монета"
+    },
+    {
+     "path": "items/valuables/coin-platinum",
+     "label": "Платиновая монета"
+    }
+   ]
+  },
+  {
+   "id": "items/gear",
+   "label": "Вещи · Снаряжение",
+   "section": "Вещи",
+   "items": [
+    {
+     "path": "items/gear/backpack",
+     "label": "Рюкзак"
+    },
+    {
+     "path": "items/gear/bedroll",
+     "label": "Спальник"
+    },
+    {
+     "path": "items/gear/blanket",
+     "label": "Одеяло"
+    },
+    {
+     "path": "items/gear/tent",
+     "label": "Палатка"
+    },
+    {
+     "path": "items/gear/candle",
+     "label": "Свеча"
+    },
+    {
+     "path": "items/gear/lamp",
+     "label": "Лампа"
+    },
+    {
+     "path": "items/gear/lantern-hooded",
+     "label": "Фонарь с заслонкой"
+    },
+    {
+     "path": "items/gear/lantern-bullseye",
+     "label": "Направленный фонарь"
+    },
+    {
+     "path": "items/gear/tinderbox",
+     "label": "Трутница"
+    },
+    {
+     "path": "items/gear/waterskin",
+     "label": "Бурдюк"
+    },
+    {
+     "path": "items/gear/rope-hempen",
+     "label": "Пеньковая верёвка"
+    },
+    {
+     "path": "items/gear/rope-silk",
+     "label": "Шёлковая верёвка"
+    },
+    {
+     "path": "items/gear/chain",
+     "label": "Цепь"
+    },
+    {
+     "path": "items/gear/manacles",
+     "label": "Кандалы"
+    },
+    {
+     "path": "items/gear/crowbar",
+     "label": "Ломик"
+    },
+    {
+     "path": "items/gear/hammer",
+     "label": "Молоток"
+    },
+    {
+     "path": "items/gear/piton",
+     "label": "Шлямбур"
+    },
+    {
+     "path": "items/gear/shovel",
+     "label": "Лопата"
+    },
+    {
+     "path": "items/gear/hunting-trap",
+     "label": "Капкан"
+    },
+    {
+     "path": "items/gear/grappling-hook",
+     "label": "Кошка"
+    },
+    {
+     "path": "items/gear/ball-bearings",
+     "label": "Шарики"
+    },
+    {
+     "path": "items/gear/caltrops",
+     "label": "Колтропы"
+    }
+   ]
+  },
+  {
+   "id": "items/tools",
+   "label": "Вещи · Инструменты и наборы",
+   "section": "Вещи",
+   "items": [
+    {
+     "path": "items/tools/thieves-tools",
+     "label": "Воровские инструменты"
+    },
+    {
+     "path": "items/tools/climbers-kit",
+     "label": "Набор скалолаза"
+    },
+    {
+     "path": "items/tools/herbalism-kit",
+     "label": "Набор травника"
+    },
+    {
+     "path": "items/tools/disguise-kit",
+     "label": "Набор для грима"
+    },
+    {
+     "path": "items/tools/healers-kit",
+     "label": "Набор целителя"
+    }
+   ]
+  },
+  {
+   "id": "items/clothing",
+   "label": "Вещи · Одежда",
+   "section": "Вещи",
+   "items": [
+    {
+     "path": "items/clothing/clothes-common",
+     "label": "Обычная одежда"
+    },
+    {
+     "path": "items/clothing/clothes-travelers",
+     "label": "Дорожная одежда"
+    },
+    {
+     "path": "items/clothing/clothes-fine",
+     "label": "Богатая одежда"
+    }
+   ]
+  },
+  {
+   "id": "items/magic/worn",
+   "label": "Магия · Кольца, амулеты, плащи",
+   "section": "Магия",
+   "items": [
+    {
+     "path": "items/magic/worn/ring-of-protection",
+     "label": "Кольцо защиты"
+    },
+    {
+     "path": "items/magic/worn/ring-of-resistance",
+     "label": "Кольцо сопротивления"
+    },
+    {
+     "path": "items/magic/worn/cloak-of-protection",
+     "label": "Плащ защиты"
+    },
+    {
+     "path": "items/magic/worn/bracers-of-defense",
+     "label": "Наручи защиты"
+    },
+    {
+     "path": "items/magic/worn/headband-of-intellect",
+     "label": "Обруч интеллекта"
+    },
+    {
+     "path": "items/magic/worn/amulet-of-health",
+     "label": "Амулет здоровья"
+    },
+    {
+     "path": "items/magic/worn/armor-plus-1",
+     "label": "Доспех +1"
+    },
+    {
+     "path": "items/magic/worn/boots-of-striding-and-springing",
+     "label": "Сапоги ходьбы и прыжков"
+    }
+   ]
+  },
+  {
+   "id": "scene/props",
+   "label": "Сцена · Обстановка",
+   "section": "Сцена",
+   "items": [
+    {
+     "path": "scene/props/door-closed",
+     "label": "Закрытая дверь"
+    },
+    {
+     "path": "scene/props/door-open",
+     "label": "Открытая дверь"
+    },
+    {
+     "path": "scene/props/wall-stone",
+     "label": "Каменная стена"
+    },
+    {
+     "path": "scene/props/column-cracked",
+     "label": "Подпиленная колонна"
+    },
+    {
+     "path": "scene/props/table-wooden",
+     "label": "Стол"
+    },
+    {
+     "path": "scene/props/chair-wooden",
+     "label": "Стул"
+    },
+    {
+     "path": "scene/props/bed-simple",
+     "label": "Кровать"
+    },
+    {
+     "path": "scene/props/wardrobe",
+     "label": "Шкаф"
+    },
+    {
+     "path": "scene/props/altar-stone",
+     "label": "Алтарь"
+    },
+    {
+     "path": "scene/props/statue-knight",
+     "label": "Статуя"
+    },
+    {
+     "path": "scene/props/campfire",
+     "label": "Костёр"
+    },
+    {
+     "path": "scene/props/well-stone",
+     "label": "Колодец"
+    },
+    {
+     "path": "scene/props/wagon",
+     "label": "Повозка"
+    },
+    {
+     "path": "scene/props/tent",
+     "label": "Палатка"
+    },
+    {
+     "path": "scene/props/ladder",
+     "label": "Лестница"
+    }
+   ]
+  },
+  {
+   "id": "scene/traps",
+   "label": "Сцена · Ловушки",
+   "section": "Сцена",
+   "items": [
+    {
+     "path": "scene/traps/spike-pit",
+     "label": "Яма с кольями"
+    },
+    {
+     "path": "scene/traps/bear-trap",
+     "label": "Капкан"
+    },
+    {
+     "path": "scene/traps/dart-trap",
+     "label": "Ловушка с дротиками"
+    },
+    {
+     "path": "scene/traps/rune-trap",
+     "label": "Рунная ловушка"
+    }
+   ]
+  },
+  {
+   "id": "ui/symbols",
+   "label": "Интерфейс · Символы",
+   "section": "Интерфейс",
+   "items": [
+    {
+     "path": "ui/symbols/damage-bludgeoning",
+     "label": "Дробящий урон"
+    }
+   ]
+  },
+  {
+   "id": "ui/classes",
+   "label": "Интерфейс · Гербы классов",
+   "section": "Интерфейс",
+   "items": [
+    {
+     "path": "ui/classes/barbarian",
+     "label": "Герб: Варвар"
+    },
+    {
+     "path": "ui/classes/bard",
+     "label": "Герб: Бард"
+    },
+    {
+     "path": "ui/classes/cleric",
+     "label": "Герб: Жрец"
+    },
+    {
+     "path": "ui/classes/druid",
+     "label": "Герб: Друид"
+    },
+    {
+     "path": "ui/classes/fighter",
+     "label": "Герб: Воин"
+    },
+    {
+     "path": "ui/classes/monk",
+     "label": "Герб: Монах"
+    },
+    {
+     "path": "ui/classes/paladin",
+     "label": "Герб: Паладин"
+    },
+    {
+     "path": "ui/classes/ranger",
+     "label": "Герб: Следопыт"
+    },
+    {
+     "path": "ui/classes/rogue",
+     "label": "Герб: Плут"
+    },
+    {
+     "path": "ui/classes/sorcerer",
+     "label": "Герб: Чародей"
+    },
+    {
+     "path": "ui/classes/warlock",
+     "label": "Герб: Колдун"
+    },
+    {
+     "path": "ui/classes/wizard",
+     "label": "Герб: Волшебник"
+    }
+   ]
+  },
+  {
+   "id": "ui/races",
+   "label": "Интерфейс · Знаки рас",
+   "section": "Интерфейс",
+   "items": [
+    {
+     "path": "ui/races/dwarf",
+     "label": "Знак расы: Дварф"
+    },
+    {
+     "path": "ui/races/elf",
+     "label": "Знак расы: Эльф"
+    },
+    {
+     "path": "ui/races/halfling",
+     "label": "Знак расы: Полурослик"
+    },
+    {
+     "path": "ui/races/human",
+     "label": "Знак расы: Человек"
+    },
+    {
+     "path": "ui/races/dragonborn",
+     "label": "Знак расы: Драконорождённый"
+    },
+    {
+     "path": "ui/races/gnome",
+     "label": "Знак расы: Гном"
+    },
+    {
+     "path": "ui/races/half-elf",
+     "label": "Знак расы: Полуэльф"
+    },
+    {
+     "path": "ui/races/half-orc",
+     "label": "Знак расы: Полуорк"
+    },
+    {
+     "path": "ui/races/tiefling",
+     "label": "Знак расы: Тифлинг"
+    }
+   ]
+  },
+  {
+   "id": "portraits/heroes",
+   "label": "Портреты · Герои",
+   "section": "Портреты",
+   "items": [
+    {
+     "path": "portraits/heroes/dwarf-male",
+     "label": "Дварф, мужчина"
+    },
+    {
+     "path": "portraits/heroes/dwarf-female",
+     "label": "Дварф, женщина"
+    },
+    {
+     "path": "portraits/heroes/elf-male",
+     "label": "Эльф, мужчина"
+    },
+    {
+     "path": "portraits/heroes/elf-female",
+     "label": "Эльф, женщина"
+    },
+    {
+     "path": "portraits/heroes/halfling-male",
+     "label": "Полурослик, мужчина"
+    },
+    {
+     "path": "portraits/heroes/halfling-female",
+     "label": "Полурослик, женщина"
+    },
+    {
+     "path": "portraits/heroes/human-male",
+     "label": "Человек, мужчина"
+    },
+    {
+     "path": "portraits/heroes/human-female",
+     "label": "Человек, женщина"
+    },
+    {
+     "path": "portraits/heroes/dragonborn-male",
+     "label": "Драконорождённый, мужчина"
+    },
+    {
+     "path": "portraits/heroes/dragonborn-female",
+     "label": "Драконорождённый, женщина"
+    },
+    {
+     "path": "portraits/heroes/gnome-male",
+     "label": "Гном, мужчина"
+    },
+    {
+     "path": "portraits/heroes/gnome-female",
+     "label": "Гном, женщина"
+    },
+    {
+     "path": "portraits/heroes/half-elf-male",
+     "label": "Полуэльф, мужчина"
+    },
+    {
+     "path": "portraits/heroes/half-elf-female",
+     "label": "Полуэльф, женщина"
+    },
+    {
+     "path": "portraits/heroes/half-orc-male",
+     "label": "Полуорк, мужчина"
+    },
+    {
+     "path": "portraits/heroes/half-orc-female",
+     "label": "Полуорк, женщина"
+    },
+    {
+     "path": "portraits/heroes/tiefling-male",
+     "label": "Тифлинг, мужчина"
+    },
+    {
+     "path": "portraits/heroes/tiefling-female",
+     "label": "Тифлинг, женщина"
+    }
+   ]
+  },
+  {
+   "id": "portraits/npc",
+   "label": "Портреты · Горожане",
+   "section": "Портреты",
+   "items": [
+    {
+     "path": "portraits/npc/townsperson-male",
+     "label": "Горожанин"
+    },
+    {
+     "path": "portraits/npc/townsperson-female",
+     "label": "Горожанка"
+    },
+    {
+     "path": "portraits/npc/guard-male",
+     "label": "Стражник"
+    },
+    {
+     "path": "portraits/npc/guard-female",
+     "label": "Стражница"
+    },
+    {
+     "path": "portraits/npc/merchant-male",
+     "label": "Торговец"
+    },
+    {
+     "path": "portraits/npc/merchant-female",
+     "label": "Торговка"
+    }
+   ]
+  },
+  {
+   "id": "portraits/bestiary",
+   "label": "Портреты · Бестиарий",
+   "section": "Портреты",
+   "items": [
+    {
+     "path": "portraits/bestiary/commoner",
+     "label": "Простолюдин",
+     "names": [
+      "Простолюдин",
+      "commoner"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/bandit",
+     "label": "Бандит",
+     "names": [
+      "Бандит",
+      "bandit"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/cultist",
+     "label": "Культист",
+     "names": [
+      "Культист",
+      "cultist"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/guard",
+     "label": "Стражник",
+     "names": [
+      "Стражник",
+      "guard"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/kobold",
+     "label": "Кобольд",
+     "names": [
+      "Кобольд",
+      "kobold"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/giant-rat",
+     "label": "Гигантская крыса",
+     "names": [
+      "Гигантская крыса",
+      "giant rat"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/stirge",
+     "label": "Стирж",
+     "names": [
+      "Стирж",
+      "stirge"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/mastiff",
+     "label": "Мастиф",
+     "names": [
+      "Мастиф",
+      "mastiff"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/goblin",
+     "label": "Гоблин",
+     "names": [
+      "Гоблин",
+      "goblin"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/skeleton",
+     "label": "Скелет",
+     "names": [
+      "Скелет",
+      "skeleton"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/zombie",
+     "label": "Зомби",
+     "names": [
+      "Зомби",
+      "zombie"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/wolf",
+     "label": "Волк",
+     "names": [
+      "Волк",
+      "wolf"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/acolyte",
+     "label": "Послушник",
+     "names": [
+      "Послушник",
+      "acolyte"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/boar",
+     "label": "Кабан",
+     "names": [
+      "Кабан",
+      "boar"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/panther",
+     "label": "Пантера",
+     "names": [
+      "Пантера",
+      "panther"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/orc",
+     "label": "Орк",
+     "names": [
+      "Орк",
+      "orc"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/hobgoblin",
+     "label": "Хобгоблин",
+     "names": [
+      "Хобгоблин",
+      "hobgoblin"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/gnoll",
+     "label": "Гнолл",
+     "names": [
+      "Гнолл",
+      "gnoll"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/thug",
+     "label": "Головорез",
+     "names": [
+      "Головорез",
+      "thug"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/worg",
+     "label": "Ворг",
+     "names": [
+      "Ворг",
+      "worg"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/scout",
+     "label": "Разведчик",
+     "names": [
+      "Разведчик",
+      "scout"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/lizardfolk",
+     "label": "Людоящер",
+     "names": [
+      "Людоящер",
+      "lizardfolk"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/crocodile",
+     "label": "Крокодил",
+     "names": [
+      "Крокодил",
+      "crocodile"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/bugbear",
+     "label": "Багбир",
+     "names": [
+      "Багбир",
+      "bugbear"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/ghoul",
+     "label": "Упырь",
+     "names": [
+      "Упырь",
+      "ghoul"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/dire-wolf",
+     "label": "Лютоволк",
+     "names": [
+      "Лютоволк",
+      "dire wolf"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/giant-spider",
+     "label": "Гигантский паук",
+     "names": [
+      "Гигантский паук",
+      "giant spider"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/brown-bear",
+     "label": "Бурый медведь",
+     "names": [
+      "Бурый медведь",
+      "brown bear"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/animated-armor",
+     "label": "Оживлённые доспехи",
+     "names": [
+      "Оживлённые доспехи",
+      "animated armor"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/goblin-boss",
+     "label": "Гоблин-вожак",
+     "names": [
+      "Гоблин-вожак",
+      "goblin boss"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/spy",
+     "label": "Шпион",
+     "names": [
+      "Шпион",
+      "spy"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/ogre",
+     "label": "Огр",
+     "names": [
+      "Огр",
+      "ogre"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/bandit-captain",
+     "label": "Капитан бандитов",
+     "names": [
+      "Капитан бандитов",
+      "bandit captain"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/cult-fanatic",
+     "label": "Фанатик культа",
+     "names": [
+      "Фанатик культа",
+      "cult fanatic"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/gelatinous-cube",
+     "label": "Желатиновый куб",
+     "names": [
+      "Желатиновый куб",
+      "gelatinous cube"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/ghast",
+     "label": "Вурдалак",
+     "names": [
+      "Вурдалак",
+      "ghast"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/mimic",
+     "label": "Мимик",
+     "names": [
+      "Мимик",
+      "mimic"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/berserker",
+     "label": "Берсерк",
+     "names": [
+      "Берсерк",
+      "berserker"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/owlbear",
+     "label": "Совомедведь",
+     "names": [
+      "Совомедведь",
+      "owlbear"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/minotaur",
+     "label": "Минотавр",
+     "names": [
+      "Минотавр",
+      "minotaur"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/veteran",
+     "label": "Ветеран",
+     "names": [
+      "Ветеран",
+      "veteran"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/knight",
+     "label": "Рыцарь",
+     "names": [
+      "Рыцарь",
+      "knight"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/giant-scorpion",
+     "label": "Гигантский скорпион",
+     "names": [
+      "Гигантский скорпион",
+      "giant scorpion"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/manticore",
+     "label": "Мантикора",
+     "names": [
+      "Мантикора",
+      "manticore"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/red-dragon-wyrmling",
+     "label": "Вирмлинг красного дракона",
+     "names": [
+      "Вирмлинг красного дракона",
+      "red dragon wyrmling"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/ettin",
+     "label": "Эттин",
+     "names": [
+      "Эттин",
+      "ettin"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/troll",
+     "label": "Тролль",
+     "names": [
+      "Тролль",
+      "troll"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/hill-giant",
+     "label": "Холмовой великан",
+     "names": [
+      "Холмовой великан",
+      "hill giant"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/gladiator",
+     "label": "Гладиатор",
+     "names": [
+      "Гладиатор",
+      "gladiator"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/mage",
+     "label": "Маг",
+     "names": [
+      "Маг",
+      "mage"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/wyvern",
+     "label": "Виверна",
+     "names": [
+      "Виверна",
+      "wyvern"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/young-green-dragon",
+     "label": "Молодой зелёный дракон",
+     "names": [
+      "Молодой зелёный дракон",
+      "young green dragon"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/young-red-dragon",
+     "label": "Молодой красный дракон",
+     "names": [
+      "Молодой красный дракон",
+      "young red dragon"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/bat",
+     "label": "Летучая мышь",
+     "names": [
+      "Летучая мышь",
+      "bat"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/cat",
+     "label": "Кошка",
+     "names": [
+      "Кошка",
+      "cat"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/crab",
+     "label": "Краб",
+     "names": [
+      "Краб",
+      "crab"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/frog",
+     "label": "Лягушка",
+     "names": [
+      "Лягушка",
+      "frog"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/lizard",
+     "label": "Ящерица",
+     "names": [
+      "Ящерица",
+      "lizard"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/hawk",
+     "label": "Ястреб",
+     "names": [
+      "Ястреб",
+      "hawk"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/octopus",
+     "label": "Осьминог",
+     "names": [
+      "Осьминог",
+      "octopus"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/poisonous-snake",
+     "label": "Ядовитая змея",
+     "names": [
+      "Ядовитая змея",
+      "poisonous snake"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/owl",
+     "label": "Сова",
+     "names": [
+      "Сова",
+      "owl"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/rat",
+     "label": "Крыса",
+     "names": [
+      "Крыса",
+      "rat"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/quipper",
+     "label": "Квиппер",
+     "names": [
+      "Квиппер",
+      "quipper"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/raven",
+     "label": "Ворон",
+     "names": [
+      "Ворон",
+      "raven"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/weasel",
+     "label": "Ласка",
+     "names": [
+      "Ласка",
+      "weasel"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/sea-horse",
+     "label": "Морской конёк",
+     "names": [
+      "Морской конёк",
+      "sea horse"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/pony",
+     "label": "Пони",
+     "names": [
+      "Пони",
+      "pony"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/spider",
+     "label": "Паук",
+     "names": [
+      "Паук",
+      "spider"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/warhorse",
+     "label": "Боевой конь",
+     "names": [
+      "Боевой конь",
+      "warhorse"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/camel",
+     "label": "Верблюд",
+     "names": [
+      "Верблюд",
+      "camel"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/elk",
+     "label": "Лось",
+     "names": [
+      "Лось",
+      "elk"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/giant-eagle",
+     "label": "Гигантский орёл",
+     "names": [
+      "Гигантский орёл",
+      "giant eagle"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/black-bear",
+     "label": "Чёрный медведь",
+     "names": [
+      "Чёрный медведь",
+      "black bear"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/giant-elk",
+     "label": "Гигантский лось",
+     "names": [
+      "Гигантский лось",
+      "giant elk"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/ape",
+     "label": "Обезьяна",
+     "names": [
+      "Обезьяна",
+      "ape"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/polar-bear",
+     "label": "Белый медведь",
+     "names": [
+      "Белый медведь",
+      "polar bear"
+     ]
+    },
+    {
+     "path": "portraits/bestiary/saber-toothed-tiger",
+     "label": "Саблезубый тигр",
+     "names": [
+      "Саблезубый тигр",
+      "saber-toothed tiger"
+     ]
+    }
+   ]
+  }
+ ]
+}

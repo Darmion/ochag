@@ -1,0 +1,39 @@
+@import './styles/fantasy.css';
+@import './styles/game.css';
+@import './styles/skins.css';
+
+.inline-icon {
+  display: inline-block;
+  flex: none;
+  vertical-align: -.15em;
+}
+
+.ui-icon {
+  display: inline-block;
+  flex: none;
+  vertical-align: -.18em;
+}
+
+.sr-only {
+  position: absolute !important;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+:root[data-text-custom] { font-family: var(--ui-body-font); }
+
+:where(:root[data-cursor]) { cursor: var(--ui-cursor-default, auto); }
+:where(:root[data-cursor]) :where(a[href], select, summary, input[type="checkbox"], input[type="radio"], input[type="color"], input[type="file"], label:has(> input[type="checkbox"], > input[type="radio"])) { cursor: var(--ui-cursor-pointer, pointer); }
+:where(:root[data-cursor]) :where(input:not([type]), input[type="text"], input[type="search"], input[type="number"], input[type="password"], input[type="email"], input[type="url"], input[type="tel"], textarea, [contenteditable]:not([contenteditable="false"])) { cursor: text; }
+:where(:root[data-cursor]) :where(:disabled) { cursor: not-allowed; }
+
+/* UI scale is CSS zoom, and vh limits inside it are multiplied again — divide them by --ui-zoom. */
+:root[data-ui] .modal-card { max-height: calc(90vh / var(--ui-zoom, 1)); }
+:root[data-ui] .handout-card { max-height: calc(92vh / var(--ui-zoom, 1)); }
+:root[data-ui] .dialogue { max-height: min(calc(62vh / var(--ui-zoom, 1)), 560px); }

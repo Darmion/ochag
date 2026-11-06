@@ -1,0 +1,11 @@
+export type StringEntry = { files: string[]; first: { file: string; at: number }; plural: boolean };
+export const SHARED_GROUP: string;
+export const GONE_GROUP: string;
+export const ENGLISH_META: { code: string; name: string; base: string | null };
+export const ABOUT: string[];
+export function collectStrings(root?: string): Map<string, StringEntry>;
+export function isPluralForms(key: string, value: unknown): boolean;
+export function isTranslated(value: unknown): boolean;
+export function flattenLocaleFile(file: unknown): Map<string, unknown>;
+export function mergeEnglishFile(previous: unknown, strings: Map<string, StringEntry>): Record<string, any>;
+export function englishStats(file: unknown): { total: number; done: number };

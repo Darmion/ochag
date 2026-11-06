@@ -1,0 +1,37 @@
+.target-select{margin:0 0 4px;font-size:13px}
+.cast-buttons{display:flex;gap:6px}
+.spell-mech{margin-left:auto;font-size:11px;text-align:right}
+.target-select select{min-height:32px;padding:2px 8px;width:100%;max-width:100%;min-width:0}
+.feature-icon{display:inline-grid;place-items:center;width:20px;font-size:15px;color:var(--g-gold-hi)}
+.feature-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.feature-row > span{flex:1 1 100%;font-size:13px}
+.action-popover .feature-row button{flex:1 1 0;justify-content:center;min-width:0}
+.action-popover h4{margin:0 0 4px;font-size:17px}
+.action-popover button{justify-content:flex-start;display:flex;flex-wrap:wrap;align-items:center;gap:2px 8px;min-height:34px;padding:4px 10px;font-size:13px;text-align:left}
+.action-popover small{margin:0}
+.link-button{background:none;box-shadow:none;border:none;color:var(--g-gold,#c9a24a);text-decoration:underline;min-height:0;padding:2px 4px}
+.command-body>*{flex-shrink:0}
+.action-popover .command-body h4{font:16px/1.4 var(--g-title-font,Georgia);color:var(--g-gold,var(--ink));margin:5px 0;padding-bottom:6px;border-bottom:1px solid var(--brass-light)}
+.action-popover .command-body small,.action-popover .command-body .muted{color:var(--muted-ink);font:12px/1.45 var(--g-body-font,Georgia)}
+.action-popover .command-body label{margin:0;gap:6px;font:13px/1.5 var(--g-body-font,Georgia);color:var(--ink);min-width:0}
+.action-popover .command-body .checkbox-label{padding:8px;gap:8px;background:var(--surface-inset);border-radius:4px;align-items:center}
+.action-popover .command-body input[type=checkbox]{width:16px;height:16px;flex:none;accent-color:var(--brass);margin:0}
+.action-popover .command-body select,.action-popover .command-body input:not([type=checkbox]):not([type=radio]){box-sizing:border-box;min-width:0;max-width:100%;min-height:34px;border:1px solid var(--brass-light);border-radius:4px;padding:6px 8px;background:var(--input-bg);color:var(--ink);font:13px/1.4 var(--g-body-font,Georgia)}
+.action-popover .command-body select option{background:var(--input-bg);color:var(--ink)}
+.action-popover .command-body>button,.action-popover .command-body .feature-row>button,.action-popover .popover-grid>button{position:relative;min-height:44px;padding:10px 12px;border:1px solid var(--brass);border-radius:4px;background:var(--g-plate,var(--surface-inset));color:var(--ink);box-shadow:inset 0 0 0 2px color-mix(in srgb,var(--brass) 12%,transparent);font:600 14px/1.4 var(--g-title-font,Georgia);gap:6px 10px}
+.action-popover .command-body button:hover:not(:disabled){border-color:var(--g-gold-hi,var(--brass));background:linear-gradient(90deg,color-mix(in srgb,var(--brass) 25%,transparent),transparent),var(--surface-inset);color:var(--ink)}
+.action-popover button:focus-visible,.action-popover input:focus-visible,.action-popover select:focus-visible{outline:2px solid var(--brass);outline-offset:2px}
+.action-popover .command-body button:disabled{opacity:.55}
+.action-popover .command-body button.out-of-range{border-style:dashed}
+.action-popover .command-body>button>svg{color:var(--g-gold,var(--brass));flex:none}
+.action-popover .command-body .feature-row{padding:12px;border:1px solid var(--brass-light);border-radius:5px;background:var(--surface-inset);gap:9px}
+.action-popover .command-body .feature-row>span{color:var(--ink);font:600 13px/1.5 var(--g-body-font,Georgia)}
+.map-instruction{margin:0;color:var(--muted-ink);font:13px/1.5 var(--g-body-font,Georgia)}
+.sense-select{margin-left:8px;min-height:24px;min-width:8em;padding:0 4px;font-size:12px;font-weight:400;vertical-align:middle}
+.choice-chips{display:flex;flex-wrap:wrap;align-items:center;gap:4px;flex:1 1 100%}
+.choice-chip{display:inline-flex;align-items:center;gap:2px;padding:1px 2px 1px 8px;border:1px solid var(--g-gold-lo);border-radius:10px;font-size:12px;line-height:1.4}
+.action-popover .feature-row .chip-remove{flex:0 0 auto;min-width:0;min-height:0;width:18px;height:18px;padding:0;border:0;background:none;line-height:1;font-size:14px}
+.chip-add{margin-left:0;min-width:7em}
+.action-popover .command-body .sense-select{margin-left:0;flex:1 1 140px;width:auto}
+.popover-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+.hands-amount{width:5.5em;min-height:24px;padding:0 4px;font-size:12px}

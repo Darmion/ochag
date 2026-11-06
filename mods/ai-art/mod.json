@@ -1,0 +1,84 @@
+{
+  "id": "ai-art",
+  "name": "Картинки, нарисованные ИИ",
+  "version": "1.0.0",
+  "kind": "art",
+  "author": "Очаг (OpenAI ImageGen, октябрь 2026)",
+  "description": "Портреты героев, горожан и существ бестиария, гербы классов, знаки рас, часть предметов, обстановка и ловушки, нарисованные нейросетью. Каждый раздел включается отдельно.",
+  "library": "library.json",
+  "sections": [
+    {
+      "id": "bestiary",
+      "name": "Портреты бестиария",
+      "paths": [
+        "portraits/bestiary/"
+      ]
+    },
+    {
+      "id": "heroes",
+      "name": "Портреты героев",
+      "paths": [
+        "portraits/heroes/"
+      ]
+    },
+    {
+      "id": "townsfolk",
+      "name": "Портреты горожан",
+      "paths": [
+        "portraits/npc/"
+      ]
+    },
+    {
+      "id": "classes",
+      "name": "Гербы классов",
+      "paths": [
+        "ui/classes/"
+      ]
+    },
+    {
+      "id": "races",
+      "name": "Знаки рас",
+      "paths": [
+        "ui/races/"
+      ]
+    },
+    {
+      "id": "items",
+      "name": "Предметы",
+      "paths": [
+        "items/"
+      ]
+    },
+    {
+      "id": "scene",
+      "name": "Обстановка и ловушки",
+      "paths": [
+        "scene/"
+      ]
+    },
+    {
+      "id": "symbols",
+      "name": "Значки",
+      "paths": [
+        "ui/symbols/"
+      ]
+    }
+  ],
+  "translations": {
+    "en": {
+      "name": "AI-drawn pictures",
+      "author": "Ochag (OpenAI ImageGen, October 2026)",
+      "description": "Portraits of heroes, townsfolk and bestiary creatures, class crests, race signs, some items, furnishings and traps, drawn by a neural network. Each section is turned on separately.",
+      "sections": {
+        "bestiary": "Bestiary portraits",
+        "heroes": "Hero portraits",
+        "townsfolk": "Townsfolk portraits",
+        "classes": "Class crests",
+        "races": "Race signs",
+        "items": "Items",
+        "scene": "Furnishings and traps",
+        "symbols": "Icons"
+      }
+    }
+  }
+}
