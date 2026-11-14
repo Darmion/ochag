@@ -95,6 +95,7 @@ declare global {
       };
 
       campaign: {
+        saveSpellFile(input: { name: string; text: string }): Promise<{ canceled: true } | { ok: true; filePath: string }>;
         exportToFile(input: { campaignId: string; campaignName: string; token: string }): Promise<
           | { canceled: true }
           | { ok: true; filePath: string; sizeBytes: number }
@@ -108,6 +109,16 @@ declare global {
         importObject(input: { campaignId: string; token: string }): Promise<
           | { canceled: true }
           | { ok: true; fileName: string; characterId: string; name: string; kind: string }
+          | { ok: false; message: string; hints?: string[] }
+        >;
+        exportScene(input: { campaignId: string; sceneId: string; name: string; creatures: boolean; token: string }): Promise<
+          | { canceled: true }
+          | { ok: true; filePath: string; sizeBytes: number }
+          | { ok: false; message: string; hints?: string[] }
+        >;
+        importScene(input: { campaignId: string; token: string }): Promise<
+          | { canceled: true }
+          | { ok: true; fileName: string; sceneId: string; name: string; skipped: number }
           | { ok: false; message: string; hints?: string[] }
         >;
         importFromFile(input: { token: string }): Promise<

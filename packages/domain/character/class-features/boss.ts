@@ -1,8 +1,10 @@
+import { eventProblems, type TurnEvent } from '../../combat/initiative-events.ts';
+
 export type LegendaryOption = { name: string; cost: number; text: string };
 
 export type BossPhase = { atPercent: number; title: string; text: string; public: boolean; done: boolean };
 
-export type BossSettings = { legendaryActions: number; options: LegendaryOption[]; phases: BossPhase[]; legendaryResistances?: number };
+export type BossSettings = { legendaryActions: number; options: LegendaryOption[]; phases: BossPhase[]; legendaryResistances?: number; lair?: TurnEvent };
 
 export function bossProblems(settings: BossSettings): string[] {
   const problems: string[] = [];
@@ -32,6 +34,7 @@ export function bossProblems(settings: BossSettings): string[] {
     }
     seen.add(phase.atPercent);
   });
+  if (settings.lair) problems.push(...eventProblems(settings.lair).map(problem => `Логово: ${problem}`));
   return problems;
 }
 

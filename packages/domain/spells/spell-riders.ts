@@ -18,7 +18,7 @@ export type SpellRider =
   | { kind: 'aid'; bonus: number }
   | { kind: 'mage_armor'; base: number }
   | { kind: 'dispel'; upTo: number }
-  | { kind: 'restore'; conditions: string[] }
+  | { kind: 'restore'; conditions: string[]; kinds?: string[] }
   | { kind: 'protected_from_evil' }
   | { kind: 'flying'; feet: number }
   | { kind: 'light'; bright: number; dim: number; replaces: boolean }
@@ -64,7 +64,7 @@ export function spellRiders(desc: string | null | undefined): SpellRider[] {
   const dispel = /Any spell of (\d)(?:st|nd|rd|th) level or lower on the target ends/i.exec(source);
   if (dispel) riders.push({ kind: 'dispel', upTo: Number(dispel[1]) });
   const restore = /end either one disease or one condition afflicting it\. The condition can be ([a-z, ]+?)\./i.exec(source);
-  if (restore) riders.push({ kind: 'restore', conditions: restore[1]!.split(/,\s*(?:or\s+)?|\s+or\s+/).map(word => word.trim().toLowerCase()).filter(Boolean) });
+  if (restore) riders.push({ kind: 'restore', conditions: restore[1]!.split(/,\s*(?:or\s+)?|\s+or\s+/).map(word => word.trim().toLowerCase()).filter(Boolean), kinds: ['disease'] });
   if (/protected against certain types of creatures: aberrations, celestials, elementals, fey, fiends, and undead/i.test(source)) riders.push({ kind: 'protected_from_evil' });
   const flight = /gains a flying speed of (\d+) feet/i.exec(source);
   if (flight) riders.push({ kind: 'flying', feet: Number(flight[1]) });

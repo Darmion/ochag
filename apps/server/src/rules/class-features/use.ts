@@ -1,8 +1,8 @@
-import { loadEffects } from '../conditions.ts';
+import { loadConditionState } from '../conditions.ts';
 import { objectSchema, uuid, reject } from '../../tabletop/scene-feature.ts';
 import { type ClassFeature } from '../../../../../packages/domain/character/class-features.ts';
 
-import { conditionState, incapacitatedReason } from '../../../../../packages/domain/combat/conditions.ts';
+import { incapacitatedReason } from '../../../../../packages/domain/combat/conditions.ts';
 
 import { type ClassFeatureContext, type HpResult } from '../class-features.ts';
 import { loadActor, openHand, requireFeature } from './helpers.ts';
@@ -57,7 +57,7 @@ export function registerFeatureUseRoutes(ctx: ClassFeatureContext) {
         const enforce = !(await canManage(q, member, userId));
         requireFeature(row, classes, feature === 'end-rage' ? 'rage' : feature === 'end-wild-shape' ? 'wild-shape' : feature === 'frenzy-attack' ? 'frenzy'
           : feature === 'volley' || feature === 'whirlwind' ? 'hunter-multiattack' : feature as ClassFeature['id']);
-        const state = conditionState((await loadEffects(q, campaignId, characterId)).map(effect => effect.effect_code));
+        const state = (await loadConditionState(q, campaignId, characterId));
         if (feature !== 'end-rage') {
           const unable = incapacitatedReason(state);
           if (unable) reject(400, `${row.name} не может действовать: ${unable}.`);

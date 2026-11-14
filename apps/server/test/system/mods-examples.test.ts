@@ -10,8 +10,8 @@ const examples = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../
 
 test('examples/mods: «Второе дыхание с Телосложением» loads and works', async t => {
   const mods = await loadMods(examples);
-  assert.deepEqual(mods.list.map(mod => [mod.id, mod.status]), [['stronger-second-wind', 'loaded']], 'the visual example is not loaded by the server');
-  assert.equal(mods.list[0]!.translations.en?.name, 'Second Wind with Constitution');
+  assert.deepEqual(mods.list.map(mod => [mod.id, mod.status]), [['ash-folk', 'loaded'], ['stronger-second-wind', 'loaded']], 'the visual example is not loaded by the server');
+  assert.equal(mods.list.find(mod => mod.id === 'stronger-second-wind')!.translations.en?.name, 'Second Wind with Constitution');
   const {pg, db} = await createTestDatabase();
   t.after(() => pg.close());
   const app = await buildApp(db, {rateMax: 1_000_000, mods});
@@ -36,5 +36,5 @@ test('examples/mods: «Второе дыхание с Телосложением
   assert.deepEqual([cry?.name, cry?.detail, cry?.available], ['Боевой клич', 'бонусным действием', true]);
   const used = await request('POST', `${base}/characters/${hero.id}/features/battle-cry`, gm.token, {});
   assert.equal(used.statusCode, 200, used.body);
-  assert.equal(used.json().message, 'Бранд: «За мной!»');
+  assert.equal(used.json().message, 'Бранд: «За мной!» — союзники рядом воодушевлены.');
 });

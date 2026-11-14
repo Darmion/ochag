@@ -50,7 +50,7 @@ test('spell targets as the spell text says', async t => {
   await t.test('Hold Person: only a humanoid', async () => {
     const onWolf = await cast(hold, wolf.id);
     assert.equal(onWolf.statusCode, 400);
-    assert.match(onWolf.json().message, /только на гуманоида, а это зверь: «Волк»/);
+    assert.match(onWolf.json().message, /только на: гуманоид; «Волк» — зверь/);
     assert.equal((await cast(hold, skeleton.id)).statusCode, 400, 'undead is not a humanoid');
     assert.equal((await cast(hold, goblin.id)).statusCode, 201, 'a goblin from the bestiary is a humanoid');
   });
@@ -58,7 +58,7 @@ test('spell targets as the spell text says', async t => {
   await t.test('Cure Wounds: not on the undead', async () => {
     const onSkeleton = await cast(cure, skeleton.id);
     assert.equal(onSkeleton.statusCode, 400);
-    assert.match(onSkeleton.json().message, /не действует на нежить и конструкт/);
+    assert.match(onSkeleton.json().message, /не действует на: нежить — «Скелет»/);
     assert.equal((await cast(cure, friend.id)).statusCode, 201);
   });
 

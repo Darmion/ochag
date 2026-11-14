@@ -1,9 +1,11 @@
 import type { Queryable } from '../../db.ts';
 import { insertChatMessage } from '../../campaign/chat-routes.ts';
-import { loadEffects } from '../conditions.ts';
+import { loadConditionState } from '../conditions.ts';
 import { reject, objectSchema, uuid } from '../../tabletop/scene-feature.ts';
 import { type LegendaryOption, type BossPhase, BOSS_TEMPLATE, type BossSettings, bossProblems } from '../../../../../packages/domain/character/class-features.ts';
-import { incapacitatedReason, conditionState } from '../../../../../packages/domain/combat/conditions.ts';
+import { incapacitatedReason } from '../../../../../packages/domain/combat/conditions.ts';
+import { LAIR_RULES_5E, eventOf, type TurnEvent } from '../../../../../packages/domain/combat/initiative-events.ts';
+import { syncTurnEventsEverywhere } from '../../tabletop/combat/initiative-events.ts';
 
 import { type ClassFeatureContext, syncLegendaryResistance } from '../class-features.ts';
 import { characterParams } from './helpers.ts';
@@ -11,6 +13,13 @@ import { characterParams } from './helpers.ts';
 export const optionSchema = {
   type: 'object', additionalProperties: false, required: ['name', 'cost'],
   properties: { name: { type: 'string', maxLength: 80 }, cost: { type: 'integer', minimum: 1, maximum: 3 }, text: { type: 'string', maxLength: 500 } },
+};
+const lairSchema = {
+  type: 'object', additionalProperties: false, required: ['active', 'options'],
+  properties: {
+    active: { type: 'boolean' }, score: { type: 'integer', minimum: -10, maximum: 50 }, noRepeat: { type: 'boolean' },
+    options: { type: 'array', maxItems: 10, items: { type: 'object', additionalProperties: false, required: ['name'], properties: { name: { type: 'string', maxLength: 80 }, text: { type: 'string', maxLength: 600 } } } },
+  },
 };
 export const phaseSchema = {
   type: 'object', additionalProperties: false, required: ['atPercent', 'title'],
@@ -25,7 +34,7 @@ export async function bossOwner(ctx: ClassFeatureContext, q: Queryable, campaign
   const member = await membership(q, campaignId, userId, lock);
   if (!(await isCharacterManager(q, member, userId)) && !(await canManage(q, member, userId))) reject(403, 'Боссов настраивает мастер.');
   const row = (
-    await q.query(`SELECT id, name, kind, legendary_actions, legendary_options, boss_phases, legendary_resistances FROM characters WHERE campaign_id=$1 AND id=$2${lock ? ' FOR UPDATE' : ''}`, [campaignId, characterId])
+    await q.query(`SELECT id, name, kind, legendary_actions, legendary_options, boss_phases, legendary_resistances, turn_events FROM characters WHERE campaign_id=$1 AND id=$2${lock ? ' FOR UPDATE' : ''}`, [campaignId, characterId])
   ).rows[0] as any;
   if (!row) reject(404, 'Существо не найдено.');
   return row;
@@ -36,6 +45,7 @@ export const bossView = (row: any) => ({
   options: (row.legendary_options ?? []) as LegendaryOption[],
   phases: (row.boss_phases ?? []) as BossPhase[],
   legendaryResistances: Number(row.legendary_resistances ?? 0),
+  lair: eventOf(row.turn_events, 'lair') ?? { kind: 'lair', active: false, rules: LAIR_RULES_5E, options: [] },
   template: BOSS_TEMPLATE,
 });
 
@@ -64,6 +74,7 @@ export function registerBossRoutes(ctx: ClassFeatureContext) {
             legendaryResistances: { type: 'integer', minimum: 0, maximum: 5 },
             options: { type: 'array', maxItems: 10, items: optionSchema },
             phases: { type: 'array', maxItems: 5, items: phaseSchema },
+            lair: lairSchema,
           },
         },
       },
@@ -71,6 +82,12 @@ export function registerBossRoutes(ctx: ClassFeatureContext) {
     async request => {
       const userId = await auth(request);
       const { campaignId, characterId } = request.params;
+      const lairBody = request.body.lair as unknown as { active: boolean; score?: number; noRepeat?: boolean; options: Array<{ name: string; text?: string }> } | undefined;
+      const lair: TurnEvent | undefined = lairBody ? {
+        kind: 'lair', active: lairBody.active,
+        rules: { ...LAIR_RULES_5E, ...(lairBody.score !== undefined ? { score: lairBody.score } : {}), ...(lairBody.noRepeat !== undefined ? { noRepeat: lairBody.noRepeat } : {}) },
+        options: lairBody.options.map(option => ({ name: option.name.trim(), text: (option.text ?? '').trim() })),
+      } : undefined;
       const settings: BossSettings = {
         legendaryActions: request.body.legendaryActions,
         ...(request.body.legendaryResistances !== undefined ? { legendaryResistances: request.body.legendaryResistances } : {}),
@@ -78,6 +95,7 @@ export function registerBossRoutes(ctx: ClassFeatureContext) {
         phases: request.body.phases
           .map(phase => ({ atPercent: phase.atPercent, title: phase.title.trim(), text: (phase.text ?? '').trim(), public: phase.public !== false, done: phase.done === true }))
           .sort((a, b) => b.atPercent - a.atPercent),
+        ...(lair ? { lair } : {}),
       };
       const problems = bossProblems(settings);
       if (problems.length) reject(400, problems.join(' '));
@@ -89,12 +107,14 @@ export function registerBossRoutes(ctx: ClassFeatureContext) {
           await q.query(
             `UPDATE characters SET legendary_actions=$3, legendary_options=$4::jsonb, boss_phases=$5::jsonb,
                legendary_resistances=COALESCE($6::smallint, legendary_resistances), revision=revision+1
-             WHERE campaign_id=$1 AND id=$2 RETURNING id, name, kind, legendary_actions, legendary_options, boss_phases, legendary_resistances`,
-            [campaignId, characterId, settings.legendaryActions, JSON.stringify(settings.options), JSON.stringify(settings.phases), settings.legendaryResistances ?? null],
+               , turn_events = CASE WHEN $7::jsonb IS NULL THEN turn_events
+                   ELSE (SELECT COALESCE(jsonb_agg(e), '[]'::jsonb) FROM jsonb_array_elements(turn_events) e WHERE e->>'kind' <> 'lair') || jsonb_build_array($7::jsonb) END
+             WHERE campaign_id=$1 AND id=$2 RETURNING id, name, kind, legendary_actions, legendary_options, boss_phases, legendary_resistances, turn_events`,
+            [campaignId, characterId, settings.legendaryActions, JSON.stringify(settings.options), JSON.stringify(settings.phases), settings.legendaryResistances ?? null, settings.lair ? JSON.stringify(settings.lair) : null],
           )
         ).rows[0];
         await syncLegendaryResistance(q, campaignId, characterId, Number(updated.legendary_resistances ?? 0));
-        const scenes = (await q.query('SELECT DISTINCT scene_id FROM initiative_entries WHERE campaign_id=$1 AND character_id=$2', [campaignId, characterId])).rows.map(entry => entry.scene_id as string);
+        const scenes = await syncTurnEventsEverywhere(q, campaignId, characterId);
         return { row: updated, scenes };
       });
       for (const sceneId of scenes) void notifyCampaign(campaignId, { type: 'initiative', sceneId });
@@ -132,7 +152,7 @@ export function registerBossRoutes(ctx: ClassFeatureContext) {
         const max = Number(row.legendary_actions ?? 0);
         if (max <= 0) reject(400, `У «${row.name}» нет легендарных действий.`);
         if (row.is_current) reject(400, 'Легендарное действие — в конце хода другого существа, не в свой ход.');
-        const unable = incapacitatedReason(conditionState((await loadEffects(q, campaignId, row.character_id)).map(effect => effect.effect_code)));
+        const unable = incapacitatedReason((await loadConditionState(q, campaignId, row.character_id)));
         if (unable) reject(400, `${row.name} не может действовать: ${unable}.`);
         const option = ((row.legendary_options ?? []) as LegendaryOption[])[request.body.option];
         if (!option) reject(400, 'Такого легендарного действия нет.');

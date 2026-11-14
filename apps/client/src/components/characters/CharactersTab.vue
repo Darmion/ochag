@@ -8,6 +8,7 @@ import { KIND_GROUP_LABELS, OBJECT_KINDS, SIZE_LABELS, kindBadge, type CampaignO
 import CreateObjectModal from '../objects/CreateObjectModal.vue';
 import CharacterWizard from './CharacterWizard.vue';
 import BestiaryModal from '../rules/BestiaryModal.vue';
+import GameIcon from '../game/GameIcon.vue';
 import { cropStyle } from '../../art/imageCrop';
 import { artImageUrl, isArtImageId, objectImageId } from '../../art/portraitArt';
 import type { SheetImporterInfo } from '../../characterImport/types';
@@ -23,7 +24,7 @@ const props = defineProps<{
   importers?: SheetImporterInfo[];
 }>();
 
-const emit = defineEmits<{ 'open-character-sheet': [characterId: string]; 'import-file': [importerId: string, file: File] }>();
+const emit = defineEmits<{ 'open-character-sheet': [characterId: string]; 'open-level-up': [characterId: string]; 'import-file': [importerId: string, file: File] }>();
 
 const sheetInput = ref<HTMLInputElement | null>(null);
 const sheetImporter = ref<SheetImporterInfo | null>(null);
@@ -273,6 +274,7 @@ async function onWizardCreated(character: { id: string; name: string }) {
               </span>
             </span>
             <span class="roster-actions">
+              <button v-if="character.level_ready" type="button" class="primary level-ready" title="Опыта хватает на новый уровень" @click="emit('open-level-up', character.id)"><GameIcon class="inline-icon" name="levelUp" :size="16" /> Новый уровень</button>
               <button type="button" class="primary" @click="emit('open-character-sheet', character.id)">Открыть лист</button>
               <button type="button" :disabled="busy" :aria-pressed="expandedCharacterId === character.id" @click="toggleManage(character.id)">
                 {{ expandedCharacterId === character.id ? 'Скрыть доступ' : 'Доступ' }}

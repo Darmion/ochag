@@ -188,10 +188,10 @@ export function useHeroBuilder(props: {
   });
 
   const STEPS = computed<Array<{ id: StepId; label: string; icon: GameIconName }>>(() => [
-    { id: 'race', label: 'Раса', icon: 'person' },
+    { id: 'race', label: 'Раса', icon: 'race' },
     { id: 'class', label: 'Класс', icon: 'sword' },
     { id: 'abilities', label: 'Характеристики', icon: 'stats' },
-    { id: 'skills', label: 'Предыстория и навыки', icon: 'target' },
+    { id: 'skills', label: 'Предыстория и навыки', icon: 'background' },
     { id: 'kit', label: 'Снаряжение', icon: 'pouch' },
     ...(caster.value || highElf.value ? [{ id: 'spells' as const, label: 'Заклинания', icon: 'wand' as const }] : []),
     { id: 'summary', label: 'Имя и итог', icon: 'scroll' },
@@ -273,7 +273,7 @@ export function useHeroBuilder(props: {
   onBeforeUnmount(() => clearTimeout(previewTimer));
 
   function randomName() {
-    choice.name = randomHeroName(choice.race, choice.name);
+    choice.name = randomHeroName(choice.race, choice.name, Math.random, race.value?.names);
   }
 
   const portrait = ref<string | null>(null);

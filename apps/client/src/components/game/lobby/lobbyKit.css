@@ -41,6 +41,7 @@
 .lobby-block{margin-top:10px;padding:0 2px}
 .lobby-block summary{display:flex;align-items:center;gap:8px;font-size:15px}
 .lobby-block form{padding-top:10px}
+.lobby-block .adventure-button{display:flex;align-items:center;justify-content:center;gap:6px;width:100%;margin-top:8px}
 .campaign-hero{position:relative;display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px;align-items:center;min-height:126px;margin:-6px -8px 20px;padding:20px 24px;overflow:hidden;border:1px solid var(--g-gold-lo);background:radial-gradient(circle at 12% 50%,var(--g-gold-deep),transparent 38%),linear-gradient(120deg,#0008,transparent)}
 .campaign-hero::after{content:'';position:absolute;inset:0;z-index:0;pointer-events:none;background:linear-gradient(90deg,#080502e8 0%,#080502a8 48%,#08050255 100%),linear-gradient(0deg,#0008,transparent 55%)}
 .campaign-hero.variant-1{background:radial-gradient(circle at 85% 10%,var(--g-gold-deep),transparent 40%),linear-gradient(145deg,#0009,transparent)}

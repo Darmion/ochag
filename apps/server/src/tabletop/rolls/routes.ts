@@ -58,7 +58,7 @@ export function registerRollRoutes(ctx: TableContext) {
           ? `Неизвестная переменная @${parsedExpression.token}. Можно: @str @dex @con @int @wis @cha @prof.`
           : parsedExpression.reason === 'too-many-dice'
             ? 'В одной части формулы — не больше 50 костей (50d6), во всём броске — не больше 100. Разбейте бросок на несколько.'
-            : 'Некорректная формула броска. Примеры: 1d20+5, 1d8+1d6+3, 4d6kh3, d20+@str.');
+            : 'Некорректная формула броска. Примеры: 1d20+5, 1d8+1d6+3, 4d6kh3, 1d20r1, 6d10cs>=8, d20+@str.');
       }
 
       const expression = parsedExpression.expression;

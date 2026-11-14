@@ -22,24 +22,26 @@ export type ReachDeps = {
   measureLabel: (from: Position, to: Position) => string;
   currentTurnCharacterId: ComputedRef<string>;
   refresh: () => Promise<void>;
-  currentEntry: ComputedRef<InitiativeEntry | null>;
+  initiativeEntries: Ref<InitiativeEntry[]>;
   actorObject: ComputedRef<SceneObjectDTO | null>;
 };
 
-export function useReach({ props, viewOnly, sceneId, sceneDetail, objects, activeObjectId, walls, visionPreview, eyesOfSelected, feetPerUnit, table, disposed, showMoveFilter, diagonalRule, measureLabel, currentTurnCharacterId, refresh, currentEntry, actorObject }: ReachDeps) {
+export function useReach({ props, viewOnly, sceneId, sceneDetail, objects, activeObjectId, walls, visionPreview, eyesOfSelected, feetPerUnit, table, disposed, showMoveFilter, diagonalRule, measureLabel, currentTurnCharacterId, refresh, initiativeEntries, actorObject }: ReachDeps) {
   const reach = ref<ReachInfo | null>(null);
+  const entryOf = (object: SceneObjectDTO) => initiativeEntries.value.find(entry => entry.character_id === object.character_id) ?? null;
   const reachObject = computed<SceneObjectDTO | null>(() => {
-    const characterId = currentTurnCharacterId.value;
+    const actor = actorObject.value;
+    const characterId = actor && entryOf(actor)?.is_current ? actor.character_id : currentTurnCharacterId.value;
     const object = characterId ? objects.value.find(entry => entry.character_id === characterId) : undefined;
     return object && object.kind !== 'object' && object.canMove && !object.parent_object_id ? object : null;
   });
   const reachKey = computed(() => {
     const object = reachObject.value;
-    const entry = currentEntry.value;
+    const entry = object ? entryOf(object) : null;
     if (!object || !entry || !sceneId.value) return '';
     return [
       sceneId.value, object.id, object.world_x, object.world_z, entry.moved_feet ?? 0, entry.dashes ?? 0,
-      (object.conditions ?? []).join(','), JSON.stringify(sceneDetail.value?.difficult_cells ?? []), walls.value.length,
+      (object.conditions ?? []).join(','), JSON.stringify(sceneDetail.value?.difficult_cells ?? []), JSON.stringify(sceneDetail.value?.water_cells ?? []), JSON.stringify(sceneDetail.value?.elevation_cells ?? []), walls.value.length,
     ].join('|');
   });
   let reachTimer: ReturnType<typeof setTimeout> | null = null;
@@ -63,7 +65,7 @@ export function useReach({ props, viewOnly, sceneId, sceneDetail, objects, activ
   });
 
   const dragReach = new Map<string, Promise<number[][] | null>>();
-  const dragCosts = new Map<string, { isTurn: boolean; feet: Map<string, number>; trail: Map<string, [number, number]> }>();
+  const dragCosts = new Map<string, { limited: boolean; isTurn: boolean; feet: Map<string, number>; trail: Map<string, [number, number]> }>();
 
   function dragLabel(objectId: string, from: Position, to: Position): string | null {
     const costs = dragCosts.get(objectId);
@@ -73,6 +75,10 @@ export function useReach({ props, viewOnly, sceneId, sceneDetail, objects, activ
     const n = footprintCells(object.size);
     const anchor = `${Math.round(to.x + detail.width_cells / 2 - n / 2)}:${Math.round(to.z + detail.height_cells / 2 - n / 2)}`;
     const straight = gridDistanceCells(from, to, diagonalRule.value) * feetPerUnit.value;
+    if (!costs.limited) {
+      const around = costs.feet.get(anchor);
+      return around !== undefined && around > straight + 1e-6 ? `${formatFeet(around)} фт · по прямой ${formatFeet(straight)}` : null;
+    }
     if (!costs.isTurn) return `сейчас не его ход · по прямой ${formatFeet(straight)} фт`;
     const feet = costs.feet.get(anchor);
     if (feet === undefined) return from.x === to.x && from.z === to.z ? measureLabel(from, to) : `не дойти · по прямой ${formatFeet(straight)} фт`;
@@ -83,7 +89,7 @@ export function useReach({ props, viewOnly, sceneId, sceneDetail, objects, activ
     const known = dragCosts.get(objectId);
     const object = objects.value.find(entry => entry.id === objectId);
     const detail = sceneDetail.value;
-    if (!known?.isTurn || !known.trail.size || !object || !detail) return null;
+    if (!known || (known.limited && !known.isTurn) || !known.trail.size || !object || !detail) return null;
     const n = footprintCells(object.size);
     const anchorOf = (point: Position) => [Math.round(point.x + detail.width_cells / 2 - n / 2), Math.round(point.z + detail.height_cells / 2 - n / 2)] as const;
     const centerOf = (col: number, row: number) => ({ x: col + n / 2 - detail.width_cells / 2, z: row + n / 2 - detail.height_cells / 2 });
@@ -110,12 +116,13 @@ export function useReach({ props, viewOnly, sceneId, sceneDetail, objects, activ
   let dragFilterFor: string | null = null;
 
   function dragReachKey(object: SceneObjectDTO) {
-    const entry = currentEntry.value;
+    const entry = entryOf(object);
+    const turn = initiativeEntries.value.filter(other => other.is_current).map(other => other.id).join(',');
     const creatures = objects.value
       .filter(other => other.kind !== 'object' && !other.parent_object_id)
       .map(other => `${other.id}:${other.world_x}:${other.world_z}:${other.hidden ? 1 : 0}`).join(',');
     return [
-      sceneId.value, object.id, object.world_x, object.world_z, entry?.id ?? '', entry?.moved_feet ?? 0, entry?.dashes ?? 0,
+      sceneId.value, object.id, object.world_x, object.world_z, turn, entry?.moved_feet ?? 0, entry?.dashes ?? 0,
       (object.conditions ?? []).join(','), JSON.stringify(sceneDetail.value?.difficult_cells ?? []), walls.value.length, creatures,
     ].join('|');
   }
@@ -129,8 +136,9 @@ export function useReach({ props, viewOnly, sceneId, sceneDetail, objects, activ
       if (dragReach.size > 30) dragReach.clear();
       pending = (props.request(`/campaigns/${props.campaignId}/scenes/${sceneId.value}/objects/${object.id}/reach?mode=drag`) as Promise<ReachInfo>)
         .then(result => {
-          if (result.limited) {
+          if (result.limited || result.trail?.length) {
             dragCosts.set(objectId, {
+              limited: result.limited,
               isTurn: result.isTurn,
               feet: new Map((result.costs ?? []).map(([col, row, feet]) => [`${col}:${row}`, feet!])),
               trail: new Map((result.trail ?? []).map(([col, row, fromCol, fromRow]) => [`${col}:${row}`, [fromCol!, fromRow!]])),

@@ -196,6 +196,8 @@ test('spell templates: create, review, versions, apply elsewhere, cast by the ta
     const view = list.find((row: any) => row.id === entry).spell;
     assert.equal(view.mechanics.attack, 'ranged');
     assert.equal(view.needsTarget, true);
+    assert.equal(typeof view.castTime, 'string', 'the cast summary says how long the cast takes');
+    assert.equal(typeof view.concentration, 'boolean');
     let landed: any = null;
     for (let i = 0; i < 40 && !landed; i++) {
       const done = await cast(mage.id, entry, {targetIds: [goblin.id]});

@@ -2,7 +2,7 @@ import { positionOf, reachablePositions, centerOf } from '../../../../../../pack
 import { detectOpportunities } from '../../combat/opportunity.ts';
 import type { TableContext } from '../../context.ts';
 import { feetBetween } from '../../scene/board.ts';
-import { assertNotTowardFear, dragAlong, movementState, releaseDistantGrapples, spendMovement } from '../../scene/movement.ts';
+import { assertNotTowardFear, creatureCells, dragAlong, movementState, releaseDistantGrapples, rememberWalk, spendMovement, walkRoute } from '../../scene/movement.ts';
 import type { Queryable } from '../../../db.ts';
 import type { TurnBoard, TurnInput, TurnLog } from './types.ts';
 import type { TargetChoice } from './target.ts';
@@ -54,7 +54,8 @@ export async function approachTarget(
       }
       if (best && (best.strike || best.left < remaining(fromCell))) {
         if (state) await spendMovement(ctx, q, campaignId, scene, npc.character_id, from, best.to);
-        await q.query('UPDATE scene_objects SET x=$3, z=$4, revision=revision+1 WHERE campaign_id=$1 AND id=$2', [campaignId, npc.id, best.to.x, best.to.z]);
+        const revision = (await q.query('UPDATE scene_objects SET x=$3, z=$4, revision=revision+1 WHERE campaign_id=$1 AND id=$2 RETURNING revision', [campaignId, npc.id, best.to.x, best.to.z])).rows[0].revision;
+        rememberWalk(ctx, npc.id, revision, best.to, walkRoute(grid, from, best.to, (await creatureCells(q, campaignId, scene, npc.id)) ?? new Set()));
         await q.query('UPDATE scenes SET revision=revision+1 WHERE id=$1', [sceneId]);
         turn.notices = await triggers.fireEnter(q, campaignId, scene, userId, { characterId: npc.character_id, name: npc.name, size: npc.size }, from, best.to);
         turn.notices.push(...await dragAlong(q, campaignId, scene, npc, from, best.to));

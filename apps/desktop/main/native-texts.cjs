@@ -1,6 +1,6 @@
 const fs = require('node:fs');
 const path = require('node:path');
-const { app, ipcMain } = require('electron');
+const { app, ipcMain } = require('../bridge/runtime.cjs');
 const { validateSender } = require('./senders.cjs');
 
 // Windows' own dialogs and window titles are out of the page translator's reach: the page sends its translations
@@ -15,6 +15,12 @@ function loadNativeTexts() {
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) texts = parsed;
   } catch {
   }
+}
+
+function nativeLocale() {
+  const value = texts.__locale;
+  if (typeof value !== 'string' || !/^[a-z]{2,3}(-[A-Za-z]{2,4})?$/.test(value)) return null;
+  return value === 'en' ? 'en-US' : value;
 }
 
 function nativeText(text) {
@@ -37,4 +43,4 @@ function registerNativeTextHandlers(ctx) {
   });
 }
 
-module.exports = { loadNativeTexts, nativeText, registerNativeTextHandlers };
+module.exports = { loadNativeTexts, nativeLocale, nativeText, registerNativeTextHandlers };

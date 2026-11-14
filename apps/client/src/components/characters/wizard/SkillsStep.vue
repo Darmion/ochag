@@ -32,7 +32,7 @@ function backgroundOption(entry: Heroes['backgrounds'][number]) {
     <p class="muted">{{ t('Снаряжение: {gear}; {gp} зм.', { gear: wizard.background.gearNames.map(name => t(name)).join(', '), gp: wizard.background.gp }) }}</p>
   </div>
   <div class="ability-tools">
-    <button type="button" @click="wizard.suggestSkills"><GameIcon class="inline-icon" name="sparkle" :size="16" /> Подобрать навыки за меня</button>
+    <button type="button" @click="wizard.suggestSkills"><GameIcon class="inline-icon" name="autoPick" :size="16" /> Подобрать навыки за меня</button>
     <span v-if="wizard.granted.size" class="muted">Уже есть: {{ [...wizard.granted].map(wizard.skillName).join(', ') }}</span>
   </div>
   <div class="skill-group">

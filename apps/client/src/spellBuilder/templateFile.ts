@@ -31,11 +31,16 @@ export function useTemplateFile({ props, template, view, busy, error, info, appl
       } catch {
       }
     }
-    const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
+    const text = JSON.stringify(file, null, 2);
+    const name = (template.value.passport.name || 'заклинание').replace(/[\\/:*?"<>|]+/g, '_');
+    if (window.desktop?.campaign.saveSpellFile) {
+      await window.desktop.campaign.saveSpellFile({ name, text });
+      return;
+    }
+    const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = `${(template.value.passport.name || 'заклинание').replace(/[\\/:*?"<>|]+/g, '_')}.spell.json`;
+    link.download = `${name}.spell.json`;
     link.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }

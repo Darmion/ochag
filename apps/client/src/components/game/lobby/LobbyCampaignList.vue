@@ -23,6 +23,7 @@ const emit = defineEmits<{
   'update:campaignName': [name: string];
   enter: [id: string];
   create: [];
+  adventures: [];
   join: [];
   switchServer: [];
 }>();
@@ -111,10 +112,13 @@ const { campaignQuery, roleFilter, masterCount, playerCount, visibleCampaigns } 
         </label>
         <button class="primary" :disabled="props.busy || !props.campaignName.trim()">Начать кампанию</button>
       </form>
+      <button type="button" class="adventure-button" :disabled="props.busy" title="Сцены, заметки, задания и раздаточные из мода-приключения — одной кнопкой" @click="emit('adventures')">
+        <GameIcon name="scroll" :size="16" /> Из готового приключения…
+      </button>
     </details>
 
     <details class="lobby-block" :open="!props.campaigns.length && !props.isMaster">
-      <summary><GameIcon name="scroll" :size="18" /> Вступить по приглашению</summary>
+      <summary><GameIcon name="invite" :size="18" /> Вступить по приглашению</summary>
       <form @submit.prevent="emit('join')">
         <label>
           Приглашение мастера

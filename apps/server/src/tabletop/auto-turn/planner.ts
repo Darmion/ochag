@@ -9,6 +9,7 @@ import { hitPointPool, spellRiders, projectileRule, projectileCount } from '../.
 import { castingUse } from '../../../../../packages/domain/combat/conditions.ts';
 import { abilityModifier } from '../../../../../packages/domain/dice/dice.ts';
 import { findSrdSpell, srdSpellName } from '../../rules/srd-data.ts';
+import { srdTablePlan } from '../spells/rules.ts';
 
 import { weaponRanges } from '../combat/attack.ts';
 import type { TableContext } from '../context.ts';
@@ -82,8 +83,7 @@ export async function autoOptions(q: Queryable, campaignId: string, characterId:
       if (!spell) continue;
       higherLevel = spell.higherLevel ?? null;
       concentration = spell.concentration === true;
-      const overlay = (await q.query('SELECT * FROM srd_spell_mechanics WHERE srd_index=$1', [entry.srd_index])).rows[0] as any;
-      mechanics = mergeSpellMechanics(deriveSpellMechanics(spell), overlay ?? null);
+      mechanics = (await srdTablePlan(q, campaignId, entry.srd_index, spell.level, Number(caster?.level ?? 1)))?.mechanics ?? mergeSpellMechanics(deriveSpellMechanics(spell), null);
       name = srdSpellName(entry.srd_index);
       level = spell.level;
       range = spell.range ?? null;

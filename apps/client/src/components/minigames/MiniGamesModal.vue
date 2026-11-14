@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue';
+import { computed, ref } from 'vue';
 import { useEscapeClose } from '../../ui/escapeStack';
 import DragonDiceModal from './DragonDiceModal.vue';
 import SealRitualModal from './SealRitualModal.vue';
@@ -9,22 +9,26 @@ import DuelModal from './DuelModal.vue';
 import MapFragmentsModal from './MapFragmentsModal.vue';
 import RuneLockModal from './RuneLockModal.vue';
 import GameIcon from '../game/GameIcon.vue';
-const props = defineProps<{ campaignId: string; request: (path: string, method?: string, body?: unknown, file?: File) => Promise<any> }>();
+import type { DoorLink } from '../../../../../packages/domain/minigames/links';
+const props = defineProps<{
+  campaignId: string; request: (path: string, method?: string, body?: unknown, file?: File) => Promise<any>; door?: Omit<DoorLink, 'kind'> | null;
+}>();
 const emit = defineEmits<{ close: [] }>();
-const selected = ref<'dice' | 'runes' | 'ritual' | 'alchemy' | 'chase' | 'duel' | 'fragments' | null>(null);
+const selected = ref<'dice' | 'runes' | 'ritual' | 'alchemy' | 'chase' | 'duel' | 'fragments' | null>(props.door ? 'runes' : null);
+const game = computed(() => ({ campaignId: props.campaignId, request: props.request }));
 useEscapeClose(() => emit('close'));
 </script>
 <template>
-  <DragonDiceModal v-if="selected === 'dice'" v-bind="props" @back="selected = null" @close="emit('close')" />
-  <RuneLockModal v-else-if="selected === 'runes'" v-bind="props" @back="selected = null" @close="emit('close')" />
-  <SealRitualModal v-else-if="selected === 'ritual'" v-bind="props" @back="selected = null" @close="emit('close')" />
-  <AlchemyModal v-else-if="selected === 'alchemy'" v-bind="props" @back="selected = null" @close="emit('close')" />
-  <ChaseModal v-else-if="selected === 'chase'" v-bind="props" @back="selected = null" @close="emit('close')" />
-  <DuelModal v-else-if="selected === 'duel'" v-bind="props" @back="selected = null" @close="emit('close')" />
-  <MapFragmentsModal v-else-if="selected === 'fragments'" v-bind="props" @back="selected = null" @close="emit('close')" />
+  <DragonDiceModal v-if="selected === 'dice'" v-bind="game" @back="selected = null" @close="emit('close')" />
+  <RuneLockModal v-else-if="selected === 'runes'" v-bind="game" :door="door ?? null" @back="selected = null" @close="emit('close')" />
+  <SealRitualModal v-else-if="selected === 'ritual'" v-bind="game" @back="selected = null" @close="emit('close')" />
+  <AlchemyModal v-else-if="selected === 'alchemy'" v-bind="game" @back="selected = null" @close="emit('close')" />
+  <ChaseModal v-else-if="selected === 'chase'" v-bind="game" @back="selected = null" @close="emit('close')" />
+  <DuelModal v-else-if="selected === 'duel'" v-bind="game" @back="selected = null" @close="emit('close')" />
+  <MapFragmentsModal v-else-if="selected === 'fragments'" v-bind="game" @back="selected = null" @close="emit('close')" />
   <div v-else class="modal-overlay games-overlay" role="dialog" aria-modal="true" aria-labelledby="games-title">
     <div class="modal-card games-card">
-      <header><div><small>Приключения между сражениями</small><h3 id="games-title">Мини-игры</h3></div><button type="button" aria-label="Закрыть мини-игры" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button></header>
+      <header><div><small>Приключения между сражениями</small><h3 id="games-title">Мини-игры</h3></div><button class="icon-only" type="button" aria-label="Закрыть мини-игры" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button></header>
       <p>Выберите занятие для отряда. Открытая партия общая для участников кампании.</p>
       <div class="choices">
         <button type="button" @click="selected = 'dice'"><span aria-hidden="true"><GameIcon class="inline-icon" name="dice" :size="26" /></span><strong>Кости дракона</strong><small>Таверна · 1–8 игроков</small><p>Собирайте сокровища и вовремя останавливайтесь: второй дракон сжигает добычу хода.</p><b>К игральному столу →</b></button>
@@ -35,7 +39,7 @@ useEscapeClose(() => emit('close'));
         <button type="button" @click="selected = 'duel'"><span aria-hidden="true"><GameIcon class="inline-icon" name="swords" :size="26" /></span><strong>Дуэль намерений</strong><small>Арена · два участника</small><p>Выбирайте приёмы тайно, угадывайте намерения соперника и берегите выносливость.</p><b>Бросить вызов →</b></button>
         <button type="button" @click="selected = 'fragments'"><span aria-hidden="true"><GameIcon class="inline-icon" name="map" :size="26" /></span><strong>Карта по обрывкам</strong><small>Расследование · весь отряд</small><p>Сравните старые записи, найдите противоречия и восстановите путь к цели.</p><b>Разложить карту →</b></button>
       </div>
-      <p class="footnote">Правила доступны внутри каждой игры. Закрытие окна сохраняет текущую партию до перезапуска сервера.</p>
+      <p class="footnote">Правила доступны внутри каждой игры. Партия хранится в кампании: её не сбрасывают ни закрытие окна, ни перезапуск программы.</p>
     </div>
   </div>
 </template>

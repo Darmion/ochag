@@ -1,4 +1,5 @@
 import { wallCoords } from '../wallCoords';
+import type { AlternateMode } from '../../../../../packages/domain/map/wall-alternate';
 import { fixedFormula } from '../../rules/dice';
 import { confirmAction } from '../../ui/confirmDialog';
 import { computed, type Ref, type ComputedRef } from 'vue';
@@ -91,6 +92,15 @@ export function useGroupActions({ props, activeObjectId, walls, initiativeEntrie
     if (!style || !multiSelection.value.walls.length) return;
     return restyleWalls([...multiSelection.value.walls], style, null);
   }
+  function wallAlternateSelection(styles: WallStyle[], mode: AlternateMode, length: number) {
+    const ids = [...multiSelection.value.walls];
+    if (styles.length < 2 || !ids.length) return;
+    return run(async () => {
+      const result = await props.request(`${basePath()}/walls/alternate`, 'POST', { ids, styles, mode, length }) as { ids: string[] };
+      await refresh();
+      multiSelection.value = { ...multiSelection.value, walls: result.ids.filter(id => walls.value.some(wall => wall.id === id)) };
+    });
+  }
   async function removeSelection() {
     const removing = selectedObjects.value.filter(object => object.canEdit);
     const wallIds = [...multiSelection.value.walls];
@@ -119,5 +129,5 @@ export function useGroupActions({ props, activeObjectId, walls, initiativeEntrie
     });
   }
 
-  return { hideSelection, conditionSelection, hpSelection, downedSelected, reviveSelection, combatSelection, wallStyleSelection, removeSelection };
+  return { hideSelection, conditionSelection, hpSelection, downedSelected, reviveSelection, combatSelection, wallStyleSelection, wallAlternateSelection, removeSelection };
 }

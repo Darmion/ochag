@@ -1,9 +1,10 @@
 import type { Queryable } from '../../db.ts';
 import { type Cover, coverBetween, COVER_AC, COVER_LABELS } from '../../../../../packages/domain/combat/targeting.ts';
+import { ledgeCover, overlooks } from '../../../../../packages/domain/map/relief.ts';
 import { footprintCells } from '../../../../../packages/domain/map/footprint.ts';
 
 import { campaignFlag } from '../rolls/dice.ts';
-import { sceneWalls } from '../scene/board.ts';
+import { groundOfPlacement, sceneHeights, sceneWalls } from '../scene/board.ts';
 import { blockingPlacements, loadPlacements } from '../scene/placements.ts';
 import type { Placement, SaveBonus } from '../shared.ts';
 
@@ -43,10 +44,19 @@ export async function wallCover(
   q: Queryable, campaignId: string, sceneId: string, scene: any, placements: Placement[], attacker: Placement, target: Placement, withCreatures: boolean,
 ): Promise<Cover> {
   const walls = await sceneWalls(q, campaignId, sceneId, 'move');
-  const blockers = await blockingPlacements(q, campaignId, scene, placements, 'move');
+  const body = (entry: Placement) => ({
+    x: entry.world_x, z: entry.world_z, size: footprintCells(entry.size), ground: groundOfPlacement(scene, entry), altitude: Number(entry.altitude_feet ?? 0),
+  });
+  const shooter = body(attacker);
+  const blockers = (await blockingPlacements(q, campaignId, scene, placements, 'move'))
+    .filter(blocker => !overlooks(shooter.ground + shooter.altitude, groundOfPlacement(scene, blocker.placement)));
   const square = (entry: Placement) => ({ x: entry.world_x, z: entry.world_z, size: footprintCells(entry.size) });
   const creatures = withCreatures
     ? placements.filter(entry => entry.kind !== 'object' && entry.id !== attacker.id && entry.id !== target.id && !entry.parent_object_id)
     : [];
-  return coverBetween(square(attacker), square(target), [...walls, ...blockers.flatMap(blocker => blocker.edges)], creatures.map(square));
+  const byWalls = coverBetween(square(attacker), square(target), [...walls, ...blockers.flatMap(blocker => blocker.edges)], creatures.map(square));
+  const byLedge = ledgeCover(sceneHeights(scene), scene, Number(scene.feet_per_unit || 5), shooter, body(target));
+  return COVER_STEPS.indexOf(byLedge) > COVER_STEPS.indexOf(byWalls) ? byLedge : byWalls;
 }
+
+const COVER_STEPS: Cover[] = ['none', 'half', 'three-quarters', 'total'];

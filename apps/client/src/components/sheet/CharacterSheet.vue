@@ -14,7 +14,8 @@ import SheetConditions from './SheetConditions.vue';
 import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue';
 import { ensureCampaignMembers, type CampaignMember } from '../../campaign/members';
 import SpellsPanel from '../spells/SpellsPanel.vue';
-import LevelUpModal from './LevelUpModal.vue';
+import LevelUpWizard from './levelUp/LevelUpWizard.vue';
+import LevelDownDialog from './levelUp/LevelDownDialog.vue';
 import { onCampaignEvent } from '../../campaign/campaignEvents';
 import VisibilityControl, { type VisibilitySetting } from '../common/VisibilityControl.vue';
 import { cropStyle } from '../../art/imageCrop';
@@ -51,7 +52,7 @@ const ALL_TABS: Array<{ id: Tab; label: string; icon: GameIconName; creatureOnly
   { id: 'spells', label: 'Магия', icon: 'wand', creatureOnly: true },
   { id: 'gear', label: 'Снаряжение', icon: 'pouch' },
   { id: 'other', label: 'Другое', icon: 'sparkle', creatureOnly: true },
-  { id: 'core', label: 'Правка листа', icon: 'scroll' },
+  { id: 'core', label: 'Правка листа', icon: 'sheetEdit' },
 ];
 
 const character = ref<CharacterDTO | null>(null);
@@ -67,6 +68,7 @@ const TABS = computed(() => ALL_TABS
 
 const canManageKinds = ref(false);
 const levelUpOpen = ref(false);
+const levelDownOpen = ref(false);
 const levelUpReady = computed(() => {
   const info = character.value?.experience_info;
   return Boolean(info && info.next !== null && (character.value?.experience ?? 0) >= info.next);
@@ -173,7 +175,7 @@ const proficiencyBonus = computed<number | null>(() => {
 });
 
 const {
-  rollAdvantage, spendInspiration, setInspiration, rollBusy, lastRoll, rollCheck, dyingNow,
+  rollAdvantage, spendInspiration, setInspiration, setAutoDeathSaves, rollBusy, lastRoll, rollCheck, dyingNow,
   rollDeathSave,
 } = useSheetRolls({
   props, character, busy, error, load,
@@ -278,6 +280,10 @@ const other = useOtherTab({ props, character, tab, isCreature, editExtraText: to
                   {{ character.experience_info.next === null ? 'Наивысший уровень' : `Опыт ${character.experience ?? 0} / ${character.experience_info.next}` }}
                 </small>
                 <button v-if="!readOnly && levelUpReady" type="button" class="primary level-up-button" :disabled="busy" @click="levelUpOpen = true"><GameIcon class="inline-icon" name="levelUp" :size="16" /> Новый уровень!</button>
+                <button
+                  v-if="!readOnly && (character.level ?? 1) > 1" type="button" class="level-down-button" :disabled="busy"
+                  title="Понизить уровень: отменится то, что дал последний уровень; опыт не меняется" @click="levelDownOpen = true"
+                ><GameIcon class="inline-icon" name="levelDown" :size="14" /> Понизить уровень…</button>
               </div>
               <p v-if="character.kind === 'character'" class="hero-inspiration" :class="{ lit: character.inspiration }">
                 <GameIcon class="inline-icon" name="sparkle" :size="16" /> Вдохновение: {{ character.inspiration ? 'есть — отметьте «потратить» перед броском' : 'нет' }}
@@ -285,6 +291,13 @@ const other = useOtherTab({ props, character, tab, isCreature, editExtraText: to
                   {{ character.inspiration ? 'Снять' : 'Даровать' }}
                 </button>
               </p>
+              <label
+                v-if="character.kind === 'character' && !readOnly" class="hero-death-mode"
+                title="Включено — в бою при 0 хитов спасбросок от смерти бросает приложение в начале хода. Выключено — бросаете сами кнопкой «Не умереть»; передадите ход без броска — приложение бросит за вас"
+              >
+                <input type="checkbox" :checked="character.auto_death_saves !== false" :disabled="busy" @change="setAutoDeathSaves(($event.target as HTMLInputElement).checked)" />
+                <GameIcon class="inline-icon" name="deathSave" :size="16" /> Спасброски от смерти бросает приложение
+              </label>
             </div>
           </div>
 
@@ -303,7 +316,7 @@ const other = useOtherTab({ props, character, tab, isCreature, editExtraText: to
           </div>
 
           <div v-if="dyingNow" class="record-death">
-            <span>При смерти: <GameIcon class="inline-icon" name="heartPlus" :size="14" /> {{ character.death_successes ?? 0 }}/3 · <GameIcon class="inline-icon" name="skull" :size="14" /> {{ character.death_failures ?? 0 }}/3</span>
+            <span>При смерти: <GameIcon class="inline-icon" name="deathSave" :size="14" /> {{ character.death_successes ?? 0 }}/3 · <GameIcon class="inline-icon" name="skull" :size="14" /> {{ character.death_failures ?? 0 }}/3</span>
             <button v-if="!readOnly" type="button" class="primary" :disabled="rollBusy" @click="rollDeathSave">Спасбросок от смерти</button>
           </div>
 
@@ -342,7 +355,8 @@ const other = useOtherTab({ props, character, tab, isCreature, editExtraText: to
           </span>
         </div>
 
-        <LevelUpModal v-if="levelUpOpen" :campaign-id="campaignId" :character-id="characterId" :request="request" @close="levelUpOpen = false" @done="load" />
+        <LevelUpWizard v-if="levelUpOpen" :campaign-id="campaignId" :character-id="characterId" :request="request" @close="levelUpOpen = false" @done="load" />
+        <LevelDownDialog v-if="levelDownOpen" :campaign-id="campaignId" :character-id="characterId" :request="request" @close="levelDownOpen = false" @done="load" />
 
         <HeroTab
           v-if="tab === 'hero' && isCreature" :character="character" :read-only="readOnly" :roll-busy="rollBusy" :is-hidden="isHidden"
@@ -385,6 +399,7 @@ const other = useOtherTab({ props, character, tab, isCreature, editExtraText: to
           :roll-busy="rollBusy" :legacy-weapons="weapons" :resources="resources"
           :campaign-id="campaignId" :character-id="characterId" :request="request" :campaign-members="campaignMembers"
           :visibility-for="visibilityFor" @visibility="onVisibilityChange" @changed="load" @attack="weaponId => rollCheck('attack', weaponId)"
+          :portrait-url="appearance.imagePreview || null" :portrait-cropped="!appearance.previewFromLibrary"
         />
 
         <OtherTab
@@ -410,6 +425,8 @@ const other = useOtherTab({ props, character, tab, isCreature, editExtraText: to
 .hero-xp .xp-bar{flex:1 1 160px}
 .hero-xp small{margin:0}
 .hero-inspiration{margin:0;font-size:13px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.hero-death-mode{display:flex;align-items:center;gap:8px;margin:0;font-size:13px;font-weight:400;cursor:pointer}
+.hero-death-mode input{margin:0}
 .hero-inspiration:not(.lit){color:var(--muted-ink)}
 .hero-inspiration button{min-height:26px;padding:2px 10px;font-size:12px}
 .hero-inspiration.lit{opacity:1;font-weight:700;color:var(--brass)}

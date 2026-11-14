@@ -4,6 +4,8 @@ import { confirmAction } from '../../ui/confirmDialog';
 import { computed, ref, watch } from 'vue';
 import { CLASS_OPTIONS, classText } from '../../rules/classOptions';
 import { MATERIALS, objectHint, type Durability, type Material } from '../../rules/objectRules';
+import { OBJECT_PRESETS, presetById } from '../../createObject/presets';
+import { t } from '../../i18n/i18n';
 import { OBJECT_KINDS, KIND_LABELS, DISPOSITION_LABELS, SIZE_LABELS, type ObjectKind, type Disposition, type CreatureSize } from '../../campaign/objects';
 import ArtPickerDialog from '../common/ArtPickerDialog.vue';
 import { useObjectLook } from '../../createObject/look';
@@ -50,12 +52,29 @@ function applyHint() {
   armorClass.value = hint.value.ac;
   hpMax.value = hint.value.hp;
 }
+const presetId = ref('');
+const preset = computed(() => presetById(presetId.value));
+let presetName = '';
+function applyPreset() {
+  const chosen = preset.value;
+  if (!chosen) return;
+  if (!name.value.trim() || name.value === presetName) name.value = t(chosen.label);
+  presetName = t(chosen.label);
+  size.value = chosen.size;
+  material.value = chosen.material;
+  durability.value = chosen.durability;
+  applyHint();
+  if (chosen.art) {
+    look.value = 'image';
+    void onLibraryArt(chosen.art);
+  }
+}
 const speedFeet = ref<number>(30);
 const abilities = ref({ strength: 10, dexterity: 10, constitution: 10, intelligence: 10, wisdom: 10, charisma: 10 });
 const place = ref(Boolean(props.offerPlacement));
 
 const {
-  look, imageFile, imagePreview, modelFile, modelAssetId, library, onImageChange, artPickerOpen,
+  look, imageFile, openImageFile, imagePreview, modelFile, modelAssetId, library, onImageChange, artPickerOpen,
   artBusy, artError, artSuggested, onLibraryArt, onModelChange,
 } = useObjectLook({
   props, kind, name,
@@ -100,10 +119,14 @@ async function submit() {
 
   try {
     let imageAssetId: string | undefined;
+    let imageOpenAssetId: string | undefined;
     let chosenModelId: string | undefined;
 
     if (look.value === 'image' && imageFile.value) {
       imageAssetId = (await props.request(`/campaigns/${props.campaignId}/assets?kind=object_image`, 'POST', undefined, imageFile.value)).id;
+      if (openImageFile.value && kind.value === 'object') {
+        imageOpenAssetId = (await props.request(`/campaigns/${props.campaignId}/assets?kind=object_image`, 'POST', undefined, openImageFile.value)).id;
+      }
     }
 
     if (look.value === 'model') {
@@ -124,8 +147,12 @@ async function submit() {
       armorClass: armorClass.value,
       speedFeet: speedFeet.value,
       ...(imageAssetId ? { imageAssetId } : {}),
+      ...(imageOpenAssetId ? { imageOpenAssetId } : {}),
       ...(chosenModelId ? { modelAssetId: chosenModelId } : {}),
     });
+    const ready = kind.value === 'object' ? preset.value : null;
+    const state = { ...(imageOpenAssetId || ready?.openable ? { openable: true } : {}), ...(ready?.hazard ? { hazard: ready.hazard } : {}) };
+    if (Object.keys(state).length) await props.request(`/campaigns/${props.campaignId}/characters/${character.id}/state`, 'PUT', state);
 
     if (imagePreview.value.startsWith('blob:')) URL.revokeObjectURL(imagePreview.value);
     emit('created', { character, place: place.value });
@@ -142,7 +169,7 @@ async function submit() {
     <form class="modal-card creation-card" @submit.prevent="submit">
       <header class="modal-header">
         <div><span class="eyebrow">Летопись кампании</span><h3>{{ kind === 'npc' ? 'Новый НПС' : kind === 'object' ? 'Новый объект' : 'Новый герой' }}</h3><p class="header-caption">{{ kind === 'object' ? 'Добавьте деталь, которая оживит ваш мир.' : 'У каждой истории есть свои действующие лица.' }}</p></div>
-        <button type="button" class="modal-close" aria-label="Закрыть" @click="close"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="modal-close icon-only" aria-label="Закрыть" @click="close"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
       <div class="creation-body">
       <p v-if="backdropHint" class="notice" role="status">Окно закрывается крестиком или кнопкой «Отмена» — так введённое не пропадёт случайно.</p>
@@ -169,6 +196,21 @@ async function submit() {
       <div v-else class="creation-columns">
       <section class="creation-section identity-section">
       <h4><span aria-hidden="true">I</span> {{ creature ? 'Личность и параметры' : 'Свойства объекта' }}</h4>
+
+      <label v-if="kind === 'object'">
+        Заготовка
+        <select v-model="presetId" :disabled="busy" @change="applyPreset">
+          <option value="">— своя вещь —</option>
+          <optgroup label="Открывается">
+            <option v-for="entry in OBJECT_PRESETS.filter(item => item.openable)" :key="entry.id" :value="entry.id">{{ entry.label }}</option>
+          </optgroup>
+          <optgroup label="Опасная: урон вокруг">
+            <option v-for="entry in OBJECT_PRESETS.filter(item => item.hazard)" :key="entry.id" :value="entry.id">{{ entry.label }}</option>
+          </optgroup>
+        </select>
+        <small v-if="preset?.hazard" class="muted">Сломается, вспыхнет или рухнет — заденет всех рядом. Урон и спасбросок правятся в «Состоянии» объекта на столе.</small>
+        <small v-else-if="preset?.openable" class="muted">Его можно открыть и закрыть, открытый показывает вторую картинку.</small>
+      </label>
 
       <label>
         {{ creature ? 'Имя' : 'Название' }}
@@ -289,6 +331,7 @@ async function submit() {
             {{ kind === 'object' ? 'Картинка из библиотеки…' : 'Портрет из библиотеки…' }}
           </button>
           <img v-if="imagePreview" :src="imagePreview" alt="Предпросмотр миниатюры" class="image-preview" />
+          <small v-if="openImageFile && kind === 'object' && !preset?.openable" class="muted">Открытым он будет выглядеть по-другому: вторая картинка подобрана сама, предмет можно открывать.</small>
           <ArtPickerDialog
             v-if="artPickerOpen"
             :title="kind === 'object' ? 'Картинка из библиотеки' : 'Портрет из библиотеки'"

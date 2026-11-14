@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import type { GameIconName } from '../../ui/gameIcons';
-import GameIcon from '../game/GameIcon.vue';
+import ConditionIcon from '../conditions/ConditionIcon.vue';
 
 defineProps<{
   label: string;
   icon?: GameIconName;
+  image?: string | null;
   active: boolean;
   readOnly?: boolean;
 }>();
@@ -22,7 +23,7 @@ const emit = defineEmits<{ toggle: [] }>();
       :disabled="readOnly"
       @click="emit('toggle')"
     >
-      <GameIcon v-if="icon" class="ui-icon" :name="icon" :size="18" />
+      <ConditionIcon v-if="icon" class="ui-icon" :name="icon" :image="image" :size="18" />
       <span v-else class="status-badge-dot" aria-hidden="true" />
       {{ label }}
     </button>

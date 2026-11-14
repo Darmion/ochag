@@ -127,4 +127,43 @@ test('obstacle kinds and one death saving throw per turn', async t => {
     const outside = await save();
     assert.equal(outside.statusCode, 200, outside.body);
   });
+
+  await t.test('a hero who rolls for themselves: no roll at the start of the turn, a lit button, the app rolls if the turn passes without it', async () => {
+    const mode = await request('PUT', `${base}/characters/${hero.id}/death-saves`, alice.token, {auto: false});
+    assert.equal(mode.statusCode, 200, mode.body);
+    assert.equal((await request('GET', `${base}/characters/${hero.id}`, alice.token)).json().auto_death_saves, false);
+    const mine = (await request('GET', scenePath, alice.token)).json().objects.find((o: any) => o.character_id === hero.id);
+    assert.equal(mine.manualDeathSaves, true, 'the action bar knows to light the button');
+
+    await dying();
+    for (const [id, score] of [[goblin.id, 30], [hero.id, 5]] as const) {
+      const entry = (await request('POST', `${initiative}/join`, gm.token, {characterId: id})).json().id;
+      await request('PATCH', `${initiative}/${entry}`, gm.token, {score});
+    }
+    const current = async () => (await request('GET', initiative, gm.token)).json().entries.find((entry: any) => entry.is_current)?.character_id;
+    for (let guard = 0; guard < 3 && await current() !== goblin.id; guard += 1) await request('POST', `${initiative}/advance`, gm.token, {});
+    await dying();
+    const before = await deathRolls();
+    await request('POST', `${initiative}/advance`, gm.token, {});
+    assert.equal(await current(), hero.id);
+    assert.equal(await deathRolls(), before, 'the app waits for the player');
+    assert.equal((await save()).statusCode, 200, 'the player rolls on their turn');
+    assert.equal(await deathRolls(), before + 1);
+    await request('POST', `${initiative}/advance`, gm.token, {});
+    assert.equal(await deathRolls(), before + 1, 'rolled already — nothing more when the turn ends');
+
+    await dying();
+    await request('POST', `${initiative}/advance`, gm.token, {});
+    assert.equal(await current(), hero.id);
+    await request('POST', `${initiative}/advance`, gm.token, {});
+    assert.equal(await deathRolls(), before + 2, 'the turn passed without a roll — the app rolled it');
+    await request('DELETE', initiative, gm.token);
+
+    await dying();
+    assert.equal((await request('POST', `${base}/death-saves`, alice.token, {sceneId})).statusCode, 403);
+    const all = await request('POST', `${base}/death-saves`, gm.token, {sceneId});
+    assert.equal(all.statusCode, 200, all.body);
+    assert.deepEqual([all.json().rolled, await deathRolls()], [1, before + 3], 'the GM rolls for everyone dying outside combat');
+    assert.equal((await request('PUT', `${base}/characters/${hero.id}/death-saves`, alice.token, {auto: true})).statusCode, 200);
+  });
 });

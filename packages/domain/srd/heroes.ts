@@ -6,6 +6,7 @@ export type Trait = [string, string];
 export type Subrace = {
   id: string; nameRu: string; bonuses: Partial<Record<HeroAbility, number>>; traits: Trait[];
   hpPerLevel?: number; weapons?: string[]; wizardCantrip?: boolean; extraLanguage?: boolean;
+  speed?: number; darkvision?: number; resistances?: string[]; modName?: string;
 };
 
 export type Race = {
@@ -17,6 +18,8 @@ export type Race = {
   ancestry?: true;
   racialCantrip?: { index: string; ability: HeroAbility };
   custom?: true;
+  hpPerLevel?: number;
+  modName?: string; icon?: string; tagline?: string; names?: string[];
 };
 
 export const DRAGON_ANCESTRIES: Array<{ id: string; nameRu: string; damage: string; breath: string; save: HeroAbility }> = [

@@ -5,6 +5,7 @@ import type { Weather } from '../../campaign/worldClock';
 import type { ObjectState } from '../../components/objects/ObjectStatePanel.vue';
 import type { AreaShape } from '../areas';
 import type { RollOutcome } from '../../rules/conditions';
+import type { HeldLight, HeldView } from '../../../../../packages/domain/character/held';
 
 export type TabletopProps = {
   campaignId: string;
@@ -48,6 +49,8 @@ export type SceneDetail = SceneInfo & {
   effective_lighting?: 'bright' | 'dim' | 'dark';
   world_minutes?: number;
   difficult_cells?: number[][];
+  water_cells?: number[][];
+  elevation_cells?: number[][];
   rest?: { kind: 'short' | 'long'; startedMinutes: number; strenuousMinutes?: number; interrupted: string | null } | null;
   canManage: boolean;
 };
@@ -63,6 +66,7 @@ export type SceneObjectDTO = {
   side?: 'self' | 'ally' | 'enemy' | 'neutral' | null;
   factions?: string[];
   canFly?: boolean;
+  canClimb?: boolean;
   classId?: string;
   flightHeight?: number;
   size: string;
@@ -73,11 +77,15 @@ export type SceneObjectDTO = {
   conditions?: string[];
   loot?: number;
   inspired?: boolean;
+  manualDeathSaves?: boolean;
   state?: ObjectState | null;
+  held?: HeldView[];
+  heldLight?: HeldLight | null;
   darkvision_feet?: number | null;
   merchant?: boolean;
   model_asset_id: string | null;
   image_asset_id: string | null;
+  image_open_asset_id?: string | null;
   image_crop?: unknown;
   parent_object_id: string | null;
   x: number;
@@ -91,6 +99,7 @@ export type SceneObjectDTO = {
   world_x: number;
   world_y: number;
   world_z: number;
+  walk?: Array<[number, number]>;
   canEdit: boolean;
   canMove: boolean;
   canShare: boolean;
@@ -141,6 +150,10 @@ export type InitiativeEntry = {
   action_surged?: boolean;
   death_saved?: boolean;
   haste_used?: boolean;
+  event_of?: string | null;
+  event_kind?: string | null;
+  event_last?: string | null;
+  event?: { options: Array<{ name: string; text: string }>; free: number[]; noRepeat: boolean };
 };
 
 export type NoteSummary = {
@@ -153,11 +166,11 @@ export type NoteSummary = {
 
 export type TemplateDTO = {
   id: string; shape: AreaShape; x: number; z: number; direction: number;
-  size_feet: number; width_feet: number | null; color: string; label: string | null;
+  size_feet: number; width_feet: number | null; height_feet?: number | null; color: string; label: string | null;
   created_by: string; author_name: string;
 };
 
-export type WallTool = 'chain' | 'room' | 'pick' | 'opening';
+export type WallTool = 'chain' | 'room' | 'brush' | 'pick' | 'opening';
 
 export type SoundTab = 'music' | 'effects' | 'ambience' | 'events';
 
@@ -201,7 +214,7 @@ export type OpportunityPrompt = { key: string; moverId: string; moverName: strin
 export type SlotChoice = { value: string; level: number; label: string };
 
 export type CounterPrompt = {
-  key: string; windowId: string; casterName: string; spellName: string; spellLevel: number;
+  key: string; windowId: string; casterId: string; casterName: string; spellName: string; spellLevel: number;
   reactorId: string; reactorName: string; choices: SlotChoice[]; choice: string; deadline: number;
 };
 

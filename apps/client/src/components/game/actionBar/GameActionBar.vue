@@ -12,7 +12,15 @@ import type { HitDiceView } from '../../sheet/RestControls.vue';
 import LootPanel from '../../tabletop/LootPanel.vue';
 import DiceTrayPanel from './DiceTrayPanel.vue';
 import SpellCatalogPanel from './SpellCatalogPanel.vue';
+import ResourceStrip from './ResourceStrip.vue';
+import ResourceStripMenu from './ResourceStripMenu.vue';
+import { tableViewPrefs } from '../../../settings/tablePrefs';
+import CastSummary from './CastSummary.vue';
+import { castSource, castSummary } from '../../../actionBar/castSummary';
+import { metamagicCost } from '../../../../../../packages/domain/character/class-features/classes/sorcerer';
+import { stripEmpty, stripModel } from '../../../actionBar/resourceStrip';
 import SpellCastPanel from './SpellCastPanel.vue';
+import ActiveSpellCommands, { type ActiveSpell, type SpellCommand } from './ActiveSpellCommands.vue';
 import ChecksPanel from './ChecksPanel.vue';
 import AttackSettings from './AttackSettings.vue';
 import WeaponButton from './WeaponButton.vue';
@@ -167,6 +175,8 @@ async function ensureActorData() {
 }
 
 const { warnFriendly, sendFriendly, perform } = useFriendlyFire({ popover, working, actionError });
+const commandsVersion = ref(0);
+watch(popover, value => { if (value === 'spell') commandsVersion.value += 1; });
 
 const {
   features, featureClass, smiteOffer, stunOffer, maneuverOffer, quiveringOffer, hurlOffer, subclasses,
@@ -298,6 +308,20 @@ const {
   spellName, cast, spellRangeFeet,
 });
 
+function useSpellCommand(spell: ActiveSpell, command: SpellCommand) {
+  const actor = props.actor;
+  if (!actor) return;
+  const path = `/campaigns/${props.campaignId}/characters/${actor.characterId}/spell-commands/${spell.effectId}`;
+  const send = (extra: Record<string, unknown>) => perform(async () => {
+    await props.request(path, 'POST', { commandId: command.id, ...(props.sceneId ? { sceneId: props.sceneId } : {}), ...extra });
+    commandsVersion.value += 1;
+  }, true);
+  const label = `${spell.spellName}: ${command.name}`;
+  if (command.aim === 'place') aimFeature({ id: `command:${command.id}`, label, art: null, rangeFeet: null, self: false, place: true, hint: 'Щёлкните по клетке — туда сдвинется зона заклинания.', run: () => undefined, runPlace: point => send({ place: point }) });
+  else if (command.aim === 'target') aimFeature({ id: `command:${command.id}`, label, art: null, rangeFeet: null, self: true, hint: 'Щёлкните по фигуре — на неё подействует заклинание.', run: characterId => send({ targetIds: [characterId] }) });
+  else void send({});
+}
+
 const {
   aimTargeted, aimBreath, aimBardic, aimHands, cleanseName, aimCleanse, aimQuivering, pressFeature,
 } = useFeatureAim({
@@ -366,7 +390,59 @@ function openSpellOn(characterId: string) {
   void openPopover('spell');
 }
 
-defineExpose({ targetingActive, targetingCursor, aimState, setMapTarget, setMapArea, setMapPlace, setAreaHover, strikeWall, openPopover, openAttackOn, openSpellOn, cancelStep });
+// The resource strip (complaint list 2026-11-10, item 1) is loaded as soon as a creature is picked and follows /live changes to it.
+const strip = computed(() => stripModel(slotList.value, pactSlots.value, features.value));
+const stripShown = computed(() => Boolean(props.actor && props.actor.kind !== 'object' && !stripEmpty(strip.value)));
+const stripVisible = computed(() => stripShown.value && !tableViewPrefs.resourceStripCollapsed);
+// The console grows by the strip's height, so the category buttons keep their size (tabletop-shell sets --strip-space).
+const STRIP_HEIGHT = { compact: 30, normal: 34, large: 40 } as const;
+const stripSpace = computed(() => (stripVisible.value ? STRIP_HEIGHT[tableViewPrefs.resourceStripSize] + 4 : 0));
+watch(() => props.actor?.characterId, id => { if (id && props.actor?.kind !== 'object') void ensureActorData(); }, { immediate: true });
+let resourcesRequest = 0;
+// Only the counts are reloaded: the spell list and weapons stay, so a cast being prepared is not lost.
+async function refreshResources(characterId: string) {
+  const actor = props.actor;
+  if (!actor || actor.characterId !== characterId || actor.kind === 'object') return;
+  const request = ++resourcesRequest;
+  const [sheet, slotData, known] = await Promise.all([
+    props.request(`/campaigns/${props.campaignId}/characters/${characterId}`).catch(() => null),
+    props.request(`/campaigns/${props.campaignId}/characters/${characterId}/spell-slots`).catch(() => null),
+    props.request(`/campaigns/${props.campaignId}/characters/${characterId}/spells`).catch(() => null),
+  ]);
+  if (request !== resourcesRequest || props.actor?.characterId !== characterId) return;
+  if (slotData && Array.isArray(slotData.slots)) slotList.value = slotData.slots;
+  // Spells of items come and go with the item in hand and its charges.
+  if (known && Array.isArray(known.spells)) spells.value = known.spells;
+  if (sheet) pactSlots.value = sheet.pact_slots_max ? { current: sheet.pact_slots_current, max: sheet.pact_slots_max, slotLevel: sheet.pact_slot_level } : null;
+  await loadFeatures();
+}
+// The cost of the cast being prepared, in the same order the request picks its source (actionBar/spellCast.ts).
+const castSummaryLines = computed(() => {
+  const entry = castingEntry.value, view = castView.value;
+  if (!entry || !view) return [];
+  const level = entry.spell?.level ?? 0;
+  const slot = (castSlot.value ? view.slots.find(choice => choice.level === castSlot.value) : null) ?? view.slots[0] ?? null;
+  const source = castSource({
+    level, slotless: Boolean(entry.slotless), ritual: useRitual.value && Boolean(entry.spell?.ritual) && !props.inCombat,
+    racial: useRacial.value && Boolean(view.legacy), free: useFree.value && view.freeCast ? view.freeCast.label : null,
+    pact: usePact.value && view.pactCastable && view.pactSlots ? { level: view.pactSlots.slotLevel, current: view.pactSlots.current, max: view.pactSlots.max } : null,
+    slot,
+  });
+  const slotLevel = source.kind === 'pact' || source.kind === 'slot' ? source.level : level;
+  const cost = (castMetamagic.value ? metamagicCost(castMetamagic.value, slotLevel) : 0) + (castEmpowered.value ? 1 : 0);
+  return castSummary({
+    source, points: cost ? { cost, ...view.sorcery } : null, time: entry.spell?.castTime ?? null, quickened: castMetamagic.value === 'quickened',
+    concentration: Boolean(entry.spell?.concentration), concentrating: Boolean(props.actor?.conditions.includes('concentration')),
+    targets: view.chosen.map(target => target.name), area: view.hasArea,
+  });
+});
+async function openSpellsAt(level: number | 'pact') {
+  await openPopover('spell');
+  usePact.value = level === 'pact';
+  spellCircle.value = level !== 'pact' && spellCircles.value.includes(level) ? level : null;
+}
+
+defineExpose({ targetingActive, targetingCursor, aimState, setMapTarget, setMapArea, setMapPlace, setAreaHover, strikeWall, openPopover, openAttackOn, openSpellOn, cancelStep, refreshResources, stripSpace });
 
 function onDocumentPointer(event: PointerEvent) {
   // While picking a target on the map, that very click must not close the popover.
@@ -417,16 +493,20 @@ function runRowAction(call: RowCall) {
     <ActorCard
       :actor="actor" :movement-left="movementLeft" :economy="economy" :working="working" :error="popover ? '' : actionError"
       @open-sheet="emit('openSheet')" @focus="emit('focus')" @deselect="emit('deselect')" @economy="markEconomy" @dismiss="actionError = ''"
-    />
+    >
+      <template #tools><ResourceStripMenu v-if="actor && actor.kind !== 'object'" :empty="!stripShown" /></template>
+    </ActorCard>
 
     <div class="action-slots" role="toolbar" aria-label="Действия персонажа">
+      <div class="slot-main">
+      <ResourceStrip v-if="stripVisible" :model="strip" :size="tableViewPrefs.resourceStripSize" @spells="openSpellsAt" @feature="openPopover('features')" />
       <div ref="catRow" class="cat-row" :class="{ compact: compactCats }">
-        <button v-if="dying" type="button" class="cat death" :disabled="working || busy || Boolean(deathSaveNote)" :title="deathSaveNote ?? 'Спасбросок от смерти'" @click="deathSave"><GameIcon name="heart" :size="24" /><span>Не умереть</span></button>
-        <button v-if="prone" type="button" class="cat" :disabled="working || busy" title="Встать: в бою — половина скорости" @click="stand"><GameIcon name="run" :size="24" /><span>Встать</span></button>
+        <button v-if="dying" type="button" class="cat death" :class="{ due: actor?.manualDeathSaves && !deathSaveNote }" :disabled="working || busy || Boolean(deathSaveNote)" :title="deathSaveNote ?? 'Спасбросок от смерти'" @click="deathSave"><GameIcon name="heart" :size="24" /><span>Не умереть</span></button>
+        <button v-if="prone" type="button" class="cat" :disabled="working || busy" title="Встать: в бою — половина скорости" @click="stand"><GameIcon name="standUp" :size="24" /><span>Встать</span></button>
         <button type="button" class="cat" :disabled="blockedAct" :aria-pressed="popover === 'attack'" :title="incapacitated ? `Не может атаковать: ${incapacitated}` : 'Атака оружием'" @click="toggle('attack')"><GameIcon name="sword" :size="24" /><span>Атака</span></button>
         <button type="button" class="cat" :disabled="blockedAct" :aria-pressed="popover === 'spell'" title="Заклинания" @click="toggle('spell')"><GameIcon name="sparkle" :size="24" /><span>Магия</span></button>
         <button v-if="features.length && canRoll" type="button" class="cat features-slot" :class="{ raging: actor?.conditions.includes('raging') }" :aria-pressed="popover === 'features'" title="Умения класса" @click="toggle('features')"><GameIcon name="bolt" :size="24" /><span>Умения</span></button>
-        <button type="button" class="cat" :disabled="!canRoll" :aria-pressed="popover === 'checks'" title="Навык, спасбросок или проверка характеристики" @click="toggle('checks')"><GameIcon name="target" :size="24" /><span>Проверки</span></button>
+        <button type="button" class="cat" :disabled="!canRoll" :aria-pressed="popover === 'checks'" title="Навык, спасбросок или проверка характеристики" @click="toggle('checks')"><GameIcon name="checks" :size="24" /><span>Проверки</span></button>
         <button
           v-if="(inCombat && economy) || (!inCombat && actor && actor.canAct && actor.kind !== 'object' && sceneId)" type="button" class="cat"
           :disabled="busy || (inCombat && !isActorTurn) || Boolean(incapacitated)" :aria-pressed="popover === 'actions'" title="Рывок, Отход, Уклонение, Спрятаться, Искать" @click="toggle('actions')"
@@ -437,6 +517,8 @@ function runRowAction(call: RowCall) {
         <button v-if="actor?.inspired && canRoll" type="button" class="cat inspiration" :aria-pressed="useInspiration" title="Потратить вдохновение на следующий бросок" @click="useInspiration = !useInspiration"><GameIcon name="sparkle" :size="24" /><span>{{ useInspiration ? 'Тратим' : 'Вдохн.' }}</span></button>
         <button v-else-if="canInspire && actor?.kind === 'character' && !actor.inspired" type="button" class="cat" :disabled="working" title="Даровать вдохновение" @click="inspire"><GameIcon name="sparkle" :size="24" /><span>Даровать</span></button>
         <button v-if="hasBardic && canRoll" type="button" class="cat inspiration" :aria-pressed="useBardic" title="Кость вдохновения барда — к следующему броску" @click="useBardic = !useBardic"><GameIcon name="sparkle" :size="24" /><span>{{ useBardic ? 'С костью' : 'Кость' }}</span></button>
+      </div>
+
       </div>
 
       <TurnColumn
@@ -451,7 +533,7 @@ function runRowAction(call: RowCall) {
         <header class="command-header">
           <span class="command-seal" aria-hidden="true"><GameIcon :name="commandTitle[1]" :size="26" /></span>
           <div><small>{{ actor?.name ?? 'Игровой стол' }}</small><h3>{{ commandTitle[0] }}</h3></div>
-          <button type="button" class="command-close" aria-label="Закрыть меню команд" @click="popover = null"><GameIcon name="close" :size="18" /></button>
+          <button type="button" class="command-close icon-only" aria-label="Закрыть меню команд" @click="popover = null"><GameIcon name="close" :size="18" /></button>
         </header>
         <div v-if="economy && ['attack', 'actions', 'spell', 'features'].includes(popover)" class="command-budget" aria-label="Ресурсы хода">
           <span :class="{ spent: !economy.action }"><i />Действие{{ economy.action ? '' : ' · потрачено' }}</span>
@@ -466,6 +548,7 @@ function runRowAction(call: RowCall) {
             {{ areaHover ? (areaHover.inRange ? (areaHover.names.length ? `Задето: ${areaHover.names.length} — ${areaHover.names.slice(0, 5).join(', ')}${areaHover.names.length > 5 ? '…' : ''}` : 'Пока никого не задевает') : 'Слишком далеко — подведите ближе') : 'Наведите курсор на карту' }}
           </p>
           <p v-if="actionError" class="popover-error" role="alert">{{ actionError }}</p>
+          <CastSummary v-if="popover === 'spell' && castingEntry" :lines="castSummaryLines.filter(line => !line.names)" />
           <div v-if="castTargets.length && popover === 'spell'" class="aim-targets"><span v-for="id in castTargets" :key="id">{{ targets.find(t => t.characterId === id)?.name ?? actor?.name }}</span></div>
           <div class="aim-controls">
             <button v-if="popover === 'spell' && castingEntry && castTargets.length" type="button" class="primary" :disabled="working || ((spellNeedsTargets(castingEntry.spell?.mechanics) || Boolean(castingEntry.spell?.riders?.length)) && !castTargets.length && !castArea)" @click="cast(castingEntry)">Сотворить · {{ castTargets.length }}</button>
@@ -476,7 +559,7 @@ function runRowAction(call: RowCall) {
         <div v-show="!mapAiming" class="command-body" :key="`${popover}:${castingEntry?.id ?? ''}`">
         <p v-if="actionError" class="popover-error" role="alert">
           <span>{{ actionError }}</span>
-          <button type="button" aria-label="Закрыть сообщение" @click="actionError = ''"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+          <button class="icon-only" type="button" aria-label="Закрыть сообщение" @click="actionError = ''"><GameIcon class="inline-icon" name="close" :size="16" /></button>
         </p>
         <template v-if="popover === 'attack'">
           <h4 class="command-section-title">Выберите цель и оружие</h4>
@@ -494,19 +577,23 @@ function runRowAction(call: RowCall) {
           <p v-if="!weapons.length" class="muted">Оружия в листе нет — добавьте его на вкладке «Снаряжение».</p>
         </template>
         <template v-else-if="popover === 'spell'">
+          <ActiveSpellCommands
+            v-if="!castingEntry && actor" :campaign-id="campaignId" :character-id="actor.characterId" :scene-id="sceneId"
+            :working="working" :version="commandsVersion" :request="request" @use="useSpellCommand"
+          />
           <SpellCastPanel
             v-if="castingEntry && castView"
             v-model:cast-mode="castMode" v-model:cast-element="castElement" v-model:conjure-option="conjureOption" v-model:cast-beast="castBeast"
             v-model:warn-friendly="warnFriendly" v-model:cast-slot="castSlot" v-model:cast-metamagic="castMetamagic"
             v-model:cast-heightened="castHeightened" v-model:cast-empowered="castEmpowered" v-model:use-ritual="useRitual"
             v-model:cast-overchannel="castOverchannel" v-model:use-free="useFree" v-model:use-racial="useRacial" v-model:use-pact="usePact"
-            :entry="castingEntry" :view="castView" :working="working" :in-combat="inCombat"
+            :entry="castingEntry" :view="castView" :working="working" :in-combat="inCombat" :summary="castSummaryLines"
             @aim="mapAiming = true" @cast="cast(castingEntry)" @back="castingEntry = null" @shots="changeShots"
           />
           <SpellCatalogPanel
             v-else
             v-model:query="spellQuery" v-model:circle="spellCircle"
-            :spells="visibleSpells" :known="sortedSpells.length" :circles="spellCircles" :slots="slotList" :pact="pactSlots"
+            :spells="visibleSpells" :known="sortedSpells.length" :circles="spellCircles" :slots="slotList.filter(slot => slot.max > 0)" :pact="pactSlots"
             :working="working" :campaign-id="campaignId" :request="request" :favorite="favoriteSpell" @choose="chooseSpell"
           />
         </template>
@@ -661,7 +748,7 @@ function runRowAction(call: RowCall) {
         :title="eyes.on ? 'Глазами выбранного включено — карта с его туманом. Нажмите, чтобы выключить' : 'Глазами выбранного: карта с туманом того, кого вы выбрали на карте'"
         @click="emit('eyes', !eyes.on)"
       >
-        <GameIcon name="eye" :size="22" /><span>Глазами</span>
+        <GameIcon name="viewAs" :size="22" /><span>Глазами</span>
         <small v-if="eyes.on && eyes.name" translate="no">{{ eyes.name }}</small>
         <small v-else>выбранного</small>
       </button>
@@ -681,6 +768,7 @@ function runRowAction(call: RowCall) {
 .popover-error button{flex:none;width:22px;height:22px;min-height:0;padding:0;border-radius:50%;font-size:11px;line-height:1}
 .popover-error{position:sticky;top:-14px;z-index:2;display:flex;align-items:flex-start;gap:8px;margin:-14px -4px 4px -14px;padding:8px 6px 8px 14px;font-size:13px;line-height:1.35;color:#ffd9d2;background:#3a1410;box-shadow:inset 0 -1px 0 #a8453b}
 .action-slots{position:relative;display:flex;align-items:center;flex:1 1 0;min-width:0;container-type:inline-size;container-name:slots}
+.slot-main{display:flex;flex-direction:column;align-items:stretch;gap:4px;flex:1 1 auto;min-width:0;container-type:inline-size;container-name:strip}
 .loot-slot,.trade-slot{color:#f1d27a}
 .features-slot{color:#ffd9a0}
 .features-slot.raging{box-shadow:0 0 0 2px #e0522f,0 0 14px #e0522f}
@@ -691,13 +779,16 @@ function runRowAction(call: RowCall) {
 /* Thresholds use the bar's own width (@container), not @media: under UI zoom @media sees the unzoomed window. */
 .game-actions{container-type:inline-size;container-name:actions}
 .dice-open-wrap{position:relative}
-.cat-row{display:flex;align-items:center;align-content:center;justify-content:center;flex-wrap:wrap;gap:6px 8px;flex:1 1 auto;min-width:0;max-height:calc(var(--game-bottom,154px) - 30px);overflow-y:auto;scrollbar-width:none}
+.cat-row{display:flex;align-items:center;align-content:center;justify-content:center;flex-wrap:wrap;gap:6px 8px;flex:1 1 auto;min-width:0;max-height:calc(var(--game-bottom,154px) - 30px - var(--strip-space,0px));overflow-y:auto;scrollbar-width:none}
 .cat-row::-webkit-scrollbar{display:none}
 .cat-row.compact{gap:4px;scrollbar-width:thin;scrollbar-color:var(--g-gold-lo,#6b5233) transparent}
 .cat-row.compact .cat{flex:0 0 44px;width:44px;height:44px;padding:2px}
 .cat-row.compact .cat > span{display:none}
 .cat{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;flex:0 0 76px;width:76px;height:76px;min-height:0;padding:4px 2px;font:600 13px var(--g-title-font);position:relative}
 .cat.death{color:#fff2cf;background:linear-gradient(180deg,#ffffff22,#0000 50%),linear-gradient(180deg,#7a1b16,#3a0907)}
+.cat.death.due{animation:death-due 1.4s ease-in-out infinite}
+@keyframes death-due{0%,100%{box-shadow:inset 0 0 0 1px #000,0 0 0 1px #ff8a70}50%{box-shadow:inset 0 0 0 1px #000,0 0 0 2px #ffb09a,0 0 16px #ff6b4a}}
+@media (prefers-reduced-motion:reduce){.cat.death.due{animation:none;box-shadow:inset 0 0 0 1px #000,0 0 0 2px #ffb09a}}
 .cat.inspiration{color:#ffe9a0}
 .cat.inspiration[aria-pressed="true"]{box-shadow:0 0 0 2px #ffcf4a,0 0 14px #ffcf4a}
 @container slots (max-width: 820px){.cat{flex-basis:62px;width:62px;height:54px;gap:2px;font:600 12px var(--g-body-font)}.cat :deep(svg){width:18px;height:18px}}
@@ -717,7 +808,7 @@ function runRowAction(call: RowCall) {
 .command-header small{display:block;font:11px/1.4 var(--g-body-font,Georgia);letter-spacing:.04em;color:var(--muted-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .command-header h3{margin:3px 0 0;font:24px/1.1 var(--heading-font);color:var(--g-gold,var(--ink))}
 .command-seal{display:grid;place-items:center;width:42px;height:46px;flex:none;border:1px solid var(--brass);border-radius:22px 22px 6px 6px;color:var(--g-gold,var(--ink));background:var(--surface-inset);box-shadow:inset 0 0 0 3px color-mix(in srgb,var(--brass) 14%,transparent)}
-.action-popover .command-close{display:grid;place-items:center;width:28px;height:28px;min-height:28px;padding:0;flex:none;border:1px solid var(--brass-light);background:var(--surface-inset);border-radius:50%;color:var(--ink);box-shadow:none}
+.action-popover .command-close{display:grid;place-items:center;place-content:center;width:28px;height:28px;min-height:28px;padding:0;flex:none;border:1px solid var(--brass-light);background:var(--surface-inset);border-radius:50%;color:var(--ink);box-shadow:none}
 .command-budget{display:flex;flex-wrap:wrap;gap:6px 12px;padding:8px 16px;background:var(--surface-inset);border-bottom:1px solid var(--brass-light);font:11px/1.4 var(--g-body-font,Georgia);color:var(--ink)}
 .command-budget span{display:flex;align-items:center;gap:6px}.command-budget i{width:6px;height:6px;transform:rotate(45deg);background:var(--g-gold,var(--brass))}.command-budget .spent{color:var(--muted-ink)}.command-budget .spent i{background:transparent;border:1px solid var(--muted-ink);box-sizing:border-box}
 .action-popover .command-body{min-height:0;flex:1 1 auto;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:10px;scrollbar-width:thin;overscroll-behavior:contain}

@@ -2,6 +2,7 @@ import { computed, type Ref, type ComputedRef } from 'vue';
 import { footprintCells } from '../grid';
 import type { SceneObjectDTO, TabletopProps, SceneDetail } from './types';
 import type { ObjectSide } from '../scene';
+import { groundUnder, heightMap } from '../../../../../packages/domain/map/relief';
 
 export type ActionTargetsDeps = {
   props: TabletopProps;
@@ -18,12 +19,18 @@ export function useActionTargets({ props, sceneDetail, objects, feetPerUnit, act
     .filter(object => object.kind !== 'object' && object.canEdit && object.character_id !== activeObject.value?.character_id)
     .map(object => ({ id: object.character_id, name: object.name })));
 
+  const heights = computed(() => heightMap(sceneDetail.value?.elevation_cells));
+  const ground = (object: SceneObjectDTO) => {
+    const detail = sceneDetail.value;
+    return detail ? groundUnder(heights.value, detail, object.world_x, object.world_z, footprintCells(object.size)) : 0;
+  };
+
   function distanceFeet(a: SceneObjectDTO, b: SceneObjectDTO) {
     const side = (object: SceneObjectDTO) => footprintCells(object.size);
     const gapX = Math.max(0, Math.abs(a.world_x - b.world_x) - side(a) / 2 - side(b) / 2);
     const gapZ = Math.max(0, Math.abs(a.world_z - b.world_z) - side(a) / 2 - side(b) / 2);
-    const lowA = (a.flightHeight ?? 0) / feetPerUnit.value;
-    const lowB = (b.flightHeight ?? 0) / feetPerUnit.value;
+    const lowA = (ground(a) + (a.flightHeight ?? 0)) / feetPerUnit.value;
+    const lowB = (ground(b) + (b.flightHeight ?? 0)) / feetPerUnit.value;
     const gapY = Math.max(0, Math.max(lowA, lowB) - Math.min(lowA + side(a), lowB + side(b)));
     return Math.round((Math.max(gapX, gapZ, gapY) + 1) * feetPerUnit.value);
   }

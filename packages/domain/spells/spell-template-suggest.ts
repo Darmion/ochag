@@ -80,7 +80,7 @@ export function riderEffects(rider: SpellRider): Effect[] {
     case 'aid': return [effect('max-hp', { formula: String(rider.bonus) })];
     case 'mage_armor': return [effect('ac', { mode: 'base', value: rider.base })];
     case 'dispel': return [effect('remove', { what: 'spells', upTo: rider.upTo })];
-    case 'restore': return [effect('remove', { what: 'one-condition', conditions: rider.conditions })];
+    case 'restore': return [effect('remove', { what: 'one-condition', conditions: rider.conditions, kinds: rider.kinds ?? [] })];
     case 'protected_from_evil': return [effect('preset', { preset: 'protection-from-evil' })];
     case 'flying': return [effect('speed', { mode: 'fly', feet: rider.feet })];
     case 'light': return [effect('senses', { sense: 'light', feet: rider.bright, dimFeet: rider.dim })];

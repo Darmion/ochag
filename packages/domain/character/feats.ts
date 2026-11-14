@@ -1,4 +1,5 @@
 import { FIGHTING_STYLES } from '../srd/heroes.ts';
+import { sourced, type SourcedEffect, type TraitAbility, type TraitEffect } from './traits.ts';
 
 const ABILITY_FEAT: Array<[string, string, string, string]> = [
   ['strength', 'Сила', 'Силы', 'Strength'],
@@ -9,14 +10,16 @@ const ABILITY_FEAT: Array<[string, string, string, string]> = [
   ['charisma', 'Харизма', 'Харизмы', 'Charisma'],
 ];
 
-export const FEATS: Array<{ id: string; nameRu: string; en: string; text: string; pattern: RegExp }> = [
+export type Feat = { id: string; nameRu: string; en: string; text: string; pattern: RegExp; effects?: TraitEffect[]; abilities?: TraitAbility[]; modName?: string };
+
+export const FEATS: Feat[] = [
   {
     id: 'alert', nameRu: 'Настороженный', en: 'Alert', text: '+5 к инициативе; атаки по вам не получают преимущества оттого, что вы атакующего не видите. Само.',
-    pattern: /(Настороженн|Бдительн)(ый|ость)(?![а-яё])|\bAlert\b/,
+    pattern: /(Настороженн|Бдительн)(ый|ость)(?![а-яё])|\bAlert\b/, effects: [{ kind: 'roll-bonus', rolls: 'initiative', value: 5 }],
   },
   {
     id: 'war-caster', nameRu: 'Боевой заклинатель', en: 'War Caster', text: 'Спасброски Телосложения для концентрации — с преимуществом. Само.',
-    pattern: /Боев\S* заклинател|War Caster/i,
+    pattern: /Боев\S* заклинател|War Caster/i, effects: [{ kind: 'save-advantage', concentration: true }],
   },
   {
     id: 'sharpshooter', nameRu: 'Меткий стрелок', en: 'Sharpshooter',
@@ -27,10 +30,13 @@ export const FEATS: Array<{ id: string; nameRu: string; en: string; text: string
     id: 'great-weapon-master', nameRu: 'Мастер большого оружия', en: 'Great Weapon Master', text: 'Тяжёлым рукопашным оружием: −5 к попаданию / +10 к урону — галочкой в окне атаки.',
     pattern: /Мастер больш\S* оружи|Great Weapon Master/i,
   },
-  { id: 'mobile', nameRu: 'Мобильный', en: 'Mobile', text: 'Скорость +10 футов; по кому били в рукопашной в этот ход, тот не атакует вас при уходе. Само.', pattern: /(Мобильн|Подвижн)(ый|ость)(?![а-яё])|\bMobile\b/ },
+  {
+    id: 'mobile', nameRu: 'Мобильный', en: 'Mobile', text: 'Скорость +10 футов; по кому били в рукопашной в этот ход, тот не атакует вас при уходе. Само.',
+    pattern: /(Мобильн|Подвижн)(ый|ость)(?![а-яё])|\bMobile\b/, effects: [{ kind: 'speed', feet: 10 }],
+  },
   {
     id: 'observant', nameRu: 'Наблюдательный', en: 'Observant', text: '+5 к пассивному Восприятию. Само.',
-    pattern: /(Наблюдательн|Внимательн)(ый|ость)(?![а-яё])|\bObservant\b/,
+    pattern: /(Наблюдательн|Внимательн)(ый|ость)(?![а-яё])|\bObservant\b/, effects: [{ kind: 'passive', skill: 'perception', value: 5 }],
   },
   {
     id: 'lucky', nameRu: 'Везунчик', en: 'Lucky',
@@ -100,11 +106,12 @@ export const FEATS: Array<{ id: string; nameRu: string; en: string; text: string
   {
     id: 'tough', nameRu: 'Крепкий', en: 'Tough',
     text: 'Максимум хитов +2 за уровень: взята при повышении уровня — +2 × уровень сразу, дальше — +2 за каждый. Само.',
-    pattern: /Крепк(ий|ого)(?![а-яё])|\bTough\b/,
+    pattern: /Крепк(ий|ого)(?![а-яё])|\bTough\b/, effects: [{ kind: 'hp-per-level', value: 2 }],
   },
   ...ABILITY_FEAT.map(([id, ru, genitive, en]) => ({
     id: `resilient-${id}`, nameRu: `Устойчивый (${ru})`, en: `Resilient (${en})`, text: `Владение спасбросками ${genitive}. Само.`,
     pattern: new RegExp(`(Стойк|Устойчив)\\S*\\s*\\(?\\s*${ru.slice(0, 5)}|Resilient\\s*\\(?\\s*${en}`, 'i'),
+    effects: [{ kind: 'save-proficiency', ability: id }] as TraitEffect[],
   })),
 ];
 
@@ -134,8 +141,27 @@ function marked(sheetExtra: any, key: string, list: ReadonlyArray<{ id: string; 
   return list.filter(entry => entry.pattern.test(text)).map(entry => entry.id);
 }
 
+const MOD_FEATS = new Map<string, Feat>();
+
+export function defineModFeat(feat: Feat) {
+  MOD_FEATS.set(feat.id, feat);
+}
+
+export function featCatalog(): Feat[] {
+  return [...FEATS, ...MOD_FEATS.values()];
+}
+
+export function featAbilities(id: string): TraitAbility[] | undefined {
+  return FEAT_ABILITIES[id] ?? MOD_FEATS.get(id)?.abilities;
+}
+
 export function knownFeats(sheetExtra: unknown): FeatId[] {
-  return marked(sheetExtra, 'feats', FEATS);
+  return marked(sheetExtra, 'feats', featCatalog());
+}
+
+export function featEffects(sheetExtra: unknown): SourcedEffect[] {
+  const known = new Set(knownFeats(sheetExtra));
+  return featCatalog().filter(feat => known.has(feat.id)).flatMap(feat => sourced(feat.nameRu, feat.effects));
 }
 
 export function hasFeat(sheetExtra: unknown, id: FeatId): boolean {
@@ -166,12 +192,5 @@ export function isHandCrossbow(weapon: { srd_index?: string | null; name?: strin
   return weapon.srd_index === 'crossbow-hand' || /ручн\S* арбалет|hand crossbow/i.test(weapon.name ?? '');
 }
 
-export function greatWeaponReroll(dice: number[], rollDie: () => number): { dice: number[]; rerolled: number } {
-  let rerolled = 0;
-  const next = dice.map(value => {
-    if (value > 2) return value;
-    rerolled += 1;
-    return rollDie();
-  });
-  return { dice: next, rerolled };
-}
+// «Сражение большим оружием»: a 1 or a 2 on a damage die is rolled once more (`ro<3`); the new roll stays.
+export const GREAT_WEAPON_REROLL = { compare: '<', value: 3, once: true } as const;

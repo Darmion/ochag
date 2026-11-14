@@ -1,6 +1,6 @@
 const path = require('node:path');
 const fs = require('node:fs/promises');
-const { app, ipcMain, shell } = require('electron');
+const { app, ipcMain, shell } = require('../bridge/runtime.cjs');
 const { readVisualMods } = require('../host/visual-mods.cjs');
 const { readArtPackSection, readArtPacks } = require('../host/art-packs.cjs');
 const { bundledModsDir, enabledBundledMods, setBundledMod } = require('../host/bundled-mods.cjs');

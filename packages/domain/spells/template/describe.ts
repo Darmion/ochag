@@ -42,7 +42,7 @@ export function describeTargeting(t: SpellTemplate): string {
   if (g.kind === 'none') return 'без цели';
   if (g.kind === 'creatures' || g.kind === 'chain') {
     const who = optionLabel(SIDES, g.side);
-    const count = `${g.countMode === 'up-to' ? 'до ' : ''}${g.count} ${g.count === 1 ? 'существо' : g.count < 5 ? 'существа' : 'существ'}`;
+    const count = g.countMode === 'any' ? 'любое число существ' : `${g.countMode === 'up-to' ? 'до ' : ''}${g.count} ${g.count === 1 ? 'существо' : g.count < 5 ? 'существа' : 'существ'}`;
     const types = g.typeMode !== 'any' && g.types.length ? `, ${g.typeMode === 'only' ? 'только' : 'кроме'}: ${g.types.map(type => optionLabel(CREATURE_TYPES, type)).join(', ')}` : '';
     const apart = g.maxApartFeet ? `, не дальше ${feetText(g.maxApartFeet)} друг от друга` : '';
     const self = g.includeSelf ? ', можно себя' : '';
@@ -51,6 +51,7 @@ export function describeTargeting(t: SpellTemplate): string {
   }
   if (g.kind === 'area') {
     const size = g.shape === 'line' ? `${feetText(g.sizeFeet)} × ${feetText(g.widthFeet)}` : g.shape === 'cylinder' ? `радиус ${feetText(g.sizeFeet)}, высота ${feetText(g.heightFeet)}` : feetText(g.sizeFeet);
+    if (g.affects === 'chosen' && g.chosenMax > 0) return `${optionLabel(AREA_SHAPES, g.shape)} ${size}, ${lower(optionLabel(AREA_ORIGINS, g.origin))}; задевает выбранных внутри, не больше ${g.chosenMax}`;
     return `${optionLabel(AREA_SHAPES, g.shape)} ${size}, ${lower(optionLabel(AREA_ORIGINS, g.origin))}; задевает ${optionLabel(AREA_AFFECTS, g.affects)}`;
   }
   if (g.kind === 'object') return `${optionLabel(OBJECT_KINDS, g.objectKind)} (${g.objectOwner === 'self' ? 'своё' : 'цели'}, ${optionLabel(OBJECT_FILTERS, g.objectFilter)})`;
@@ -103,7 +104,11 @@ export function describeEffect(effect: Effect): string {
       return `зона на карте${traits.length ? ` (${traits.join(', ')})` : ''}`;
     }
     case 'wall': return `стена: преграждает ${list('blocks', field('blocks').options!)}${s('damageFormula') ? `, урон ${s('damageFormula')} ${damageWith(s('damageType'))} при проходе` : ''}`;
-    case 'remove': return `снять: ${s('what') === 'conditions' || s('what') === 'one-condition' ? list('conditions', CONDITIONS) : lower(optionLabel(field('what').options!, s('what')))}${s('what') === 'spells' ? ` до ${n('upTo')} круга` : ''}`;
+    case 'remove': {
+      const listed = s('what') === 'conditions' || s('what') === 'one-condition';
+      const kinds = listed && Array.isArray(v.kinds) && v.kinds.length ? list('kinds', field('kinds').options!) : '';
+      return `снять: ${listed ? list('conditions', CONDITIONS) : lower(optionLabel(field('what').options!, s('what')))}${kinds ? ` или ${kinds}` : ''}${s('what') === 'spells' ? ` до ${n('upTo')} круга` : ''}`;
+    }
     case 'weapon': return `оружие: +${n('bonus')}${s('die') !== 'none' ? `, кость к${s('die')}` : ''}${v.castingAbility ? ', атака заклинательной характеристикой' : ''}${s('extraFormula') ? `, +${s('extraFormula')} ${damageWith(s('extraType'))}` : ''}`;
     case 'pool': return `${lower(optionLabel(field('mode').options!, s('mode')))}: ${s('formula')}`;
     case 'preset': return optionLabel(PRESETS, s('preset'));

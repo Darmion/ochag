@@ -4,10 +4,11 @@ import { freeSpotsAround, insertPlacement, startOf, type EncounterContext } from
 import { bumpScene, objectSchema, reject, uuid } from '../tabletop/scene-feature.ts';
 import { footprintCells, occupiedCells } from '../../../../packages/domain/map/footprint.ts';
 import {
-  MONSTER_ATTRIBUTION, SRD_MONSTERS, attackBonusOf, attackText, challengeText, findMonster, monsterProficiency,
+  MONSTER_ATTRIBUTION, attackBonusOf, attackText, bestiaryMonsters, challengeText, findMonster, monsterProficiency,
   monsterSheet, monsterTexts, rollHitPoints, type SrdMonster,
 } from '../../../../packages/domain/world/bestiary.ts';
 import { challengeExperience } from '../../../../packages/domain/character/experience.ts';
+import { LEGENDARY_RESISTANCE } from '../rules/class-features.ts';
 
 export type BestiaryContext = EncounterContext & {
   rollDie: (sides: number) => number;
@@ -41,7 +42,7 @@ export function monsterSnapshot(monster: SrdMonster, hpMax: number, disposition 
     version: 1,
     character: { ...sheet.character, disposition } as unknown as ObjectSnapshot['character'],
     effects: [],
-    resources: [],
+    resources: monster.legendary?.resistances ? [{ name: LEGENDARY_RESISTANCE, max: monster.legendary.resistances, recharge: 'long' }] : [],
     skills: sheet.skills,
     saves: sheet.saves,
     spells: sheet.spells,
@@ -73,7 +74,7 @@ export function registerBestiaryRoutes(context: BestiaryContext) {
     await auth(request);
     return {
       attribution: MONSTER_ATTRIBUTION,
-      monsters: SRD_MONSTERS.map(monster => ({
+      monsters: bestiaryMonsters().map(monster => ({
         ...monster,
         crText: challengeText(monster.cr),
         xp: challengeExperience(monster.cr),

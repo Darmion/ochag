@@ -31,7 +31,7 @@ export function useCombatFx({ props, sceneId, objects, table, pushToast, run }: 
     if (event.sceneId !== sceneId.value) return;
     const from = objects.value.find(object => object.character_id === event.attackerId && !object.parent_object_id);
     const to = objects.value.find(object => object.character_id === event.targetId && !object.parent_object_id);
-    if (from && to) table()?.showAttack(from.id, to.id, event.source === 'spell' ? 'spell' : event.ranged ? 'arrow' : 'melee', event.effect);
+    if (from && to) table()?.showAttack(from.id, to.id, event.source === 'spell' ? 'spell' : event.ranged ? 'arrow' : 'melee', event.effect, event.motion);
     playAttackSounds(event);
   }
 

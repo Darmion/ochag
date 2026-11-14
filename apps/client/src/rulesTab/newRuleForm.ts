@@ -1,5 +1,5 @@
 import { ref, computed, type Ref } from 'vue';
-import { type RuleKind, KEY_PATTERN, KNOWN_FLAGS, KNOWN_CHOICES, knownChoice, isValidFormula, createRule, type CampaignRule } from '../campaign/campaignRules';
+import { type RuleKind, KEY_PATTERN, knownFlags, knownChoices, knownChoice, isValidFormula, createRule, type CampaignRule, type KnownChoice, type KnownFlag } from '../campaign/campaignRules';
 
 export type NewRuleFormDeps = {
   props: { campaignId: string; request: (path: string, method?: string, body?: unknown) => Promise<any>; };
@@ -28,12 +28,12 @@ export function useNewRuleForm({ props, rules, refresh, addForm }: NewRuleFormDe
   }
 
   const keyValid = computed(() => KEY_PATTERN.test(newKey.value.trim()));
-  const suggestedFlags = computed(() => KNOWN_FLAGS.filter(flag => !rules.value.some(rule => rule.key === flag.key)));
+  const suggestedFlags = computed(() => knownFlags().filter(flag => !rules.value.some(rule => rule.key === flag.key)));
 
-  const suggestedChoices = computed(() => KNOWN_CHOICES.filter(choice => !rules.value.some(rule => rule.key === choice.key)));
+  const suggestedChoices = computed(() => knownChoices().filter(choice => !rules.value.some(rule => rule.key === choice.key)));
   const newChoice = computed(() => (newKind.value === 'text' ? knownChoice(newKey.value.trim()) : null));
 
-  function useKnownChoice(choice: typeof KNOWN_CHOICES[number]) {
+  function useKnownChoice(choice: KnownChoice) {
     newKey.value = choice.key;
     newKind.value = 'text';
     newLabel.value = choice.label;
@@ -41,7 +41,7 @@ export function useNewRuleForm({ props, rules, refresh, addForm }: NewRuleFormDe
     newTextValue.value = choice.options.find(option => option.value !== choice.default)?.value ?? choice.default;
   }
 
-  function useKnownFlag(flag: typeof KNOWN_FLAGS[number]) {
+  function useKnownFlag(flag: KnownFlag) {
     newKey.value = flag.key;
     newKind.value = 'flag';
     newLabel.value = flag.label;

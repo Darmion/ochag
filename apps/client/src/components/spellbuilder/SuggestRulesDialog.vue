@@ -17,7 +17,7 @@ useEscapeClose(() => emit('close'));
           <h3>Как работает разбор описания</h3>
           <p class="muted">Пишите языком правил — и таблица заполнится подсказками.</p>
         </div>
-        <button type="button" class="close" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="close icon-only" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
       <div class="rules-body">
         <ul class="principles">

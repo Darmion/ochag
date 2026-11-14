@@ -7,6 +7,7 @@ import { chatHeight, resetChatHeight, setChatHeight } from '../../tabletop/layou
 import { DAMAGE_TYPES } from '../../rules/objectRules';
 import { cssZoom } from '../../settings/uiScale';
 import GameIcon from './GameIcon.vue';
+import RollMacros from './RollMacros.vue';
 import type { GameLogEvents, GameLogProps } from '../../gameLog/types';
 import { useLogLines } from '../../gameLog/lines';
 import { useApplyRoll } from '../../gameLog/applyRoll';
@@ -82,7 +83,8 @@ function submit() {
   if (parsed.kind === 'roll') {
     const text = normalizeFormula(parsed.formula);
     if (!text) return;
-    emit('roll', { formula: text, label: '', hidden: hidden.value });
+    const characterId = text.includes('@') ? props.speaker?.characterId : undefined;
+    emit('roll', { formula: text, label: '', hidden: hidden.value, ...(characterId ? { characterId } : {}) });
   } else {
     emit('say', {
       body: parsed.body,
@@ -116,9 +118,9 @@ function startResize(event: PointerEvent) {
 <template>
   <section ref="root" class="game-log" :class="{ resizable, fits: !raised }" aria-label="Журнал бросков">
     <button
-      v-if="raised" type="button" class="log-collapse" title="Вернуть журнал в нижнюю панель" aria-label="Свернуть журнал"
+      v-if="raised" type="button" class="log-collapse icon-only" title="Вернуть журнал в нижнюю панель" aria-label="Свернуть журнал"
       @click="resetChatHeight"
-    >▾</button>
+    ><GameIcon name="chevron" :size="12" /></button>
     <div
       v-if="resizable"
       class="resize-handle"
@@ -143,13 +145,13 @@ function startResize(event: PointerEvent) {
           <span v-if="line.result" class="result" :class="line.good ? 'good' : 'bad'">{{ line.result }}</span>
           <span v-if="line.hidden" class="tag-secret">тайно</span>
           <button
-            v-if="applyTargets?.length" type="button" class="apply-open" :aria-expanded="applyFor === line.id"
+            v-if="applyTargets?.length" type="button" class="apply-open icon-only" :aria-expanded="applyFor === line.id"
             :title="`Урон или лечение по броску ${line.total}`" aria-label="Урон или лечение по этому броску" @click.stop="openApply(line.id)"
           ><GameIcon class="inline-icon" name="swords" :size="14" /></button>
           <button
-            v-if="!details" type="button" class="line-more" :aria-expanded="open(line.id)"
+            v-if="!details" type="button" class="line-more icon-only" :aria-expanded="open(line.id)"
             :aria-label="open(line.id) ? 'Свернуть подробности' : 'Подробности броска'" @click.stop="toggleLine(line.id)"
-          >{{ open(line.id) ? '▾' : '▸' }}</button>
+          ><GameIcon :name="open(line.id) ? 'chevron' : 'chevronRight'" :size="12" /></button>
           <span v-if="open(line.id)" class="detail">[{{ line.formula }}: {{ line.detail }}]</span>
           <span v-if="line.reasons && open(line.id)" class="reasons">{{ line.reasons }}</span>
         </li>
@@ -165,7 +167,7 @@ function startResize(event: PointerEvent) {
     <div v-if="applyRollLine && applyTargets?.length" class="apply-popover g-frame" role="dialog" aria-label="Урон или лечение по броску" @keydown.esc.stop="applyFor = null">
       <header>
         <strong>{{ applyRollLine.label }}: {{ applyRollLine.total }}</strong>
-        <button type="button" class="apply-close" aria-label="Закрыть" @click="applyFor = null"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="apply-close icon-only" aria-label="Закрыть" @click="applyFor = null"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
       <label>
         Кому
@@ -192,14 +194,18 @@ function startResize(event: PointerEvent) {
     <form class="game-log-input" :class="{ 'many-modes': activeModes > 1 }" @submit.prevent="submit">
       <button v-if="inCharacter && speaker" type="button" class="mode-chip" :title="`В роли: от лица «${speaker.name}» — щелчок выключит`" @click="inCharacter = false"><GameIcon name="helm" :size="13" /><span class="chip-text">в роли</span></button>
       <button v-if="whisperTo && whisperName" type="button" class="mode-chip whisper" title="Шёпот одному участнику — щелчок: снова всем" @click="whisperTo = ''">→ <span class="chip-name" translate="no">{{ whisperName }}</span></button>
-      <button v-if="hidden && canHide" type="button" class="mode-chip secret" title="Тайный бросок: увидите вы и мастер — щелчок выключит" @click="hidden = false"><GameIcon name="eye" :size="13" /><span class="chip-text">тайный бросок</span></button>
+      <button v-if="hidden && canHide" type="button" class="mode-chip secret" title="Тайный бросок: увидите вы и мастер — щелчок выключит" @click="hidden = false"><GameIcon name="secretRoll" :size="13" /><span class="chip-text">тайный бросок</span></button>
       <input
         v-model="formula" placeholder="Сообщение или бросок: 1d20+5, /r 2d6…"
         maxlength="1000" aria-label="Сообщение или формула броска" :disabled="busy"
       />
+      <RollMacros
+        v-if="macros" :campaign-id="macros.campaignId" :request="macros.request" :heroes="macros.heroes"
+        :speaker-id="speaker?.characterId ?? null" :can-hide="canHide" :busy="busy" @roll="payload => emit('roll', payload)"
+      />
       <span ref="modesRoot" class="modes-wrap" @keydown.esc.stop="closeModes">
         <button
-          ref="modesButton" type="button" class="modes-open" :class="{ active: inCharacter || hidden || Boolean(whisperTo) }" :aria-expanded="modesOpen"
+          ref="modesButton" type="button" class="modes-open icon-only" :class="{ active: inCharacter || hidden || Boolean(whisperTo) }" :aria-expanded="modesOpen"
           title="Режимы: в роли, кому, тайно, подробный журнал" aria-label="Режимы журнала" @click="modesOpen = !modesOpen"
         ><GameIcon name="gear" :size="15" /></button>
         <div v-if="modesOpen" class="modes-popover g-frame" role="dialog" aria-label="Режимы журнала">

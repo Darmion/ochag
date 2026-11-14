@@ -10,6 +10,8 @@ import { guardFriendlyFire } from '../../campaign/factions.ts';
 import { spellRangeFeet } from '../../../../../packages/domain/spells/spell-mechanics.ts';
 import { attackSituation } from '../combat/attack.ts';
 import { rollSaveAgainst } from '../rolls/checks.ts';
+import { loadConditionState } from '../../rules/conditions.ts';
+import { attackBan } from '../../../../../packages/domain/combat/conditions.ts';
 import type { TableContext } from '../context.ts';
 import type { Queryable } from '../../db.ts';
 import type { CastBody } from './cast.ts';
@@ -77,6 +79,13 @@ export async function aimCast(ctx: TableContext, q: Queryable, userId: string, p
   const harmful = Boolean(mechanics.attack || mechanics.save || damageFormula);
   const wardedOff: Array<{ id: string; name: string }> = [];
   if (harmful) {
+    const state = await loadConditionState(q, campaignId, characterId);
+    for (const targetId of new Set([...(targetIds ?? []), ...(body.shots ?? [])])) {
+      if (targetId === characterId) continue;
+      const ban = attackBan(state, targetId);
+      const name = targets.find(target => target.id === targetId)?.name ?? 'цель';
+      if (ban) reject(400, `${character.name}: «${ban.name}» — вредить «${name}» заклинанием нельзя.`);
+    }
     for (const target of [...targets]) {
       if (!(targetIds ?? []).includes(target.id) || target.id === characterId) continue;
       const ward = (

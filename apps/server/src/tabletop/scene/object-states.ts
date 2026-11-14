@@ -1,5 +1,6 @@
 import type { Queryable } from '../../db.ts';
 import { objectSchema, reject, uuid, type SceneFeatureContext } from '../scene-feature.ts';
+import { runeLockHolds } from '../../campaign/minigame-links.ts';
 
 type Rights = { sceneManager: boolean; characterManager: boolean; editGrants: Set<string> };
 
@@ -358,7 +359,9 @@ export function registerObjectStateRoutes(context: ObjectStateContext) {
           } else if (state.locked) {
             state.lock_known = true;
             outcome = 'locked';
-            message = `«${object.name}» заперт.`;
+            message = (await runeLockHolds(q, campaignId, { objectId: characterId }))
+              ? `«${object.name}» заперт рунным замком. Разгадайте его в «Мини-играх».`
+              : `«${object.name}» заперт.`;
           } else {
             state.is_open = true;
             opened = true;
@@ -370,7 +373,10 @@ export function registerObjectStateRoutes(context: ObjectStateContext) {
           if (!state.locked) reject(400, `«${object.name}» не заперт.`);
           state.lock_known = true;
 
-          if (state.lock_dc === null) {
+          if (await runeLockHolds(q, campaignId, { objectId: characterId })) {
+            outcome = 'impossible';
+            message = 'Рунный замок не взломать отмычкой — его нужно разгадать в «Мини-играх».';
+          } else if (state.lock_dc === null) {
             outcome = 'impossible';
             message = 'Этот замок не взломать — нужен ключ.';
           } else if ((await check('sleight-of-hand', 'Взлом замка')) >= state.lock_dc) {

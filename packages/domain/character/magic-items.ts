@@ -1,4 +1,8 @@
 import { abilityModifier } from '../dice/dice.ts';
+import { SRD_MAGIC_ITEM_LIST, type SrdMagicItem } from '../srd/magic-items/index.ts';
+
+export type { SrdMagicItem } from '../srd/magic-items/index.ts';
+export type { ItemEffect, ItemSpell, ItemUse, MagicItemKind } from '../srd/magic-items/types.ts';
 
 export const ABILITIES = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'] as const;
 export type Ability = typeof ABILITIES[number];
@@ -30,7 +34,7 @@ export const DAMAGE_TYPES = [
 const DAMAGE_RU: Record<string, string> = {
   acid: 'кислота', bludgeoning: 'дробящий', cold: 'холод', fire: 'огонь', force: 'силовое поле', lightning: 'электричество',
   necrotic: 'некротическая энергия', piercing: 'колющий', poison: 'яд', psychic: 'психическая энергия', radiant: 'излучение',
-  slashing: 'рубящий', thunder: 'звук',
+  slashing: 'рубящий', thunder: 'звук', nonmagical: 'немагическое оружие',
 };
 
 export const ATTUNEMENT_LIMIT = 3;
@@ -42,9 +46,16 @@ export type MagicBonuses = {
   armorClass?: number;
   saves?: number;
   abilities?: Partial<Record<Ability, number>>;
+  abilityRaise?: Partial<Record<Ability, number>>;
   speed?: number;
   resistances?: string[];
+  immunities?: string[];
+  spellAttack?: number;
+  spellDc?: number;
+  weapon?: number;
 };
+
+export const ABILITY_RAISE_MAX = 20;
 
 export type AppliedBonuses = {
   characterId: string;
@@ -54,6 +65,9 @@ export type AppliedBonuses = {
   speed: number;
   resistances: string[];
   hpMax: number;
+  immunities?: string[];
+  spellAttack?: number;
+  spellDc?: number;
 };
 
 export function bonusProblems(bonuses: MagicBonuses): string[] {
@@ -66,9 +80,16 @@ export function bonusProblems(bonuses: MagicBonuses): string[] {
     if (!(ABILITIES as readonly string[]).includes(ability)) problems.push(`Неизвестная характеристика «${ability}».`);
     else if (!integer(value, 1, 30)) problems.push(`${ABILITY_LABELS[ability as Ability]}: значение — от 1 до 30.`);
   }
-  for (const type of bonuses.resistances ?? []) {
-    if (!(DAMAGE_TYPES as readonly string[]).includes(type)) problems.push(`Неизвестный тип урона «${type}».`);
+  for (const [ability, value] of Object.entries(bonuses.abilityRaise ?? {})) {
+    if (!(ABILITIES as readonly string[]).includes(ability)) problems.push(`Неизвестная характеристика «${ability}».`);
+    else if (!integer(value, 1, 10)) problems.push(`${ABILITY_LABELS[ability as Ability]}: прибавка — от 1 до 10.`);
   }
+  for (const type of [...(bonuses.resistances ?? []), ...(bonuses.immunities ?? [])]) {
+    if (type !== 'nonmagical' && !(DAMAGE_TYPES as readonly string[]).includes(type)) problems.push(`Неизвестный тип урона «${type}».`);
+  }
+  if (bonuses.spellAttack !== undefined && !integer(bonuses.spellAttack, -5, 10)) problems.push('Прибавка к атаке заклинаниями — от −5 до 10.');
+  if (bonuses.spellDc !== undefined && !integer(bonuses.spellDc, -5, 10)) problems.push('Прибавка к СЛ заклинаний — от −5 до 10.');
+  if (bonuses.weapon !== undefined && !integer(bonuses.weapon, -5, 10)) problems.push('Бонус оружия — от −5 до 10.');
   return problems;
 }
 
@@ -82,8 +103,16 @@ export function bonusText(bonuses: MagicBonuses): string {
     const value = bonuses.abilities?.[ability];
     if (value) parts.push(`${ABILITY_LABELS[ability]} ${value}`);
   }
+  for (const ability of ABILITIES) {
+    const value = bonuses.abilityRaise?.[ability];
+    if (value) parts.push(`${ABILITY_LABELS[ability]} ${signed(value)} (до ${ABILITY_RAISE_MAX})`);
+  }
   if (bonuses.speed) parts.push(`скорость ${signed(bonuses.speed)} фут.`);
+  if (bonuses.weapon) parts.push(`атака и урон ${signed(bonuses.weapon)}`);
+  if (bonuses.spellAttack) parts.push(`атака заклинаниями ${signed(bonuses.spellAttack)}`);
+  if (bonuses.spellDc) parts.push(`СЛ заклинаний ${signed(bonuses.spellDc)}`);
   if (bonuses.resistances?.length) parts.push(`сопротивление: ${bonuses.resistances.map(type => DAMAGE_RU[type] ?? type).join(', ')}`);
+  if (bonuses.immunities?.length) parts.push(`иммунитет: ${bonuses.immunities.map(type => DAMAGE_RU[type] ?? type).join(', ')}`);
   return parts.join(', ');
 }
 
@@ -100,6 +129,8 @@ export type SheetNumbers = {
   speed: number;
   abilities: Record<Ability, number>;
   resistances: string[];
+  immunities?: string[];
+  spellBonus?: { attack: number; dc: number };
   hpMax: number;
   hpCurrent: number;
   level: number | null;
@@ -117,10 +148,23 @@ export function applyBonuses(sheet: SheetNumbers, bonuses: MagicBonuses, charact
       added[ability] = delta;
     }
   }
+  for (const ability of ABILITIES) {
+    const raise = bonuses.abilityRaise?.[ability];
+    if (!raise) continue;
+    const delta = Math.max(0, Math.min(ABILITY_RAISE_MAX, abilities[ability] + raise) - abilities[ability]);
+    if (delta > 0) {
+      abilities[ability] += delta;
+      added[ability] = (added[ability] ?? 0) + delta;
+    }
+  }
   const hpMax = (abilityModifier(abilities.constitution) - abilityModifier(sheet.abilities.constitution)) * Math.max(1, sheet.level ?? 1);
   const resistances = (bonuses.resistances ?? []).filter(type => !sheet.resistances.includes(type));
+  const immunities = (bonuses.immunities ?? []).filter(type => !(sheet.immunities ?? []).includes(type));
   const armorClass = bonuses.armorClass ?? 0;
   const speed = bonuses.speed ?? 0;
+  const spellAttack = bonuses.spellAttack ?? 0;
+  const spellDc = bonuses.spellDc ?? 0;
+  const spellBonus = sheet.spellBonus ?? { attack: 0, dc: 0 };
   return {
     sheet: {
       ...sheet,
@@ -128,10 +172,15 @@ export function applyBonuses(sheet: SheetNumbers, bonuses: MagicBonuses, charact
       speed: Math.max(0, sheet.speed + speed),
       abilities,
       resistances: [...sheet.resistances, ...resistances],
+      ...(immunities.length ? { immunities: [...(sheet.immunities ?? []), ...immunities] } : {}),
+      ...(spellAttack || spellDc ? { spellBonus: { attack: spellBonus.attack + spellAttack, dc: spellBonus.dc + spellDc } } : {}),
       hpMax: sheet.hpMax + hpMax,
       hpCurrent: sheet.hpCurrent + Math.max(0, hpMax),
     },
-    applied: { characterId, armorClass, saves: bonuses.saves ?? 0, abilities: added, speed, resistances, hpMax },
+    applied: {
+      characterId, armorClass, saves: bonuses.saves ?? 0, abilities: added, speed, resistances, hpMax,
+      ...(immunities.length ? { immunities } : {}), ...(spellAttack ? { spellAttack } : {}), ...(spellDc ? { spellDc } : {}),
+    },
   };
 }
 
@@ -142,12 +191,17 @@ export function revertBonuses(sheet: SheetNumbers, applied: AppliedBonuses): She
     if (delta) abilities[ability] = Math.max(1, abilities[ability] - delta);
   }
   const hpMax = Math.max(0, sheet.hpMax - (applied.hpMax ?? 0));
+  const spellBonus = sheet.spellBonus ?? { attack: 0, dc: 0 };
   return {
     ...sheet,
     armorClass: sheet.armorClass - (applied.armorClass ?? 0),
     speed: Math.max(0, sheet.speed - (applied.speed ?? 0)),
     abilities,
     resistances: sheet.resistances.filter(type => !(applied.resistances ?? []).includes(type)),
+    ...(applied.immunities?.length ? { immunities: (sheet.immunities ?? []).filter(type => !applied.immunities!.includes(type)) } : {}),
+    ...(applied.spellAttack || applied.spellDc
+      ? { spellBonus: { attack: spellBonus.attack - (applied.spellAttack ?? 0), dc: spellBonus.dc - (applied.spellDc ?? 0) } }
+      : {}),
     hpMax,
     hpCurrent: Math.min(sheet.hpCurrent, hpMax),
   };
@@ -157,67 +211,21 @@ export function dawnCount(worldMinutes: number): number {
   return worldMinutes < 360 ? 0 : Math.floor((worldMinutes - 360) / 1440) + 1;
 }
 
-export type SrdMagicItem = {
-  index: string;
-  name: string;
-  nameRu: string;
-  rarity: Rarity;
-  attunement: boolean;
-  charges?: { max: number; recharge: Recharge; formula?: string; destroyOnEmpty?: boolean };
-  bonuses?: MagicBonuses;
-  description: string;
-};
+export const SRD_MAGIC_ITEMS: SrdMagicItem[] = SRD_MAGIC_ITEM_LIST;
 
-export const SRD_MAGIC_ITEMS: SrdMagicItem[] = [
-  {
-    index: 'wand-of-magic-missiles', name: 'Wand of Magic Missiles', nameRu: 'Палочка волшебных стрел', rarity: 'uncommon', attunement: false,
-    charges: { max: 7, recharge: 'dawn', formula: '1d6+1', destroyOnEmpty: true },
-    description: 'Действием потратить от 1 до 3 зарядов и сотворить «Волшебную стрелу»: 1 заряд — заклинание 1-го уровня, каждый следующий — на уровень выше. На рассвете восстанавливает 1d6+1 заряд. Потрачен последний — к20: на 1 палочка рассыпается в прах.',
-  },
-  {
-    index: 'wand-of-web', name: 'Wand of Web', nameRu: 'Палочка паутины', rarity: 'uncommon', attunement: true,
-    charges: { max: 7, recharge: 'dawn', formula: '1d6+1', destroyOnEmpty: true },
-    description: 'Настройка — заклинатель. Действием потратить 1 заряд и сотворить «Паутину» (СЛ спасброска 15). На рассвете восстанавливает 1d6+1 заряд. Потрачен последний — к20: на 1 палочка рассыпается в прах.',
-  },
-  {
-    index: 'staff-of-healing', name: 'Staff of Healing', nameRu: 'Посох лечения', rarity: 'rare', attunement: true,
-    charges: { max: 10, recharge: 'dawn', formula: '1d6+4', destroyOnEmpty: true },
-    description: 'Настройка — бард, жрец или друид. Действием потратить заряды и сотворить: «Лечение ран» (1 заряд за уровень ячейки, до 4-го), «Восстановление» (2 заряда), «Лечение ран массовое» (5 зарядов). На рассвете восстанавливает 1d6+4 заряда. Потрачен последний — к20: на 1 посох исчезает во вспышке света.',
-  },
-  {
-    index: 'ring-of-protection', name: 'Ring of Protection', nameRu: 'Кольцо защиты', rarity: 'rare', attunement: true,
-    bonuses: { armorClass: 1, saves: 1 }, description: '+1 к КД и спасброскам, пока кольцо надето.',
-  },
-  {
-    index: 'cloak-of-protection', name: 'Cloak of Protection', nameRu: 'Плащ защиты', rarity: 'uncommon', attunement: true,
-    bonuses: { armorClass: 1, saves: 1 }, description: '+1 к КД и спасброскам, пока плащ надет.',
-  },
-  {
-    index: 'bracers-of-defense', name: 'Bracers of Defense', nameRu: 'Наручи защиты', rarity: 'rare', attunement: true,
-    bonuses: { armorClass: 2 }, description: '+2 к КД, если на вас нет доспеха и вы не держите щит.',
-  },
-  {
-    index: 'gauntlets-of-ogre-power', name: 'Gauntlets of Ogre Power', nameRu: 'Перчатки силы огра', rarity: 'uncommon', attunement: true,
-    bonuses: { abilities: { strength: 19 } }, description: 'Сила становится 19, если она была меньше.',
-  },
-  {
-    index: 'headband-of-intellect', name: 'Headband of Intellect', nameRu: 'Обруч интеллекта', rarity: 'uncommon', attunement: true,
-    bonuses: { abilities: { intelligence: 19 } }, description: 'Интеллект становится 19, если он был меньше.',
-  },
-  {
-    index: 'amulet-of-health', name: 'Amulet of Health', nameRu: 'Амулет здоровья', rarity: 'rare', attunement: true,
-    bonuses: { abilities: { constitution: 19 } }, description: 'Телосложение становится 19, если оно было меньше (максимум хитов растёт вместе с ним).',
-  },
-  {
-    index: 'ring-of-resistance', name: 'Ring of Resistance', nameRu: 'Кольцо сопротивления (огонь)', rarity: 'rare', attunement: true,
-    bonuses: { resistances: ['fire'] }, description: 'Сопротивление одному типу урона, пока кольцо надето (по камню; здесь — огонь, мастер может сменить).',
-  },
-  {
-    index: 'armor-plus-1', name: 'Armor, +1', nameRu: 'Доспех +1', rarity: 'rare', attunement: false,
-    bonuses: { armorClass: 1 }, description: '+1 к КД сверх обычного доспеха, пока он надет.',
-  },
-  {
-    index: 'boots-of-striding-and-springing', name: 'Boots of Striding and Springing', nameRu: 'Сапоги ходьбы и прыжков', rarity: 'uncommon', attunement: true,
-    bonuses: { speed: 10 }, description: 'Скорость ходьбы не меньше 30 футов (здесь — +10 футов; поправьте под персонажа), прыжки втрое дальше.',
-  },
-];
+const BY_INDEX = new Map<string, SrdMagicItem>();
+for (const item of SRD_MAGIC_ITEMS) {
+  BY_INDEX.set(item.index, item);
+  for (const old of item.legacy ?? []) BY_INDEX.set(old, item);
+}
+
+export function findSrdMagicItem(index: string | null | undefined): SrdMagicItem | null {
+  return index ? BY_INDEX.get(index) ?? null : null;
+}
+
+// The button for an item that is used up: potions are drunk, oils and ointments put on.
+export function magicUseLabel(index: string | null | undefined): string | null {
+  const item = findSrdMagicItem(index);
+  if (item?.use?.kind !== 'consume') return null;
+  return item.kind === 'potion' && !/^Масло/.test(item.nameRu) ? 'Выпить' : 'Нанести';
+}

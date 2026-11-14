@@ -93,6 +93,7 @@ export function createGlow({ scene, objectEntries, currentWalls, wallsVersion }:
       const mesh = MeshBuilder.CreateGround(`light-glow-${record.data.id}`, { width: size, height: size }, scene);
       mesh.isPickable = false;
       mesh.position.y = 0.012;
+      mesh.alphaIndex = 0;
       const texture = new DynamicTexture(`light-glow-texture-${record.data.id}`, { width: texSize, height: texSize }, scene, false);
       texture.hasAlpha = true;
       const material = new StandardMaterial(`light-glow-material-${record.data.id}`, scene);

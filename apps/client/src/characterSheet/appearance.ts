@@ -2,6 +2,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, type Ref } from 'v
 import type { ImageCrop } from '../art/imageCrop';
 import { artHas } from '../art/artSource';
 import { artFile, artImageUrl, heroPortraitPaths, isArtImageId, npcPortraitPath, objectImageId, raceIdOf } from '../art/portraitArt';
+import { openArtChoices, openArtFor } from '../art/openPairs';
 import type { CharacterDTO, SheetRequest } from './types';
 
 export type AppearanceDeps = {
@@ -13,11 +14,25 @@ export type AppearanceDeps = {
 
 export function useAppearance({ props, character, error, syncEditFields }: AppearanceDeps) {
   const imagePreview = ref('');
+  const openPreview = ref('');
+  const lastLibraryPath = ref<string | null>(null);
   const previewFromLibrary = ref(false);
   const modelLibrary = ref<Array<{ id: string; original_filename: string | null }>>([]);
   const busy = ref(false);
 
+  async function loadOpenPreview(data: CharacterDTO) {
+    if (openPreview.value) URL.revokeObjectURL(openPreview.value);
+    openPreview.value = '';
+    if (!data.image_open_asset_id) return;
+    try {
+      const blob: Blob = await props.request(`/campaigns/${props.campaignId}/assets/${data.image_open_asset_id}`);
+      openPreview.value = URL.createObjectURL(blob);
+    } catch {
+    }
+  }
+
   async function loadAppearancePreview(data: CharacterDTO) {
+    void loadOpenPreview(data);
     if (imagePreview.value && !previewFromLibrary.value) URL.revokeObjectURL(imagePreview.value);
     imagePreview.value = '';
     previewFromLibrary.value = false;
@@ -48,6 +63,7 @@ export function useAppearance({ props, character, error, syncEditFields }: Appea
 
   onBeforeUnmount(() => {
     if (imagePreview.value && !previewFromLibrary.value) URL.revokeObjectURL(imagePreview.value);
+    if (openPreview.value) URL.revokeObjectURL(openPreview.value);
   });
 
   const artPickerOpen = ref(false);
@@ -66,16 +82,42 @@ export function useAppearance({ props, character, error, syncEditFields }: Appea
   });
   const openArtPicker = () => { artPickerOpen.value = true; };
   const closeArtPicker = () => { artPickerOpen.value = false; };
+  const openArtPickerShown = ref(false);
+  const openArtSuggested = computed(() => openArtChoices(lastLibraryPath.value));
+
+  const uploadArt = async (path: string) => (await props.request(`/campaigns/${props.campaignId}/assets?kind=object_image`, 'POST', undefined, await artFile(path))).id as string;
 
   function onLibraryArtPicked(path: string) {
     artPickerOpen.value = false;
     return runAppearance(async () => {
-      const uploaded = await props.request(`/campaigns/${props.campaignId}/assets?kind=object_image`, 'POST', undefined, await artFile(path));
-      await patchAppearance({ imageAssetId: uploaded.id });
+      const imageAssetId = await uploadArt(path);
+      const pair = character.value?.kind === 'object' && !character.value.image_open_asset_id ? openArtFor(path) : null;
+      lastLibraryPath.value = path;
+      await patchAppearance({ imageAssetId, ...(pair ? { imageOpenAssetId: await uploadArt(pair) } : {}) });
     });
   }
 
-  async function patchAppearance(fields: { imageAssetId?: string | null; imageCrop?: ImageCrop | null; modelAssetId?: string | null }) {
+  function onOpenArtPicked(path: string) {
+    openArtPickerShown.value = false;
+    return runAppearance(async () => patchAppearance({ imageOpenAssetId: await uploadArt(path) }));
+  }
+
+  function onOpenImageChosen(event: Event) {
+    const input = event.target as HTMLInputElement;
+    const file = input.files?.[0];
+    input.value = '';
+    if (!file) return;
+    return runAppearance(async () => {
+      const uploaded = await props.request(`/campaigns/${props.campaignId}/assets?kind=object_image`, 'POST', undefined, file);
+      await patchAppearance({ imageOpenAssetId: uploaded.id });
+    });
+  }
+
+  function clearOpenImage() {
+    return runAppearance(() => patchAppearance({ imageOpenAssetId: null }));
+  }
+
+  async function patchAppearance(fields: { imageAssetId?: string | null; imageOpenAssetId?: string | null; imageCrop?: ImageCrop | null; modelAssetId?: string | null }) {
     if (!character.value) return;
 
     const updated = await props.request(
@@ -86,6 +128,7 @@ export function useAppearance({ props, character, error, syncEditFields }: Appea
 
     character.value = updated;
     syncEditFields(updated);
+    if ('imageOpenAssetId' in fields) void loadOpenPreview(updated);
   }
 
   async function runAppearance(action: () => Promise<void>) {
@@ -157,9 +200,10 @@ export function useAppearance({ props, character, error, syncEditFields }: Appea
   onMounted(loadModelLibrary);
 
   return reactive({
-    imagePreview, previewFromLibrary, modelLibrary, busy, artPickerOpen, artPickerSuggested, portraitCrop,
+    imagePreview, openPreview, previewFromLibrary, modelLibrary, busy, artPickerOpen, artPickerSuggested, portraitCrop,
+    openArtPickerShown, openArtSuggested,
     loadAppearancePreview, openArtPicker, closeArtPicker, onLibraryArtPicked, onImageChosen, openPortraitCrop,
-    closePortraitCrop, savePortraitCrop, onModelChosen, setModel, clearImage,
+    closePortraitCrop, savePortraitCrop, onModelChosen, setModel, clearImage, onOpenArtPicked, onOpenImageChosen, clearOpenImage,
   });
 }
 

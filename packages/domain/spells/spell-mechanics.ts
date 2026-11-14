@@ -82,6 +82,12 @@ export function spellAttackBonus(proficiencyBonus: number, abilityModifier: numb
   return proficiencyBonus + abilityModifier;
 }
 
+// What worn magic items add to spell attacks and save DCs; the item code keeps it on the sheet.
+export function itemSpellBonus(sheetExtra: unknown): { attack: number; dc: number } {
+  const bonus = (sheetExtra as { itemSpellBonus?: { attack?: unknown; dc?: unknown } } | null)?.itemSpellBonus;
+  return { attack: Number(bonus?.attack ?? 0) || 0, dc: Number(bonus?.dc ?? 0) || 0 };
+}
+
 export type SpellMechanicsOverrides = {
   damage_formula?: string | null;
   healing_formula?: string | null;

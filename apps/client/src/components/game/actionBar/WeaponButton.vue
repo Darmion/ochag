@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import GameIcon from '../GameIcon.vue';
 import ItemArt from '../../rpg/ItemArt.vue';
+import DamageTag from '../../common/DamageTag.vue';
 import { itemArt } from '../../../art/itemArt';
 import type { Weapon } from '../../../actionBar/types';
 import type { WeaponCard } from '../../../actionBar/weapons';
@@ -16,7 +17,7 @@ const emit = defineEmits<{ arm: []; hover: [weapon: Weapon | null] }>();
   >
     <ItemArt v-if="itemArt(card.weapon.name)" :name="card.weapon.name" :size="24" /><GameIcon v-else name="sword" :size="16" /> {{ card.weapon.name }}
     <small class="muted spell-mech">
-      {{ card.range }}
+      <DamageTag v-if="card.weapon.damage_type" :type="card.weapon.damage_type" icon-only :size="13" /> {{ card.range }}
     </small>
     <small v-if="card.preview" class="muted hit-chance">{{ card.preview }}</small>
     <small v-if="card.bonusNote" class="muted">{{ card.bonusNote }}</small>

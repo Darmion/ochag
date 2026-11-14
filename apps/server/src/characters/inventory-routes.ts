@@ -3,8 +3,9 @@ import { bumpScene, objectSchema, reject, uuid, type SceneFeatureContext } from 
 import { freeSpotsAround, insertPlacement, startOf, type PlacementView } from '../campaign/encounter-routes.ts';
 import { footprintCells, isFootprintCenter, occupiedCells, snapFootprint } from '../../../../packages/domain/map/footprint.ts';
 import { syncItem } from './magic-items.ts';
+import { itemLeftHolder, wornArmorInCombat } from './inventory-state.ts';
 
-type Node = {
+export type Node = {
   id: string;
   name: string;
   kind: 'character' | 'npc' | 'object';
@@ -13,7 +14,7 @@ type Node = {
   container_id: string | null;
 };
 
-type Rights = { sceneManager: boolean; characterManager: boolean; editGrants: Set<string> };
+export type Rights = { sceneManager: boolean; characterManager: boolean; editGrants: Set<string> };
 
 export type InventoryContext = SceneFeatureContext & {
   rightsOf: (q: Queryable, member: any, userId: string) => Promise<Rights>;
@@ -23,7 +24,7 @@ export type InventoryContext = SceneFeatureContext & {
 
 const MAX_DEPTH = 8;
 
-async function loadTree(q: Queryable, campaignId: string) {
+export async function loadTree(q: Queryable, campaignId: string) {
   const rows = (
     await q.query(
       `SELECT id, name, kind, owner_user_id, shared, container_id FROM characters WHERE campaign_id=$1`,
@@ -33,11 +34,11 @@ async function loadTree(q: Queryable, campaignId: string) {
   return new Map(rows.map(row => [row.id, row]));
 }
 
-function controls(rights: Rights, userId: string, node: Node) {
+export function controls(rights: Rights, userId: string, node: Node) {
   return rights.sceneManager || rights.characterManager || node.owner_user_id === userId || rights.editGrants.has(node.id);
 }
 
-function ancestors(tree: Map<string, Node>, node: Node) {
+export function ancestors(tree: Map<string, Node>, node: Node) {
   const chain: Node[] = [];
   let current = node.container_id ? tree.get(node.container_id) : undefined;
   while (current && chain.length < MAX_DEPTH) {
@@ -47,11 +48,11 @@ function ancestors(tree: Map<string, Node>, node: Node) {
   return chain;
 }
 
-function canOpen(tree: Map<string, Node>, rights: Rights, userId: string, container: Node) {
+export function canOpen(tree: Map<string, Node>, rights: Rights, userId: string, container: Node) {
   return [container, ...ancestors(tree, container)].some(node => controls(rights, userId, node) || node.shared);
 }
 
-function canHandle(tree: Map<string, Node>, rights: Rights, userId: string, item: Node) {
+export function canHandle(tree: Map<string, Node>, rights: Rights, userId: string, item: Node) {
   if (controls(rights, userId, item)) return true;
   const container = item.container_id ? tree.get(item.container_id) : undefined;
   return Boolean(container && canOpen(tree, rights, userId, container));
@@ -96,7 +97,7 @@ export function registerInventoryRoutes(context: InventoryContext) {
 
   app.put<{
     Params: { campaignId: string; characterId: string };
-    Body: { containerId: string | null; sceneId?: string; x?: number; z?: number };
+    Body: { containerId: string | null; sceneId?: string; x?: number; z?: number; nearHolder?: boolean };
   }>(
     '/campaigns/:campaignId/characters/:characterId/container',
     {
@@ -108,6 +109,7 @@ export function registerInventoryRoutes(context: InventoryContext) {
             sceneId: uuid,
             x: { type: 'number', minimum: -1000, maximum: 1000 },
             z: { type: 'number', minimum: -1000, maximum: 1000 },
+            nearHolder: { type: 'boolean' },
           },
           ['containerId'],
         ),
@@ -116,7 +118,8 @@ export function registerInventoryRoutes(context: InventoryContext) {
     async request => {
       const userId = await auth(request);
       const { campaignId, characterId } = request.params;
-      const { containerId, sceneId } = request.body;
+      const { containerId, nearHolder } = request.body;
+      let sceneId = request.body.sceneId;
       let touched: string[] = [];
 
       const result = await db.transaction(async q => {
@@ -128,6 +131,8 @@ export function registerInventoryRoutes(context: InventoryContext) {
         if (!item) reject(404, 'Объект не найден.');
         if (item.kind !== 'object') reject(400, 'Внутрь кладут только предметы, не существ.');
         if (!canHandle(tree, rights, userId, item)) reject(403, 'Распоряжаться можно своим предметом или тем, что лежит в доступном вам контейнере.');
+        const armorInFight = manager ? null : await wornArmorInCombat(q, campaignId, [item.id]);
+        if (armorInFight) reject(400, `«${armorInFight}» надет: доспех в бою не снять — на это уходят минуты.`);
 
         if (containerId) {
           const container = tree.get(containerId);
@@ -151,22 +156,29 @@ export function registerInventoryRoutes(context: InventoryContext) {
 
           const owner = giving && container.owner_user_id ? container.owner_user_id : item.owner_user_id;
           await q.query(
-            'UPDATE characters SET container_id=$3, owner_user_id=$4, revision=revision+1 WHERE campaign_id=$1 AND id=$2',
+            'UPDATE characters SET equipped_slot=NULL, container_id=$3, owner_user_id=$4, revision=revision+1 WHERE campaign_id=$1 AND id=$2',
             [campaignId, item.id, container.id, owner],
           );
           touched = await syncItem(q, campaignId, item.id);
+          if (item.container_id !== container.id) await itemLeftHolder(q, campaignId, item.id, item.container_id);
 
           return { containerId: container.id, ownerUserId: owner, placement: null };
         }
 
         if (!item.container_id) reject(400, 'Предмет ни во что не положен.');
         const from = tree.get(item.container_id)!;
+        if (nearHolder && !sceneId) {
+          const holders = [from, ...ancestors(tree, from)].map(node => node.id);
+          sceneId = (await q.query('SELECT scene_id FROM scene_objects WHERE campaign_id=$1 AND character_id = ANY($2::uuid[]) LIMIT 1', [campaignId, holders])).rows[0]?.scene_id;
+          if (!sceneId) reject(400, 'Героя нет на столе — выложить предмет некуда. Поставьте его фигуру на сцену.');
+        }
         const owner = !controls(rights, userId, item) && !manager ? userId : item.owner_user_id;
         await q.query(
-          'UPDATE characters SET container_id=NULL, owner_user_id=$3, revision=revision+1 WHERE campaign_id=$1 AND id=$2',
+          'UPDATE characters SET equipped_slot=NULL, container_id=NULL, owner_user_id=$3, revision=revision+1 WHERE campaign_id=$1 AND id=$2',
           [campaignId, item.id, owner],
         );
         touched = await syncItem(q, campaignId, item.id);
+        await itemLeftHolder(q, campaignId, item.id, from.id);
 
         let placement: { id: string; sceneId: string; x: number; z: number } | null = null;
 

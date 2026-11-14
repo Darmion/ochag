@@ -4,7 +4,9 @@ import GameIcon from '../game/GameIcon.vue';
 
 type Option = { name: string; cost: number; text: string };
 type Phase = { atPercent: number; title: string; text: string; public: boolean; done: boolean };
-type Boss = { legendaryActions: number; legendaryResistances?: number; options: Option[]; phases: Phase[]; template?: Omit<Boss, 'template'> };
+type LairOption = { name: string; text: string };
+type Lair = { active: boolean; rules: { score: number; tieRank: number; noRepeat: boolean }; options: LairOption[] };
+type Boss = { legendaryActions: number; legendaryResistances?: number; options: Option[]; phases: Phase[]; lair?: Lair; template?: Omit<Boss, 'template'> };
 
 const props = defineProps<{
   campaignId: string;
@@ -20,6 +22,10 @@ const legendaryActions = ref(0);
 const legendaryResistances = ref(0);
 const options = ref<Option[]>([]);
 const phases = ref<Phase[]>([]);
+const lairActive = ref(false);
+const lairScore = ref(20);
+const lairNoRepeat = ref(true);
+const lairOptions = ref<LairOption[]>([]);
 let template: Omit<Boss, 'template'> | null = null;
 
 const path = () => `/campaigns/${props.campaignId}/characters/${props.characterId}/boss`;
@@ -29,6 +35,12 @@ function apply(boss: Boss) {
   legendaryResistances.value = boss.legendaryResistances ?? 0;
   options.value = boss.options.map(option => ({ ...option, text: option.text ?? '' }));
   phases.value = boss.phases.map(phase => ({ ...phase, text: phase.text ?? '' }));
+  if (boss.lair) {
+    lairActive.value = boss.lair.active;
+    lairScore.value = boss.lair.rules.score;
+    lairNoRepeat.value = boss.lair.rules.noRepeat;
+    lairOptions.value = boss.lair.options.map(option => ({ name: option.name, text: option.text ?? '' }));
+  }
   if (boss.template) template = boss.template;
 }
 
@@ -56,6 +68,11 @@ function addOption() {
   if (!legendaryActions.value) legendaryActions.value = 3;
 }
 
+function addLairOption() {
+  lairOptions.value.push({ name: '', text: '' });
+  lairActive.value = true;
+}
+
 function addPhase() {
   const used = new Set(phases.value.map(phase => phase.atPercent));
   const atPercent = [50, 25, 75, 10, 90].find(value => !used.has(value)) ?? 30;
@@ -72,6 +89,7 @@ async function save() {
       legendaryResistances: legendaryResistances.value,
       options: options.value.map(option => ({ name: option.name, cost: option.cost, text: option.text })),
       phases: phases.value.map(phase => ({ atPercent: phase.atPercent, title: phase.title, text: phase.text, public: phase.public, done: phase.done })),
+      lair: { active: lairActive.value, score: lairScore.value, noRepeat: lairNoRepeat.value, options: lairOptions.value.map(option => ({ name: option.name, text: option.text })) },
     }));
     saved.value = 'Сохранено.';
   } catch (cause) {
@@ -84,7 +102,7 @@ async function save() {
 
 <template>
   <details class="boss-editor" @toggle="($event.target as HTMLDetailsElement).open && load()">
-    <summary><GameIcon class="inline-icon" name="crown" :size="16" /> Босс: легендарные действия и фазы</summary>
+    <summary><GameIcon class="inline-icon" name="boss" :size="16" /> Босс: легендарные действия, фазы и логово</summary>
     <p v-if="!loaded && busy" class="muted">Загрузка…</p>
     <template v-if="loaded">
       <p class="muted">
@@ -115,7 +133,7 @@ async function save() {
             <option :value="1">1</option><option :value="2">2</option><option :value="3">3</option>
           </select>
         </label>
-        <button type="button" class="link-button" :disabled="busy" title="Убрать" @click="options.splice(index, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="link-button icon-only" :disabled="busy" title="Убрать" @click="options.splice(index, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
         <input v-model="option.text" class="wide" maxlength="500" placeholder="Что делает (появится в журнале)" :disabled="busy" aria-label="Описание" />
       </div>
       <button type="button" class="link-button" :disabled="busy || options.length >= 10" @click="addOption">+ легендарное действие</button>
@@ -128,12 +146,32 @@ async function save() {
           % хитов
         </label>
         <input v-model="phase.title" maxlength="80" placeholder="Название (Ярость раненого)" :disabled="busy" aria-label="Название фазы" />
-        <button type="button" class="link-button" :disabled="busy" title="Убрать" @click="phases.splice(index, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="link-button icon-only" :disabled="busy" title="Убрать" @click="phases.splice(index, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
         <input v-model="phase.text" class="wide" maxlength="500" placeholder="Что происходит" :disabled="busy" aria-label="Текст фазы" />
         <label class="checkbox-label"><input v-model="phase.public" type="checkbox" :disabled="busy" /> объявить всем</label>
         <label class="checkbox-label" title="Уже была — снимите, чтобы сработала снова"><input v-model="phase.done" type="checkbox" :disabled="busy" /> уже была</label>
       </div>
       <button type="button" class="link-button" :disabled="busy || phases.length >= 5" @click="addPhase">+ фаза</button>
+
+      <h5>Логово</h5>
+      <p class="muted">
+        Ход логова — отдельная запись в инициативе. В свой ход логово совершает одно действие из списка: его выбирает мастер или «Авто-ход».
+        По правилам D&D 5e это счёт 20, и при ничьей логово ходит после существ.
+      </p>
+      <div class="boss-row">
+        <label class="checkbox-label"><input v-model="lairActive" type="checkbox" :disabled="busy" /> Ходы логова в бою</label>
+        <label>
+          Счёт инициативы
+          <input v-model.number="lairScore" type="number" min="-10" max="50" :disabled="busy || !lairActive" />
+        </label>
+        <label class="checkbox-label"><input v-model="lairNoRepeat" type="checkbox" :disabled="busy || !lairActive" /> Не повторять одно действие два раунда подряд</label>
+      </div>
+      <div v-for="(option, index) in lairOptions" :key="`l${index}`" class="boss-item">
+        <input v-model="option.name" maxlength="80" placeholder="Название (Обвал)" :disabled="busy" aria-label="Название действия логова" />
+        <button type="button" class="link-button icon-only" :disabled="busy" title="Убрать" @click="lairOptions.splice(index, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <input v-model="option.text" class="wide" maxlength="600" placeholder="Что происходит (появится в журнале)" :disabled="busy" aria-label="Описание действия логова" />
+      </div>
+      <button type="button" class="link-button" :disabled="busy || lairOptions.length >= 10" @click="addLairOption">+ действие логова</button>
 
       <div class="boss-row">
         <button type="button" class="primary" :disabled="busy" @click="save">Сохранить</button>

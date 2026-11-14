@@ -134,7 +134,7 @@ test('feats and fighting styles', async t => {
     const dummy = await npc('Чучело');
     const maul = await weapon(brute.id, {name: 'Молот', damageFormula: '4d2', properties: ['heavy', 'two-handed']});
     const blow = await hit(brute.id, maul.id, dummy.id, {power: true});
-    assert.match(blow.damage.roll.label, /большое оружие: переброс \d/);
+    assert.match(blow.damage.roll.label, /большое оружие, переброс ro<3: \d → \d/);
     assert.match(blow.damage.roll.label, /мастер большого оружия \+10/);
     const light = await weapon(brute.id, {name: 'Кинжал', damageFormula: '1d4', properties: ['light', 'finesse']});
     assert.equal((await request('POST', `${base}/rolls/check`, alice.token, {characterId: brute.id, kind: 'attack', key: light.id, targetCharacterId: dummy.id, power: true})).statusCode, 400, 'not heavy');

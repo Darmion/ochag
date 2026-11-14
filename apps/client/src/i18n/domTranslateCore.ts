@@ -284,7 +284,9 @@ export function createTranslator(
     const names = options.shielded?.();
     if (!names || !CYRILLIC.test(text)) return translate(text, 0);
     const whole = condense(text);
-    const alone = (name: string) => new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegex(name)}(?![\\p{L}\\p{N}])`, 'gu');
+    // «Аэлин Проба» is a name of its own even when «Аэлин» is another hero's name.
+    if (options.isProtected?.(whole) || options.name?.(whole)) return translate(text, 0);
+    const alone =(name: string) => new RegExp(`(?<![\\p{L}\\p{N}])${escapeRegex(name)}(?![\\p{L}\\p{N}])`, 'gu');
     const found = [...names]
       .filter(name => name.length >= 2 && name !== whole && CYRILLIC.test(name) && text.includes(name) && alone(name).test(text) && !options.name?.(name))
       .sort((a, b) => b.length - a.length);

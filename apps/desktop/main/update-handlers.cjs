@@ -1,4 +1,4 @@
-const { dialog, ipcMain } = require('electron');
+const { dialog, ipcMain } = require('../bridge/runtime.cjs');
 const updates = require('../host/updates.cjs');
 const { validateSender } = require('./senders.cjs');
 const { nativeText } = require('./native-texts.cjs');

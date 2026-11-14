@@ -23,7 +23,7 @@
 
 ## Сборка из исходников
 
-Нужны Windows, Node.js 24 или новее и Docker Desktop для базы данных разработки.
+Нужны Windows, Node.js 24 или новее, Docker Desktop для базы данных разработки и Rust ([rustup.rs](https://rustup.rs)) для настольного приложения.
 
 ```powershell
 Copy-Item .env.example .env       # впишите POSTGRES_PASSWORD и APP_DB_PASSWORD (не короче 20 символов)
@@ -44,7 +44,7 @@ npm --prefix apps/client run dev  # http://127.0.0.1:5173
 Настольное приложение само запускает встроенный PostgreSQL и сервер, Docker ему не нужен:
 
 ```powershell
-npm run desktop                   # собрать клиент и открыть его в Electron
+npm run desktop                   # собрать клиент и оболочку Tauri и открыть приложение
 npm run desktop:dist              # собрать установщик в release/
 ```
 
@@ -65,7 +65,7 @@ npm run i18n:check                # у каждой строки интерфе�
 |---|---|
 | `apps/server` | API на Fastify и WebSocket `/live`; сервер — источник истины и проверяет все права |
 | `apps/client` | Клиент на Vue 3 и TypeScript; трёхмерный стол — на Babylon.js |
-| `apps/desktop` | Оболочка Electron: встроенный PostgreSQL и сервер, изолированное окно и ограниченный API preload |
+| `apps/desktop` | Настольное приложение: оболочка Tauri на Rust (окна, диалоги) и хост на Node.js для встроенного PostgreSQL и сервера; изолированное окно и ограниченный API preload |
 | `packages/domain` | Правила игры без сервера и базы и данные SRD 5.1 |
 | `packages/importer` | Общий формат листа персонажа для модов импорта |
 | `mods` | Отключаемые моды в комплекте: набор картинок и импорт листов Long Story Short |

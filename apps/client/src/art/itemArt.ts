@@ -287,6 +287,8 @@ const SRD_INDEX: Record<string, string> = {
   'ring-of-protection': 'items/magic/worn/ring-of-protection', 'ring-of-resistance': 'items/magic/worn/ring-of-resistance',
   'cloak-of-protection': 'items/magic/worn/cloak-of-protection', 'bracers-of-defense': 'items/magic/worn/bracers-of-defense',
   'headband-of-intellect': 'items/magic/worn/headband-of-intellect', 'amulet-of-health': 'items/magic/worn/amulet-of-health',
+  'ring-of-resistance-acid': 'items/magic/worn/ring-of-resistance', 'ring-of-resistance-cold': 'items/magic/worn/ring-of-resistance', 'ring-of-resistance-fire': 'items/magic/worn/ring-of-resistance', 'ring-of-resistance-force': 'items/magic/worn/ring-of-resistance', 'ring-of-resistance-lightning': 'items/magic/worn/ring-of-resistance', 'ring-of-resistance-necrotic': 'items/magic/worn/ring-of-resistance', 'ring-of-resistance-poison': 'items/magic/worn/ring-of-resistance', 'ring-of-resistance-psychic': 'items/magic/worn/ring-of-resistance', 'ring-of-resistance-radiant': 'items/magic/worn/ring-of-resistance', 'ring-of-resistance-thunder': 'items/magic/worn/ring-of-resistance',
+  'armor-1': 'items/magic/worn/armor-plus-1', 'armor-2': 'items/magic/worn/armor-plus-1', 'armor-3': 'items/magic/worn/armor-plus-1',
   'armor-plus-1': 'items/magic/worn/armor-plus-1', 'boots-of-striding-and-springing': 'items/magic/worn/boots-of-striding-and-springing',
 };
 

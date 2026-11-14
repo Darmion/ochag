@@ -1,8 +1,8 @@
-import { addCondition, loadEffects } from '../../conditions.ts';
+import { addCondition, loadConditionState } from '../../conditions.ts';
 import { reject } from '../../../tabletop/scene-feature.ts';
 import { entryOf } from '../helpers.ts';
 import { knownHunterMultiattack, HUNTER_MULTIATTACK, VOLLEY_SPREAD_FEET, knownFavoredEnemies, favoredEnemyLimit, classLevelOf, FAVORED_ENEMY_TYPES, knownSuperiorDefense, SUPERIOR_HUNTERS_DEFENSE, knownHuntersPrey, HUNTERS_PREY, knownDefensiveTactics, DEFENSIVE_TACTICS } from '../../../../../../packages/domain/character/class-features.ts';
-import { conditionState } from '../../../../../../packages/domain/combat/conditions.ts';
+
 import { relationsFor } from '../../../campaign/factions.ts';
 import { announceTime, advanceWorldTime } from '../../../campaign/world-time.ts';
 import type { FeatureAction, FeatureResult, FeatureUse } from './types.ts';
@@ -34,7 +34,7 @@ async function volley(use: FeatureUse): Promise<FeatureResult> {
   for (const other of rows) {
     if (other.kind === 'object') continue;
     if (other.id !== targetId && sides.factionsOf(characterId).length > 0 && sides.allies(characterId, other.id)) continue;
-    if (conditionState((await loadEffects(q, campaignId, other.id)).map(effect => effect.effect_code)).codes.has('dead')) continue;
+    if ((await loadConditionState(q, campaignId, other.id)).codes.has('dead')) continue;
     foes.push({ id: other.id, name: other.name });
   }
   if (feature === 'volley' && ctx.feetApart) {
@@ -61,11 +61,11 @@ async function volley(use: FeatureUse): Promise<FeatureResult> {
 }
 
 async function hideInPlainSight(use: FeatureUse): Promise<FeatureResult> {
-  const { q, campaignId, characterId, row, state } = use;
+  const { q, campaignId, characterId, row, state, userId } = use;
   const ctx = use.ctx;
   if (await entryOf(q, campaignId, characterId, null)) reject(400, `${row.name} в бою — маскировка занимает минуту.`);
   if (state.codes.has('camouflaged')) reject(400, `${row.name} уже замаскирован.`);
-  announceTime(ctx, campaignId, await advanceWorldTime(q, campaignId, 1));
+  announceTime(ctx, campaignId, await advanceWorldTime(q, campaignId, 1, userId));
   await addCondition(q, campaignId, characterId, 'camouflaged', { source: 'feature', sourceName: 'Сокрытие' });
   return {
     message: `${row.name}: «Сокрытие» — минута маскировки, +10 к Скрытности, пока стоит на месте.`,

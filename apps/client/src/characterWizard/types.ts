@@ -3,7 +3,11 @@ export type Trait = [string, string];
 export type Race = {
   id: string; nameRu: string; size: string; speed: number; bonuses: Partial<Record<Ability, number>>; flexibleBonuses?: number;
   darkvision?: number; skills?: string[]; skillChoices?: number; languages: string; traits: Trait[]; ancestry?: true; custom?: true;
-  subraces: Array<{ id: string; nameRu: string; bonuses: Partial<Record<Ability, number>>; traits: Trait[]; wizardCantrip?: boolean }>;
+  subraces: Array<{
+    id: string; nameRu: string; bonuses: Partial<Record<Ability, number>>; traits: Trait[]; wizardCantrip?: boolean;
+    speed?: number; darkvision?: number; modName?: string;
+  }>;
+  modName?: string; icon?: string; tagline?: string; names?: string[];
 };
 export type Kit = { id: string; nameRu: string; weaponNames: string[]; armorName: string | null; shield?: boolean; gearNames: string[]; ammo?: { name: string; count: number } };
 export type HeroClass = {

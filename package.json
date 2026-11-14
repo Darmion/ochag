@@ -1,5 +1,4 @@
 {
-  "main": "apps/desktop/main.cjs",
   "description": "Ochag — a virtual tabletop for tabletop role-playing games, with the server on the game master's own computer",
   "author": "Jasip",
   "license": "PolyForm-Noncommercial-1.0.0",
@@ -12,59 +11,7 @@
     "url": "https://github.com/Darmion/ochag/issues"
   },
   "name": "ttrpg-foundation",
-  "version": "0.1.0",
-  "build": {
-    "appId": "local.ttrpg.tabletop",
-    "productName": "Очаг",
-    "executableName": "Ochag",
-    "artifactName": "Ochag-Setup-${version}.${ext}",
-    "copyright": "© 2026 Jasip",
-    "publish": null,
-    "directories": {
-      "output": "release",
-      "buildResources": "branding"
-    },
-    "files": [
-      "apps/desktop/**/*",
-      "apps/client/dist/**/*",
-      "apps/server/**/*",
-      "packages/**/*",
-      "scripts/**/*",
-      "branding/**/*",
-      "mods/**/*",
-      "db/**/*",
-      "node_modules/**/*",
-      "package.json",
-      "LICENSE.md",
-      "NOTICE.md"
-    ],
-    "asar": false,
-    "win": {
-      "icon": "branding/icon.png",
-      "target": [
-        {
-          "target": "nsis",
-          "arch": [
-            "x64"
-          ]
-        }
-      ]
-    },
-    "nsis": {
-      "oneClick": false,
-      "perMachine": false,
-      "allowToChangeInstallationDirectory": true,
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "Очаг",
-      "uninstallDisplayName": "Очаг",
-      "multiLanguageInstaller": true,
-      "installerLanguages": [
-        "en_US",
-        "ru_RU"
-      ]
-    }
-  },
+  "version": "0.2.0",
   "private": true,
   "type": "module",
   "engines": {
@@ -72,8 +19,9 @@
   },
   "scripts": {
     "desktop:build": "npm --prefix apps/client run build",
-    "desktop": "npm run desktop:build && electron .",
-    "desktop:dist": "npm run desktop:build && electron-builder --win nsis --x64",
+    "desktop": "npm run desktop:build && cargo run --manifest-path apps/desktop/src-tauri/Cargo.toml",
+    "desktop:dist": "node scripts/tauri-dist.mjs",
+    "tauri": "npm run desktop",
     "start": "node --env-file=.env apps/server/src/main.ts",
     "dev": "node --watch --env-file=.env apps/server/src/main.ts",
     "typecheck": "tsc --noEmit",
@@ -95,20 +43,19 @@
     "embedded-postgres": "^18.4.0-beta.17",
     "fastify": "5.12.4",
     "pg": "8.23.0",
+    "undici": "7.29.1",
     "ws": "8.21.3"
   },
   "devDependencies": {
     "@electric-sql/pglite": "0.5.8",
+    "@tauri-apps/cli": "2.12.4",
     "@types/node": "22.20.2",
     "@types/pg": "8.23.1",
     "@types/ws": "8.18.1",
-    "electron": "44.3.0",
-    "electron-builder": "26.15.3",
     "typescript": "7.0.2"
   },
   "allowScripts": {
-    "@embedded-postgres/windows-x64@18.4.0-beta.17": true,
-    "electron-winstaller@5.4.0": true
+    "@embedded-postgres/windows-x64@18.4.0-beta.17": true
   },
   "updateRepository": "Darmion/ochag"
 }

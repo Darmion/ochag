@@ -1,3 +1,4 @@
+import { ITEM_SPELL_ID_PATTERN } from '../../../../packages/domain/character/item-spells.ts';
 import type { FastifyRequest } from 'fastify';
 import type { WebSocket } from 'ws';
 import type { Database, Queryable } from '../db.ts';
@@ -81,6 +82,7 @@ export type Placement = {
   shared: boolean;
   model_asset_id: string | null;
   image_asset_id: string | null;
+  image_open_asset_id?: string | null;
   image_crop?: { x: number; y: number; zoom: number } | null;
   world_x: number;
   world_y: number;
@@ -155,7 +157,7 @@ export const rollParams = objectSchema({
 export const castSpellParams = objectSchema({
   campaignId: uuid,
   characterId: uuid,
-  characterSpellId: uuid,
+  characterSpellId: { anyOf: [uuid, { type: 'string', pattern: ITEM_SPELL_ID_PATTERN }] },
 });
 
 export function reject(statusCode: number, message: string): never {

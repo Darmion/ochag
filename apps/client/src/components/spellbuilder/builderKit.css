@@ -18,7 +18,7 @@ textarea{width:100%}
 button.small{min-height:32px;padding:4px 10px;font-size:13px;box-shadow:none}
 button.quiet{box-shadow:none;background:transparent}
 .help summary{padding:0;font-weight:400;font-family:var(--g-body-font,inherit)}
-.chevron{display:inline-block;transition:transform .15s ease;font-size:12px}
+.chevron{display:inline-grid;place-items:center;transition:transform .15s ease}
 [aria-expanded="true"]>.chevron{transform:rotate(90deg)}
 [data-path]{scroll-margin-top:56px}
 .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,190px),1fr));gap:12px;align-items:end}

@@ -2,7 +2,7 @@
 
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { app } = require('electron');
+const { app } = require('../bridge/runtime.cjs');
 
 const MOD_ID = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const stateFile = () => path.join(app.getPath('userData'), 'mods-enabled.json');

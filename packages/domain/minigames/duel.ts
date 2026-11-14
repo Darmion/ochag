@@ -1,3 +1,5 @@
+import type { Wager } from './wagers.ts';
+
 export const DUEL_MOVES = [
   { id: 'strike', name: 'Натиск', glyph: '⚔', cost: 1, recovery: 0, description: 'Силен против финта и выжидания, но попадает под контрудар защиты.' },
   { id: 'feint', name: 'Финт', glyph: '⌁', cost: 2, recovery: 0, description: 'Пробивает защиту. Уступает прямому натиску.' },
@@ -8,7 +10,7 @@ export type DuelMove = typeof DUEL_MOVES[number]['id'];
 // Damage dealt by row move against column move: strike, feint, guard, rest.
 export const DUEL_DAMAGE = [[1, 2, 0, 2], [0, 1, 2, 1], [1, 0, 0, 0], [0, 0, 0, 0]] as const;
 export type DuelPlayer = { id: string; name: string; health: number; stamina: number };
-export type Duel = { revision: number; hostId: string; phase: 'lobby' | 'playing' | 'finished' | 'cancelled'; players: DuelPlayer[]; choices: Partial<Record<string, DuelMove>>; round: number; limit: number; winnerId: string | null; message: string; history: { round: number; moves: DuelMove[]; damage: number[] }[] };
+export type Duel = { revision: number; hostId: string; phase: 'lobby' | 'playing' | 'finished' | 'cancelled'; players: DuelPlayer[]; choices: Partial<Record<string, DuelMove>>; round: number; limit: number; winnerId: string | null; message: string; history: { round: number; moves: DuelMove[]; damage: number[] }[]; wager?: Wager | null; effect?: string | null };
 export type DuelView = Omit<Duel, 'choices'> & { ready: string[]; ownMove: DuelMove | null };
 export type DuelCommand = { action: 'choose'; move: DuelMove } | { action: 'join' | 'leave' | 'start' | 'surrender' | 'cancel' };
 export function createDuel(id: string, name: string, revision: number): Duel {

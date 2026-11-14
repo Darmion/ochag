@@ -45,6 +45,7 @@ export function useActor({ props, sceneId, sceneDetail, objects, activeObjectId,
       canAct: object.canEdit,
       conditions: object.conditions ?? [],
       inspired: object.inspired === true,
+      manualDeathSaves: object.manualDeathSaves === true,
     };
   });
 
@@ -68,8 +69,12 @@ export function useActor({ props, sceneId, sceneDetail, objects, activeObjectId,
   const actorDeathSaveNote = computed(() => {
     const entry = actorEntry.value;
     if (!entry || (sceneDetail.value?.canManage && gmFree.value)) return null;
-    if (!entry.is_current) return 'В бою спасбросок от смерти — в начале своего хода, его бросает приложение само';
-    if (entry.death_saved) return 'Спасбросок от смерти уже брошен в начале этого хода';
+    if (!entry.is_current) {
+      return actorObject.value?.manualDeathSaves
+        ? 'В бою спасбросок от смерти — в свой ход: кнопка загорится в начале хода'
+        : 'В бою спасбросок от смерти — в начале своего хода, его бросает приложение само';
+    }
+    if (entry.death_saved) return actorObject.value?.manualDeathSaves ? 'Спасбросок от смерти в этом ходу уже брошен' : 'Спасбросок от смерти уже брошен в начале этого хода';
     return null;
   });
   const canJoinCombat = computed(() => {

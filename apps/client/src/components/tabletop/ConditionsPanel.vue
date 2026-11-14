@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 
-import { ABILITY_OPTIONS, conditionInfo, CONDITIONS } from '../../rules/conditions';
+import { ABILITY_OPTIONS, conditionGroups, conditionInfo, tableConditions } from '../../rules/conditions';
+import { campaignRule } from '../../rules/campaignConditions';
+import { clockText } from '../../../../../packages/domain/world/clock';
 import GameIcon from '../game/GameIcon.vue';
+import ConditionIcon from '../conditions/ConditionIcon.vue';
 
 type Effect = { id: string; effect_code: string; parameters: Record<string, any> | null; active: boolean };
 
@@ -35,6 +38,13 @@ const saveDc = ref(13);
 const duration = ref<number | null>(null);
 const repeat = ref<'' | 'end' | 'start'>('');
 const sourceId = ref('');
+const startStage = ref(0);
+
+const options = computed(() => tableConditions());
+const groups = computed(() => conditionGroups(options.value));
+const own = (conditionCode: string) => campaignRule(conditionCode)?.standard === false;
+const stagesOf = (conditionCode: string) => campaignRule(conditionCode)?.stages ?? [];
+watch(code, () => { startStage.value = 0; });
 
 const canApply = computed(() => props.isManager || props.sources.length > 0);
 const dying = computed(() => props.hpCurrent === 0 && props.conditions.includes('unconscious') && !props.conditions.includes('dead'));
@@ -65,13 +75,19 @@ const chips = computed(() => props.conditions.map(conditionCode => {
   const info = conditionInfo(conditionCode);
   const effect = effects.value.find(entry => entry.effect_code === conditionCode);
   const parameters = effect?.parameters ?? {};
+  const stages = stagesOf(conditionCode);
+  const stage = stages.length ? Math.min(stages.length - 1, Math.max(0, Number(parameters.stage) || 0)) : null;
   const details = [
+    stage !== null && !(props.canEdit && props.isManager) ? `стадия ${stage + 1}: ${stages[stage]!.name}` : '',
     typeof parameters.remainingRounds === 'number' ? `ещё ${parameters.remainingRounds} ход.` : '',
+    typeof parameters.untilMinute === 'number' ? `пройдёт: ${clockText(parameters.untilMinute)}` : '',
+    typeof parameters.courseDc === 'number' ? `СЛ спасброска ${parameters.courseDc}` : '',
+    typeof parameters.saveWins === 'number' ? `успехов: ${parameters.saveWins}` : '',
     parameters.save && parameters.repeatSave ? `спасбросок ${abilityShort(parameters.save.ability)} СЛ ${parameters.save.dc} в ${parameters.repeatSave === 'end' ? 'конце' : 'начале'} хода` : '',
     parameters.sourceName ? `источник: ${parameters.sourceName}` : '',
     parameters.spellName ? `заклинание: ${parameters.spellName}` : '',
   ].filter(Boolean).join(' · ');
-  return { code: conditionCode, info, effectId: effect?.id ?? null, details };
+  return { code: conditionCode, info, effectId: effect?.id ?? null, details, stages, stage };
 }));
 
 function abilityShort(ability: string) {
@@ -100,9 +116,16 @@ function remove(effectId: string, label: string) {
   });
 }
 
+function setStage(effectId: string, stage: number) {
+  return act(async () => {
+    await props.request(`/campaigns/${props.campaignId}/characters/${props.characterId}/effects/${effectId}/stage`, 'PUT', { stage });
+  });
+}
+
 function apply() {
   return act(async () => {
     const body: Record<string, unknown> = { targetIds: [props.characterId], code: code.value };
+    if (startStage.value) body.stage = startStage.value;
     if (code.value === 'exhaustion') body.level = level.value;
     if (withSave.value) body.save = { ability: saveAbility.value, dc: Math.round(saveDc.value) };
     if (duration.value) body.durationRounds = Math.round(duration.value);
@@ -137,13 +160,19 @@ function stand() {
     <h4>Состояния</h4>
     <ul v-if="chips.length" class="condition-chips">
       <li v-for="chip in chips" :key="chip.code" :title="chip.info.rule" :class="`code-${chip.code}`">
-        <span class="chip-icon" aria-hidden="true"><GameIcon class="inline-icon" :name="chip.info.icon" :size="20" /></span>
-        <span>{{ chip.info.label }}</span>
+        <span class="chip-icon" aria-hidden="true"><ConditionIcon class="inline-icon" :name="chip.info.icon" :image="chip.info.image" :size="20" /></span>
+        <span :translate="own(chip.code) ? 'no' : undefined">{{ chip.info.label }}</span>
+        <select
+          v-if="chip.stage !== null && canEdit && isManager && chip.effectId" class="stage-select" :value="chip.stage" :disabled="working || busy"
+          :aria-label="`Стадия «${chip.info.label}»`" @change="setStage(chip.effectId, Number(($event.target as HTMLSelectElement).value))"
+        >
+          <option v-for="(entry, index) in chip.stages" :key="index" :value="index" :translate="own(chip.code) ? 'no' : undefined">{{ `Стадия ${index + 1}: ${entry.name}` }}</option>
+        </select>
         <small v-if="chip.details" class="muted">{{ chip.details }}</small>
         <button
           v-if="canEdit && chip.effectId"
           type="button"
-          class="chip-remove"
+          class="chip-remove icon-only"
           :disabled="working || busy"
           :aria-label="`Снять «${chip.info.label}»`"
           @click="remove(chip.effectId, chip.info.label.toLowerCase())"
@@ -167,8 +196,16 @@ function stand() {
       <label>
         Состояние
         <select v-model="code" :disabled="working">
-          <option v-for="entry in CONDITIONS" :key="entry.code" :value="entry.code">{{ entry.label }}</option>
-          <option value="exhaustion">⧗ Истощение</option>
+          <optgroup v-for="[group, label] in groups" :key="group" :label="label">
+            <option v-for="entry in options.filter(item => item.group === group)" :key="entry.code" :value="entry.code" :translate="own(entry.code) ? 'no' : undefined">{{ entry.label }}</option>
+            <option v-if="group === 'condition'" value="exhaustion">⧗ Истощение</option>
+          </optgroup>
+        </select>
+      </label>
+      <label v-if="stagesOf(code).length">
+        С какой стадии
+        <select v-model.number="startStage" :disabled="working">
+          <option v-for="(entry, index) in stagesOf(code)" :key="index" :value="index" :translate="own(code) ? 'no' : undefined">{{ `Стадия ${index + 1}: ${entry.name}` }}</option>
         </select>
       </label>
       <label v-if="code === 'exhaustion'">
@@ -224,7 +261,8 @@ function stand() {
 .condition-chips li{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:4px 8px;border-radius:4px;background:#0003;border:1px solid var(--brass-light)}
 .chip-icon{display:inline-grid;place-items:center;width:22px;height:22px;border-radius:50%;background:#0006;color:var(--gold-light);font-weight:700}
 .condition-chips small{flex-basis:100%;margin:0;font-size:11px}
-.chip-remove{margin-left:auto;min-height:24px;width:24px;padding:0;font-size:12px}
+.stage-select{width:auto;min-height:24px;padding:0 6px;font-size:12px}
+.chip-remove{display:grid;place-items:center;place-content:center;margin-left:auto;min-height:24px;width:24px;padding:0;font-size:12px}
 .code-dead,.code-unconscious{border-color:#a8261c}
 .condition-actions{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:8px 0}
 .death-track{font-weight:700;letter-spacing:.04em}

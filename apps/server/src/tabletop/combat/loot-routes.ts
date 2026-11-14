@@ -1,4 +1,5 @@
 import type { Queryable } from '../../db.ts';
+import { itemLeftHolder } from '../../characters/inventory-state.ts';
 import { objectSchema, reject, uuid, type SceneFeatureContext } from '../scene-feature.ts';
 import { syncItem } from '../../characters/magic-items.ts';
 import { loadConditionState } from '../../rules/conditions.ts';
@@ -148,11 +149,14 @@ export function registerLootRoutes(ctx: LootContext) {
 
         if (wanted.length) {
           await q.query(
-            `UPDATE characters SET container_id=$3, owner_user_id=$4, revision=revision+1
+            `UPDATE characters SET equipped_slot=NULL, container_id=$3, owner_user_id=$4, revision=revision+1
              WHERE campaign_id=$1 AND id = ANY($2::uuid[])`,
             [campaignId, wanted.map(item => item.id), looter.id, looter.owner_user_id],
           );
-          for (const item of wanted) await syncItem(q, campaignId, item.id);
+          for (const item of wanted) {
+            await syncItem(q, campaignId, item.id);
+            await itemLeftHolder(q, campaignId, item.id, corpse.id);
+          }
         }
         const shares: Array<{ id: string; name: string; coins: Wallet }> = [];
         if (hasCoins) {

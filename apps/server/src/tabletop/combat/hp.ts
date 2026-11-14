@@ -1,4 +1,5 @@
 import type { Queryable } from '../../db.ts';
+import { resistsAll } from '../../../../../packages/domain/combat/conditions.ts';
 import { revertWildShape, bossPhaseNotices, classResourceOf, shieldMasterBonus, hasEvasion, shieldMasterDodge } from '../../rules/class-features.ts';
 import { hasFeat } from '../../../../../packages/domain/character/feats.ts';
 import { classFeaturesFor, RAGE_RESISTANCES, knownFiendishResilience, emptyBodyResists, knownDefensiveTactics, INITIATIVE_REFILLS, RELENTLESS_RAGE_MAX, relentlessRageDc } from '../../../../../packages/domain/character/class-features.ts';
@@ -8,7 +9,8 @@ import { damageDefense } from '../../../../../packages/domain/spells/spell-mods.
 import { recordCombatEvent } from './combat-events.ts';
 import { touches as templateTouches } from '../scene/scene-templates.ts';
 import { type Notice as ConditionNotice, loadConditionState, addCondition } from '../../rules/conditions.ts';
-import { raceResistances, hasRaceTrait, characterRace } from '../../../../../packages/domain/character/races.ts';
+import { hasRaceTrait, characterRace } from '../../../../../packages/domain/character/races.ts';
+import { characterResistances } from '../../../../../packages/domain/character/hero-traits.ts';
 import { parseExpression, rollExpression } from '../../../../../packages/domain/dice/expression.ts';
 
 import { areaCoverBonus, areaCovers } from './cover.ts';
@@ -49,12 +51,15 @@ export async function applyHpChange(
   let modified: 'resisted' | 'vulnerable' | null = null;
   const targetState = await loadConditionState(q, campaignId, characterId);
   const list = (value: unknown) => (Array.isArray(value) ? value.map(String) : []);
+  // «nonmagical» in a defense list covers bludgeoning, piercing and slashing from attacks that aren't magical.
+  const covers = (value: unknown) => damageType !== null && (list(value).includes(damageType)
+    || (list(value).includes('nonmagical') && !change.magical && ['bludgeoning', 'piercing', 'slashing'].includes(damageType)));
 
   const templatedDefense = mode === 'damage' && targetState.codes.has('spell_mod')
     ? damageDefense(await spellModsFor(q, campaignId, characterId), damageType, Boolean(change.magical)) : null;
   if (mode === 'damage') {
     const immune = (!change.ignoreImmunity && Boolean(templatedDefense?.immune)) || !change.ignoreImmunity && damageType !== null && (
-      list(character.damage_immunities).includes(damageType) ||
+      covers(character.damage_immunities) ||
       (character.kind === 'object' && OBJECT_IMMUNITIES.has(damageType)) ||
       (damageType === 'poison' && character.kind !== 'object' && classFeaturesFor(characterClassLevels(character).classes).some(feature => feature.id === 'purity-of-body' || feature.id === 'natures-ward'))
     );
@@ -71,8 +76,8 @@ export async function applyHpChange(
       )).rows[0]);
       const stoneskin = targetState.codes.has('stoneskin') && !change.magical && damageType !== null && ['bludgeoning', 'piercing', 'slashing'].includes(damageType);
       const bonded = targetState.codes.has('warding_bond');
-      const resisted = !change.ignoreResistance && (targetState.codes.has('petrified') || raging || fiendish || emptyBody || warded || stoneskin || bonded || Boolean(templatedDefense?.resisted) || (damageType !== null && (
-        list(character.damage_resistances).includes(damageType) || (character.kind !== 'object' && raceResistances(character).includes(damageType))
+      const resisted = !change.ignoreResistance && (resistsAll(targetState) !== null || raging || fiendish || emptyBody || warded || stoneskin || bonded || Boolean(templatedDefense?.resisted) || (damageType !== null && (
+        covers(character.damage_resistances) || (character.kind !== 'object' && characterResistances(character).includes(damageType))
       )));
       const vulnerable = Boolean(templatedDefense?.vulnerable) || (damageType !== null && list(character.damage_vulnerabilities).includes(damageType));
       if (resisted) amount = Math.floor(amount / 2);

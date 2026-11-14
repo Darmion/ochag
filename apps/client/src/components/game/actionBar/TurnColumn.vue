@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ADVANTAGE, type AdvantageId } from '../../../actionBar/constants';
 import type { ActionBarProps } from '../../../actionBar/types';
+import GameIcon from '../GameIcon.vue';
 
 defineProps<{
   canRoll: boolean;
@@ -33,7 +34,7 @@ const emit = defineEmits<{ startCombat: []; join: []; leave: []; dash: []; autoT
       <button v-if="inCombat" type="button" class="turn-button" :disabled="busy || !isActorTurn" :title="movementLeft ? `Рывок: осталось ${movementLeft.feet} из ${movementLeft.budget} фут.` : 'Рывок'" @click="emit('dash')">Рывок<span v-if="movementLeft" class="dash-feet"> · {{ movementLeft.feet }}</span></button>
       <span v-if="canAutoTurn" class="auto-split">
         <button type="button" class="turn-button" :disabled="busy" :title="`Авто-ход НПС: цель — ${autoTargetLabel}`" @click="emit('autoTurn')">Авто-ход</button>
-        <button type="button" class="turn-button auto-caret-button" :disabled="busy" :aria-pressed="autoOpen" :title="`Кого бить: ${autoTargetLabel}`" @click="emit('toggleAuto')">▾</button>
+        <button type="button" class="turn-button auto-caret-button icon-only" :disabled="busy" :aria-pressed="autoOpen" :title="`Кого бить: ${autoTargetLabel}`" @click="emit('toggleAuto')"><GameIcon name="chevron" :size="13" /></button>
       </span>
       <button v-if="canAdvance" type="button" class="turn-button end-turn" :disabled="busy" title="Закончить ход" @click="emit('advance')">Конец хода</button>
     </div>
@@ -47,7 +48,7 @@ const emit = defineEmits<{ startCombat: []; join: []; leave: []; dash: []; autoT
 .adv-select.adv{color:#9fe0a8}.adv-select.disadv{color:#ff9c8c}
 .turn-buttons{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:5px}
 .turn-button{min-width:0;min-height:32px;padding:2px 8px;font:600 13px/1.1 var(--g-title-font);white-space:normal}
-.turn-button.end-turn{grid-column:1 / -1;min-height:38px;color:#fff2cf;background:linear-gradient(180deg,#ffffff22,#0000 50%),linear-gradient(180deg,var(--g-accent-hi),var(--g-accent))}
+.turn-button.end-turn{grid-column:1 / -1;min-height:38px;color:var(--g-accent-text);background:linear-gradient(180deg,#ffffff22,#0000 50%),linear-gradient(180deg,var(--g-accent-hi),var(--g-accent))}
 .auto-split{display:flex;min-width:0}
 .auto-split > .turn-button:first-child{flex:1 1 auto;border-top-right-radius:0;border-bottom-right-radius:0}
 .auto-split > .auto-caret-button{flex:none;padding-inline:5px;margin-left:1px;border-top-left-radius:0;border-bottom-left-radius:0}

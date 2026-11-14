@@ -1,18 +1,21 @@
 import type { Queryable } from '../../db.ts';
 import { bossProblems, type BossPhase, type BossSettings } from '../../../../../packages/domain/character/class-features.ts';
+import { eventProblems, type TurnEvent } from '../../../../../packages/domain/combat/initiative-events.ts';
 import { dawnCount } from '../../../../../packages/domain/character/magic-items.ts';
+import { ITEM_CATEGORIES, WEAR_FAMILIES, normalizeDoll } from '../../../../../packages/domain/character/inventory.ts';
 
 const COPY_FIELDS = [
   'name', 'kind', 'disposition', 'size', 'level', 'owner_user_id', 'shared',
-  'model_asset_id', 'image_asset_id', 'image_crop', 'sheet_version',
+  'model_asset_id', 'image_asset_id', 'image_open_asset_id', 'image_crop', 'sheet_version',
   'strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma',
   'hp_max', 'armor_class', 'speed_feet', 'sheet_extra', 'damage_threshold',
   'damage_resistances', 'damage_immunities', 'damage_vulnerabilities',
   'spellcasting_ability', 'hit_die', 'challenge_rating', 'xp_award', 'class_name', 'attacks_per_action',
   'cp', 'sp', 'ep', 'gp', 'pp', 'price_cp', 'weight_lb', 'merchant',
   'legendary_actions', 'legendary_options', 'boss_phases',
-  'legendary_resistances',
+  'legendary_resistances', 'turn_events',
   'spell_save_dc_override', 'spell_attack_override',
+  'quantity', 'item_category', 'item_srd', 'item_wear', 'item_grip', 'infinite', 'item_note', 'doll', 'ac_mode',
 ] as const;
 
 type SnapshotList = 'effects' | 'resources' | 'spells';
@@ -60,7 +63,7 @@ export type ObjectSnapshot = {
 };
 
 const MAGIC_COLUMNS = [
-  'rarity', 'description', 'requires_attunement', 'charges_max', 'recharge', 'recharge_formula', 'destroy_on_empty', 'bonuses', 'srd_index',
+  'rarity', 'description', 'requires_attunement', 'charges_max', 'recharge', 'recharge_formula', 'destroy_on_empty', 'bonuses', 'srd_index', 'spell_index',
 ] as const;
 
 export async function snapshotObject(q: Queryable, campaignId: string, characterId: string): Promise<ObjectSnapshot | null> {
@@ -203,7 +206,7 @@ export async function createFromSnapshot(
         .rows.map(row => String(row.id)),
     );
   };
-  const assets = await existingAssets([source.model_asset_id, source.image_asset_id]);
+  const assets = await existingAssets([source.model_asset_id, source.image_asset_id, source.image_open_asset_id]);
   const ownerUserId = typeof source.owner_user_id === 'string' && members.has(source.owner_user_id) ? source.owner_user_id : null;
 
   const kind = source.kind === 'character' && !ownerUserId ? 'npc' : source.kind;
@@ -253,6 +256,25 @@ export async function createFromSnapshot(
     )
   ).rows[0].id as string;
 
+  await q.query(
+    `UPDATE characters SET quantity=$3, item_category=$4, item_srd=$5, item_wear=$6, item_grip=$7, infinite=$8, item_note=$9, doll=$10::jsonb, ac_mode=$11,
+       image_open_asset_id=$12
+     WHERE campaign_id=$1 AND id=$2`,
+    [
+      campaignId, characterId,
+      kind === 'object' && Number.isInteger(source.quantity) && source.quantity >= 1 && source.quantity <= 1_000_000 ? source.quantity : 1,
+      kind === 'object' && (ITEM_CATEGORIES as readonly unknown[]).includes(source.item_category) ? source.item_category : null,
+      kind === 'object' && typeof source.item_srd === 'string' && /^(gear|weapon):[a-z0-9-]{1,80}$/.test(source.item_srd) ? source.item_srd : null,
+      kind === 'object' && (WEAR_FAMILIES as readonly unknown[]).includes(source.item_wear) ? source.item_wear : null,
+      kind === 'object' && (source.item_grip === 'one' || source.item_grip === 'two') ? source.item_grip : null,
+      kind === 'object' && source.infinite === true,
+      kind === 'object' && typeof source.item_note === 'string' ? source.item_note.slice(0, 2000) : null,
+      kind !== 'object' && source.doll && typeof source.doll === 'object' ? JSON.stringify(normalizeDoll(source.doll, kind)) : null,
+      kind !== 'object' && source.ac_mode === 'gear' ? 'gear' : 'manual',
+      assets.has(source.image_open_asset_id) ? source.image_open_asset_id : null,
+    ],
+  );
+
   const dcOverride = Number.isInteger(source.spell_save_dc_override) && source.spell_save_dc_override >= 1 && source.spell_save_dc_override <= 40 ? source.spell_save_dc_override : null;
   const attackOverride = Number.isInteger(source.spell_attack_override) && source.spell_attack_override >= -10 && source.spell_attack_override <= 30 ? source.spell_attack_override : null;
   if (dcOverride !== null || attackOverride !== null) {
@@ -272,6 +294,12 @@ export async function createFromSnapshot(
         [campaignId, characterId, boss.legendaryActions, JSON.stringify(boss.options), JSON.stringify(boss.phases), boss.legendaryResistances ?? 0],
       );
     }
+  }
+
+  if (kind === 'npc' && Array.isArray(source.turn_events) && source.turn_events.length) {
+    const events = (source.turn_events as TurnEvent[])
+      .filter(event => event && typeof event === 'object' && Array.isArray(event.options) && event.rules && !eventProblems(event).length);
+    if (events.length) await q.query('UPDATE characters SET turn_events=$3::jsonb WHERE campaign_id=$1 AND id=$2', [campaignId, characterId, JSON.stringify(events)]);
   }
 
   const ids: Record<SnapshotList, Array<string | null>> = { effects: [], resources: [], spells: [] };

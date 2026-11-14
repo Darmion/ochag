@@ -46,7 +46,7 @@ test('SRD bestiary', async t => {
   await t.test('only the GM brings monsters in; three goblins and an ogre take their own cells around the point', async () => {
     assert.equal((await spawn({monsters: [{index: 'goblin', count: 1}]}, alice.token)).statusCode, 403);
     assert.equal((await spawn({monsters: [{index: 'goblin', count: 1}]}, outsider.token)).statusCode, 404);
-    assert.equal((await spawn({monsters: [{index: 'tarrasque', count: 1}]})).statusCode, 400);
+    assert.equal((await spawn({monsters: [{index: 'beholder', count: 1}]})).statusCode, 400);
     assert.equal((await spawn({monsters: [{index: 'goblin', count: 20}, {index: 'orc', count: 11}]})).statusCode, 400);
 
     const created = await spawn({monsters: [{index: 'goblin', count: 3}, {index: 'ogre', count: 1}], sceneId, x: 0.5, z: 0.5});
@@ -133,6 +133,62 @@ test('SRD bestiary', async t => {
     const slots = (await pg.query(`SELECT level, current, max FROM character_spell_slots WHERE character_id=$1`, [acolyte.id])).rows;
     assert.deepEqual(slots, [{level: 1, current: 3, max: 3}]);
     assert.equal((await sheet(acolyte.id)).spellcasting_ability, 'wisdom');
+  });
+
+  await t.test('a legendary monster arrives as a boss: legendary actions, a day of legendary resistance, the section on its sheet', async () => {
+    const dragon = (await spawn({monsters: [{index: 'adult-red-dragon', count: 1}], hp: 'roll'})).json().characters[0];
+    assert.ok(dragon.hp >= 19 + 133 && dragon.hp <= 190 + 133, `19d12+133: ${dragon.hp}`);
+    const row = (await pg.query<any>(`SELECT legendary_actions, legendary_options, legendary_resistances, sheet_extra FROM characters WHERE id=$1`, [dragon.id])).rows[0];
+    assert.equal(row.legendary_actions, 3);
+    assert.equal(row.legendary_resistances, 3);
+    assert.deepEqual(row.legendary_options.map((o: any) => [o.name, o.cost]), [['Обнаружение', 1], ['Атака хвостом', 1], ['Взмах крыльями', 2]]);
+    assert.match(row.sheet_extra.text.legendary.value, /^Легендарных действий за раунд: 3\./);
+    const resource = (await pg.query(`SELECT name, current, max, recharge FROM character_resources WHERE character_id=$1`, [dragon.id])).rows;
+    assert.deepEqual(resource, [{name: 'Легендарное сопротивление', current: 3, max: 3, recharge: 'long'}]);
+  });
+
+  await t.test('innate spells are cast without a slot; a prepared caster keeps its slots', async () => {
+    const djinni = (await spawn({monsters: [{index: 'djinni', count: 1}]})).json().characters[0];
+    const spells = (await pg.query<any>(`SELECT srd_index, slotless FROM character_spells WHERE character_id=$1`, [djinni.id])).rows;
+    assert.ok(spells.length >= 10 && spells.every(spell => spell.slotless), JSON.stringify(spells));
+    assert.equal((await pg.query(`SELECT 1 FROM character_spell_slots WHERE character_id=$1`, [djinni.id])).rows.length, 0);
+    const lich = (await spawn({monsters: [{index: 'lich', count: 1}]})).json().characters[0];
+    const lichSpells = (await pg.query<any>(`SELECT slotless FROM character_spells WHERE character_id=$1`, [lich.id])).rows;
+    assert.ok(lichSpells.length > 20 && lichSpells.every(spell => !spell.slotless));
+    assert.equal((await pg.query(`SELECT 1 FROM character_spell_slots WHERE character_id=$1`, [lich.id])).rows.length, 9);
+  });
+
+  await t.test('nonmagical weapons barely scratch a werewolf, magic weapons bite through; an iron golem shrugs off poison', async () => {
+    const [wolf] = (await spawn({monsters: [{index: 'werewolf-human', count: 1}]})).json().characters;
+    const hurt = async (amount: number, damageType: string) => {
+      await pg.query('UPDATE characters SET hp_current=hp_max WHERE id=$1', [wolf.id]);
+      const before = (await sheet(wolf.id)).hp_current;
+      const roll = (await request('POST', `${base}/rolls`, gm.token, {formula: `1d1+${amount - 1}`})).json();
+      const done = await request('POST', `${base}/rolls/${roll.id}/apply`, gm.token, {characterId: wolf.id, mode: 'damage', damageType});
+      assert.ok(done.statusCode < 300, done.body);
+      return before - (await sheet(wolf.id)).hp_current;
+    };
+    assert.equal(await hurt(10, 'slashing'), 0, 'immune to a plain sword');
+    assert.equal(await hurt(10, 'fire'), 10);
+
+    const fiend = (await spawn({monsters: [{index: 'pit-fiend', count: 1}]})).json().characters[0];
+    assert.equal((await sheet(fiend.id)).sheet_extra.magicWeapons, true);
+    const bite = (await sheet(fiend.id)).weapons.find((w: any) => w.name === 'Булава');
+    await pg.query('UPDATE characters SET armor_class=1 WHERE id=$1', [wolf.id]);
+    let result: any = null;
+    for (let attempt = 0; attempt < 12 && !result?.damage; attempt += 1) {
+      await pg.query('UPDATE characters SET hp_current=hp_max WHERE id=$1', [wolf.id]);
+      result = (await request('POST', `${base}/rolls/check`, gm.token, {characterId: fiend.id, kind: 'attack', key: bite.id, targetCharacterId: wolf.id})).json();
+    }
+    assert.ok(result.damage.applied > 0, 'the pit fiend mace is magical');
+
+    const golem = (await spawn({monsters: [{index: 'iron-golem', count: 1}]})).json().characters[0];
+    const poisoned = await request('POST', `${base}/conditions/apply`, gm.token, {targetIds: [golem.id], code: 'poisoned'});
+    assert.equal(poisoned.statusCode, 200, poisoned.body);
+    assert.equal((await pg.query(`SELECT 1 FROM character_effects WHERE character_id=$1 AND effect_code='poisoned' AND active`, [golem.id])).rows.length, 0);
+    const frightened = await request('POST', `${base}/conditions/apply`, gm.token, {targetIds: [wolf.id], code: 'frightened'});
+    assert.equal(frightened.statusCode, 200, frightened.body);
+    assert.equal((await pg.query(`SELECT 1 FROM character_effects WHERE character_id=$1 AND effect_code='frightened' AND active`, [wolf.id])).rows.length, 1, 'a werewolf can be frightened');
   });
 
   await t.test('an encounter straight from the bestiary deploys fresh sheets', async () => {

@@ -1,6 +1,8 @@
 import type { Queryable } from '../../db.ts';
 import { bumpScene, objectSchema, reject, sceneParams, uuid, type SceneFeatureContext } from '../scene-feature.ts';
-import { inAreaAt, type Area, type AreaShape } from '../../../../../packages/domain/map/areas.ts';
+import { inAreaRelative, type Area, type AreaShape } from '../../../../../packages/domain/map/areas.ts';
+import { groundAtPoint, groundUnder } from '../../../../../packages/domain/map/relief.ts';
+import { sceneHeights } from './board.ts';
 import { footprintCells, occupiedCells } from '../../../../../packages/domain/map/footprint.ts';
 import type { Cover } from '../../../../../packages/domain/combat/targeting.ts';
 
@@ -45,7 +47,7 @@ export async function loadTemplates(q: Queryable, campaignId: string, sceneId: s
   return (
     await q.query(
       `SELECT t.id, t.shape, t.x, t.z, t.direction, t.size_feet::float8 AS size_feet,
-              t.width_feet::float8 AS width_feet, t.color, t.label, t.created_by, u.display_name AS author_name
+              t.width_feet::float8 AS width_feet, t.height_feet::float8 AS height_feet, t.color, t.label, t.created_by, u.display_name AS author_name
        FROM scene_templates t
        JOIN users u ON u.id = t.created_by
        WHERE t.campaign_id=$1 AND t.scene_id=$2
@@ -63,13 +65,17 @@ export function areaOf(template: any, feetPerUnit: number): Area {
     direction: Number(template.direction),
     size: Number(template.size_feet) / feetPerUnit,
     width: (Number(template.width_feet ?? 5)) / feetPerUnit,
+    ...(template.shape === 'circle' && template.height_feet != null ? { height: Number(template.height_feet) / feetPerUnit } : {}),
   };
 }
 
 export function touches(area: Area, scene: any, placement: { world_x: number; world_z: number; size: string; altitude_feet?: number }) {
-  const up = Number(placement.altitude_feet ?? 0) / Number(scene.feet_per_unit || 5);
-  return occupiedCells(scene, placement.world_x, placement.world_z, footprintCells(placement.size)).some(cell =>
-    inAreaAt(area, cell.col - scene.width_cells / 2 + 0.5, cell.row - scene.height_cells / 2 + 0.5, up));
+  const heights = sceneHeights(scene);
+  const n = footprintCells(placement.size);
+  const ground = groundUnder(heights, scene, placement.world_x, placement.world_z, n) - groundAtPoint(heights, scene, area.x, area.z);
+  const up = (ground + Number(placement.altitude_feet ?? 0)) / Number(scene.feet_per_unit || 5);
+  return occupiedCells(scene, placement.world_x, placement.world_z, n).some(cell =>
+    inAreaRelative(area, cell.col - scene.width_cells / 2 + 0.5, cell.row - scene.height_cells / 2 + 0.5, up));
 }
 
 export function registerTemplateRoutes(ctx: TemplateContext) {
@@ -78,7 +84,7 @@ export function registerTemplateRoutes(ctx: TemplateContext) {
 
   app.post<{
     Params: { campaignId: string; sceneId: string };
-    Body: { shape: AreaShape; x: number; z: number; direction?: number; sizeFeet: number; widthFeet?: number; color?: string; label?: string };
+    Body: { shape: AreaShape; x: number; z: number; direction?: number; sizeFeet: number; widthFeet?: number; heightFeet?: number | null; color?: string; label?: string };
   }>(
     '/campaigns/:campaignId/scenes/:sceneId/templates',
     {
@@ -91,6 +97,7 @@ export function registerTemplateRoutes(ctx: TemplateContext) {
           direction: { type: 'number', minimum: 0, exclusiveMaximum: 360 },
           sizeFeet: { type: 'number', exclusiveMinimum: 0, maximum: 1000 },
           widthFeet: { type: 'number', exclusiveMinimum: 0, maximum: 100 },
+          heightFeet: { type: ['number', 'null'], exclusiveMinimum: 0, maximum: 1000 },
           color: { type: 'string', pattern: '^#[0-9a-fA-F]{6}$' },
           label: { type: 'string', maxLength: 100 },
         }, ['shape', 'x', 'z', 'sizeFeet']),
@@ -110,12 +117,13 @@ export function registerTemplateRoutes(ctx: TemplateContext) {
 
         const id = (
           await q.query(
-            `INSERT INTO scene_templates (campaign_id, scene_id, shape, x, z, direction, size_feet, width_feet, color, label, created_by)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11) RETURNING id`,
+            `INSERT INTO scene_templates (campaign_id, scene_id, shape, x, z, direction, size_feet, width_feet, color, label, created_by, height_feet)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING id`,
             [
               campaignId, sceneId, body.shape, body.x, body.z, body.direction ?? 0, body.sizeFeet,
               body.shape === 'line' ? body.widthFeet ?? 5 : null,
               (body.color ?? '#e8835a').toLowerCase(), body.label?.trim() || null, userId,
+              body.shape === 'circle' ? body.heightFeet ?? null : null,
             ],
           )
         ).rows[0].id;
@@ -131,7 +139,7 @@ export function registerTemplateRoutes(ctx: TemplateContext) {
 
   app.patch<{
     Params: TemplateParams;
-    Body: { x?: number; z?: number; direction?: number; sizeFeet?: number; widthFeet?: number; color?: string; label?: string | null; shape?: AreaShape };
+    Body: { x?: number; z?: number; direction?: number; sizeFeet?: number; widthFeet?: number; heightFeet?: number | null; color?: string; label?: string | null; shape?: AreaShape };
   }>(
     '/campaigns/:campaignId/scenes/:sceneId/templates/:templateId',
     {
@@ -145,6 +153,7 @@ export function registerTemplateRoutes(ctx: TemplateContext) {
             direction: { type: 'number', minimum: 0, exclusiveMaximum: 360 },
             sizeFeet: { type: 'number', exclusiveMinimum: 0, maximum: 1000 },
             widthFeet: { type: 'number', exclusiveMinimum: 0, maximum: 100 },
+            heightFeet: { type: ['number', 'null'], exclusiveMinimum: 0, maximum: 1000 },
             color: { type: 'string', pattern: '^#[0-9a-fA-F]{6}$' },
             label: { type: ['string', 'null'], maxLength: 100 },
           }, []),
@@ -168,14 +177,16 @@ export function registerTemplateRoutes(ctx: TemplateContext) {
 
         const shape = body.shape ?? template.shape;
         const width = shape === 'line' ? body.widthFeet ?? (template.width_feet === null ? 5 : Number(template.width_feet)) : null;
+        const height = shape === 'circle' ? (body.heightFeet !== undefined ? body.heightFeet : template.height_feet) : null;
         await q.query(
-          `UPDATE scene_templates SET shape=$2, x=$3, z=$4, direction=$5, size_feet=$6, width_feet=$7, color=$8, label=$9 WHERE id=$1`,
+          `UPDATE scene_templates SET shape=$2, x=$3, z=$4, direction=$5, size_feet=$6, width_feet=$7, color=$8, label=$9, height_feet=$10 WHERE id=$1`,
           [
             templateId, shape, body.x ?? template.x, body.z ?? template.z,
             shape === 'circle' ? 0 : body.direction ?? template.direction,
             body.sizeFeet ?? template.size_feet, width,
             body.color ? body.color.toLowerCase() : template.color,
             body.label === undefined ? template.label : body.label?.trim() || null,
+            height,
           ],
         );
         await bumpScene(q, sceneId);

@@ -79,7 +79,7 @@ function onAdded(choice: string) {
           <small>{{ choiceName(choice) }}</small>
         </button>
         <button
-          v-if="choice.startsWith('custom:')" type="button" class="tile-remove"
+          v-if="choice.startsWith('custom:')" type="button" class="tile-remove icon-only"
           :aria-label="t('Удалить свой курсор «{name}»', { name: cursorLabel(choice) })" :title="t('Удалить')" @click="remove(choice)"
         ><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </span>

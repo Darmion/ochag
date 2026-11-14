@@ -2,11 +2,11 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
 import {
-  SRD_MONSTERS, attackBonusOf, attackText, averageOf, challengeText, findMonster, modifierOf, monsterProficiency,
-  monsterSheet, monsterTexts, proficiencyLevel, rollHitPoints, skillAbility,
+  SRD_MONSTERS, attackBonusOf, attackText, averageHitPoints, averageOf, challengeText, conditionImmunityCodes, findMonster, modifierOf, monsterProficiency,
+  monsterSheet, monsterTexts, parseHitDice, proficiencyLevel, rollHitPoints, skillAbility,
 } from './bestiary.ts';
 import {challengeExperience} from '../character/experience.ts';
-import {parseFormula, proficiencyBonusForChallenge, proficiencyOf} from '../dice/dice.ts';
+import {proficiencyBonusForChallenge, proficiencyOf} from '../dice/dice.ts';
 
 const spells = JSON.parse(readFileSync(new URL('../srd/spells.json', import.meta.url), 'utf8'));
 const spellIndexes = new Set((Array.isArray(spells) ? spells : spells.spells).map((spell: any) => spell.index));
@@ -18,8 +18,8 @@ test('every monster adds up: hit points from hit dice, damage averages, bonuses 
     assert.ok(!indexes.has(where), `${where}: повтор`);
     indexes.add(where);
     assert.ok(challengeExperience(monster.cr) !== null, `${where}: опасность`);
-    assert.equal(averageOf(monster.hitDice), monster.hp, `${where}: хиты`);
-    const hitDice = parseFormula(monster.hitDice)!;
+    assert.equal(averageHitPoints(monster.hitDice), monster.hp, `${where}: хиты`);
+    const hitDice = parseHitDice(monster.hitDice)!;
     assert.equal(hitDice.modifier, hitDice.count * modifierOf(monster, 'constitution'), `${where}: кости хитов и ТЕЛ`);
 
     const proficiency = monsterProficiency(monster);
@@ -34,7 +34,7 @@ test('every monster adds up: hit points from hit dice, damage averages, bonuses 
     const perception = monster.skills?.perception ?? modifierOf(monster, 'wisdom');
     assert.equal(monster.passive, 10 + perception, `${where}: пассивное Восприятие`);
 
-    assert.ok(monster.attacks.length || (monster.cr === 0 && monster.type === 'зверь'), `${where}: атаки`);
+    assert.ok(monster.attacks.length || monster.cr === 0, `${where}: атаки`);
     for (const attack of monster.attacks) {
       const bonus = attackBonusOf(monster, attack);
       assert.equal(bonus !== 0, attack.quirk === true, `${where}/${attack.name}: попадание ${attack.toHit}`);
@@ -93,6 +93,26 @@ test('odd bonuses, second damage types, thrown weapons, spells', () => {
   assert.deepEqual(mage.spellSlots, [{level: 1, max: 4}, {level: 2, max: 3}, {level: 3, max: 3}, {level: 4, max: 3}, {level: 5, max: 1}]);
   assert.equal(mage.spells.length, 16);
   assert.equal(challengeText(0.125), '1/8');
+});
+
+test('the full SRD: legendary monsters, immunities read from the sheet text, multiattack that the auto-turn understands', async () => {
+  assert.ok(SRD_MONSTERS.length >= 330);
+  const tarrasque = findMonster('tarrasque')!;
+  assert.equal(averageHitPoints(tarrasque.hitDice), 676);
+  assert.deepEqual([tarrasque.legendary?.actions, tarrasque.legendary?.resistances], [3, 3]);
+  for (const monster of SRD_MONSTERS.filter(entry => entry.legendary)) {
+    for (const option of monster.legendary!.options) assert.ok(option.cost >= 1 && option.cost <= 3 && option.text.length <= 500, `${monster.index}/${option.name}`);
+  }
+  assert.deepEqual(conditionImmunityCodes(findMonster('iron-golem')!.conditionImmunities).sort(), ['charmed', 'exhaustion', 'frightened', 'paralyzed', 'petrified', 'poisoned']);
+  assert.deepEqual(conditionImmunityCodes('сбит с ног, захват'), ['grappled', 'prone']);
+  assert.equal(monsterSheet(findMonster('balor')!, 262).character.sheet_extra.magicWeapons, true);
+  assert.equal(monsterSheet(findMonster('werewolf-human')!, 58).character.damage_immunities[0], 'nonmagical');
+
+  const {multiattackRoutines} = await import('../combat/multiattack.ts');
+  const dragon = findMonster('ancient-red-dragon')!;
+  const weapons = dragon.attacks.map((attack, index) => ({id: String(index), name: attack.name, kind: attack.kind}));
+  const [routine] = multiattackRoutines(dragon.multiattack!.text, weapons);
+  assert.deepEqual(routine!.steps.map(step => [weapons[Number(step.weaponId)]!.name, step.count]), [['Укус', 1], ['Коготь', 2]]);
 });
 
 test('rolled hit points: the dice plus constitution, never below 1', () => {

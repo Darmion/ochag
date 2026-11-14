@@ -27,7 +27,7 @@ defineProps<{
     <div class="pz-groups">
       <section v-for="group in elements.visibleGroups" :key="group.id" class="pz-group">
         <button type="button" class="pz-group-head" :aria-expanded="elements.isOpen(group.id)" @click="elements.open[group.id] = !elements.isOpen(group.id)">
-          <span class="caret" aria-hidden="true">{{ elements.isOpen(group.id) ? '▾' : '▸' }}</span>
+          <span class="caret" aria-hidden="true"><GameIcon :name="elements.isOpen(group.id) ? 'chevron' : 'chevronRight'" :size="12" /></span>
           <span class="pz-group-name">{{ group.label }}</span>
           <small :title="`С картинкой ${group.withArt} из ${group.total}`">{{ group.withArt }}/{{ group.total }}</small>
         </button>
@@ -44,7 +44,7 @@ defineProps<{
               <small v-if="elements.statusLabel(elements.statusOf(element))" class="pz-badge" :class="elements.statusOf(element)">{{ elements.statusLabel(elements.statusOf(element)) }}</small>
             </button>
             <button
-              v-if="element.custom" type="button" class="link-button pz-remove" title="Убрать своё название из списка (картинка для него сбросится)"
+              v-if="element.custom" type="button" class="link-button pz-remove icon-only" title="Убрать своё название из списка (картинка для него сбросится)"
               @click="elements.removeName(element)"
             ><GameIcon class="inline-icon" name="close" :size="16" /></button>
           </li>
@@ -73,7 +73,7 @@ defineProps<{
 .pz-group-head{width:100%;display:flex;align-items:center;gap:8px;min-height:34px;padding:4px 8px;justify-content:flex-start;text-align:left;font-size:14px}
 .pz-group-name{flex:1}
 .pz-group-head small{opacity:.75;font-weight:400}
-.caret{width:12px}
+.caret{display:inline-grid;place-items:center;width:12px}
 .pz-list{list-style:none;margin:2px 0 6px;padding:0 0 0 6px;display:flex;flex-direction:column;gap:2px}
 .pz-list li{display:flex;align-items:center;gap:4px}
 .pz-element{flex:1;display:flex;align-items:center;gap:8px;min-height:40px;padding:3px 8px;justify-content:flex-start;text-align:left;font:400 13px "Segoe UI",Arial,sans-serif;letter-spacing:0;min-width:0}

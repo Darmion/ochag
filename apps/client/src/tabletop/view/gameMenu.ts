@@ -4,6 +4,7 @@ import { GAME_WINDOW_LABEL, GAME_WINDOW_ICON, isGameWindowOpen, toggleGameWindow
 import type { PanelId } from '../layout/gameHud';
 import type { SceneDetail, NoteSummary, SceneObjectDTO } from './types';
 import { GAME_WINDOW_KEYS } from './windowKeys';
+import type { DoorLink } from '../../../../../packages/domain/minigames/links';
 
 export type GameMenuDeps = {
   emit: (event: 'open-character-sheet', characterId: string) => void;
@@ -28,6 +29,14 @@ export function useGameMenu({ emit, sceneDetail, compendiumOpen, notes, notesCan
   const windowHotkey = (id: PanelId) => Object.entries(GAME_WINDOW_KEYS).find(([, panel]) => panel === id)?.[0].replace('Digit', '') ?? '';
 
   const minigameOpen = ref(false);
+  // A door's own popover hangs a rune lock on it: the mini-games window opens on the lock with that door chosen.
+  const minigameDoor = ref<Omit<DoorLink, 'kind'> | null>(null);
+  function hangRuneLock(wall: { x1: number; z1: number; x2: number; z2: number }) {
+    const scene = sceneDetail.value;
+    if (!scene) return;
+    minigameDoor.value = { sceneId: scene.id, sceneName: scene.name, x1: wall.x1, z1: wall.z1, x2: wall.x2, z2: wall.z2 };
+    minigameOpen.value = true;
+  }
   const gameMenu = computed<MenuButton[]>(() => {
     const windows = (['scenes', 'objects', 'gmNotes', 'encounters'] as PanelId[]).filter(gameWindowAvailable);
     return [
@@ -39,16 +48,19 @@ export function useGameMenu({ emit, sceneDetail, compendiumOpen, notes, notesCan
         hotkey: windowHotkey(id),
       })),
       { id: 'quests', label: GAME_WINDOW_LABEL.quests, icon: GAME_WINDOW_ICON.quests, pressed: isGameWindowOpen('quests'), hotkey: 'J' },
-      ...(sceneDetail.value?.canManage ? [{ id: 'factions', label: 'Фракции', icon: 'group' as const, pressed: factionsOpen.value }] : []),
+      ...(sceneDetail.value?.canManage ? [{ id: 'factions', label: 'Фракции', icon: 'faction' as const, pressed: factionsOpen.value }] : []),
       { id: 'compendium', label: 'Справочник', icon: 'tome' as const, pressed: compendiumOpen.value, hotkey: 'K' },
-      { id: 'minigames', label: 'Мини-игры', icon: 'dice' as const, pressed: minigameOpen.value },
-      { id: 'sheet', label: 'Лист персонажа', icon: 'helm' as const, pressed: false, hotkey: 'I' },
+      { id: 'minigames', label: 'Мини-игры', icon: 'minigames' as const, pressed: minigameOpen.value },
+      { id: 'sheet', label: 'Лист персонажа', icon: 'sheet' as const, pressed: false, hotkey: 'I' },
     ];
   });
 
   function onGameMenu(id: string) {
     if (id === 'palette') paletteOpen.value = true;
-    else if (id === 'minigames') minigameOpen.value = true;
+    else if (id === 'minigames') {
+      minigameDoor.value = null;
+      minigameOpen.value = true;
+    }
     else if (id === 'compendium') compendiumOpen.value = !compendiumOpen.value;
     else if (id === 'sheet') openActorSheet();
     else if (id === 'settings') settingsOpen.value = true;
@@ -62,5 +74,5 @@ export function useGameMenu({ emit, sceneDetail, compendiumOpen, notes, notesCan
     if (object) emit('open-character-sheet', object.character_id);
   }
 
-  return { gameWindowAvailable, windowHotkey, minigameOpen, gameMenu, onGameMenu, openActorSheet };
+  return { gameWindowAvailable, windowHotkey, minigameOpen, minigameDoor, hangRuneLock, gameMenu, onGameMenu, openActorSheet };
 }

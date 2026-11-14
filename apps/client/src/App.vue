@@ -30,6 +30,7 @@ import { onCampaignEvent } from './campaign/campaignEvents';
 import { useCampaignLive } from './campaign/campaignLive';
 import { useCampaignSelection, type Campaign } from './campaign/campaignSelection';
 import { loadCampaignArt } from './art/campaignArt';
+import { loadCampaignConditions } from './rules/campaignConditions';
 import { musicOffTable } from './campaign/backgroundMusic';
 import HandoutViewer, { type Handout } from './components/campaign/HandoutViewer.vue';
 import DialogueOverlay from './components/campaign/DialogueOverlay.vue';
@@ -98,7 +99,7 @@ watch(message, value => {
 });
 
 const loggedIn = computed(() => token.value !== '');
-type MainTab = 'book' | 'table' | 'characters' | 'rules' | 'look' | 'server';
+type MainTab = 'book' | 'table' | 'characters' | 'rules' | 'conditions' | 'look' | 'server';
 const activeTab = ref<MainTab>('book');
 const loadTabletop = () => import('./components/tabletop/TabletopView.vue');
 const TabletopView = defineAsyncComponent(loadTabletop);
@@ -114,6 +115,9 @@ const CharactersTab = defineAsyncComponent(
 const RulesTab = defineAsyncComponent(
   () => import('./components/rules/RulesTab.vue'),
 );
+const ConditionsTab = defineAsyncComponent(
+  () => import('./components/conditions/ConditionsTab.vue'),
+);
 const PersonalizationTab = defineAsyncComponent(
   () => import('./components/campaign/PersonalizationTab.vue'),
 );
@@ -122,8 +126,14 @@ const sheetCharacterId = ref('');
 const CharacterSheet = defineAsyncComponent(
   () => import('./components/sheet/CharacterSheet.vue'),
 );
+const levelUpCharacterId = ref('');
+const levelDownCharacterId = ref('');
+const LevelDownDialog = defineAsyncComponent(() => import('./components/sheet/levelUp/LevelDownDialog.vue'));
+const LevelUpWizard = defineAsyncComponent(
+  () => import('./components/sheet/levelUp/LevelUpWizard.vue'),
+);
 
-const { invitationCode, campaignName, isMaster, currentCampaignName, inviteServerMismatch, refreshCampaigns, joinCampaign, onCampaignImported, createCampaign } = useCampaignSelection({
+const { invitationCode, campaignName, isMaster, currentCampaignName, inviteServerMismatch, refreshCampaigns, joinCampaign, onCampaignImported, onAdventureCreated, createCampaign } = useCampaignSelection({
   api, run, campaigns, campaignId, serverUrl, currentUserId, canCreateCampaigns, message, showLobby: () => { activeTab.value = 'book'; },
 });
 
@@ -245,6 +255,7 @@ const stopHandouts = onCampaignEvent('handout', handout => { openHandout.value =
 onBeforeUnmount(stopHandouts);
 watch(campaignId, () => { openHandout.value = null; });
 watch([campaignId, loggedIn], ([id, logged]) => { void loadCampaignArt(api, logged ? id : ''); }, { immediate: true });
+watch([campaignId, loggedIn], ([id, logged]) => { void loadCampaignConditions(api, logged ? id : '').catch(() => {}); }, { immediate: true });
 
 function resetSession(notice = '', invite = '') {
   stopHeartbeat();
@@ -257,6 +268,8 @@ function resetSession(notice = '', invite = '') {
   campaignId.value = '';
   draft.value = null;
   sheetCharacterId.value = '';
+  levelUpCharacterId.value = '';
+  levelDownCharacterId.value = '';
   activeTab.value = 'book';
   sessionConnection.value = null;
   serverInfo.value = null;
@@ -403,7 +416,7 @@ function openFromLobby(tab: 'table' | 'characters' | 'rules') {
 
 
     <div v-if="error" class="notice error app-error" role="alert">
-      <button type="button" class="app-message-close" aria-label="Закрыть сообщение" @click="error = ''; errorHints = []"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+      <button type="button" class="app-message-close icon-only" aria-label="Закрыть сообщение" @click="error = ''; errorHints = []"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       <p>{{ error }}</p>
       <ul v-if="errorHints.length">
         <li v-for="hint in errorHints" :key="hint">{{ hint }}</li>
@@ -412,7 +425,7 @@ function openFromLobby(tab: 'table' | 'characters' | 'rules') {
 
     <p v-if="message" class="notice success app-message" role="status">
       <span>{{ message }}</span>
-      <button type="button" class="app-message-close" aria-label="Закрыть сообщение" @click="message = ''"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+      <button type="button" class="app-message-close icon-only" aria-label="Закрыть сообщение" @click="message = ''"><GameIcon class="inline-icon" name="close" :size="16" /></button>
     </p>
 
     <div v-if="serverVersionDiff" class="notice warning version-banner">
@@ -455,6 +468,7 @@ function openFromLobby(tab: 'table' | 'characters' | 'rules') {
       :can-import="importers.length > 0"
       @import-character="importOpen = !importOpen"
       @imported="onCampaignImported"
+      @adventure-created="onAdventureCreated"
       @appearance-changed="refreshCampaigns"
     />
 
@@ -516,6 +530,8 @@ function openFromLobby(tab: 'table' | 'characters' | 'rules') {
       :current-user-id="currentUserId"
       :request="api"
       @open-character-sheet="sheetCharacterId = $event"
+      @open-level-up="levelUpCharacterId = $event"
+      @open-level-down="levelDownCharacterId = $event"
     />
 
     <CharactersTab
@@ -526,6 +542,7 @@ function openFromLobby(tab: 'table' | 'characters' | 'rules') {
       :request="api"
       :token="token"
       @open-character-sheet="sheetCharacterId = $event"
+      @open-level-up="levelUpCharacterId = $event"
       :importers="importers"
       @import-file="(importerId: string, file: File) => { targetCharacterId = ''; importFile(importerId, file); }"
     />
@@ -540,6 +557,13 @@ function openFromLobby(tab: 'table' | 'characters' | 'rules') {
     <RulesTab
       v-if="loggedIn && !draft && activeTab === 'rules' && campaignId"
       :key="campaignId"
+      :campaign-id="campaignId"
+      :request="api"
+    />
+
+    <ConditionsTab
+      v-if="loggedIn && !draft && activeTab === 'conditions' && campaignId"
+      :key="`conditions-${campaignId}`"
       :campaign-id="campaignId"
       :request="api"
     />
@@ -578,6 +602,22 @@ function openFromLobby(tab: 'table' | 'characters' | 'rules') {
       @close="sheetCharacterId = ''"
     />
 
+    <LevelUpWizard
+      v-if="loggedIn && levelUpCharacterId && campaignId"
+      :campaign-id="campaignId"
+      :character-id="levelUpCharacterId"
+      :request="api"
+      @close="levelUpCharacterId = ''"
+    />
+
+    <LevelDownDialog
+      v-if="loggedIn && levelDownCharacterId && campaignId"
+      :campaign-id="campaignId"
+      :character-id="levelDownCharacterId"
+      :request="api"
+      @close="levelDownCharacterId = ''"
+    />
+
     <HelpModal v-if="helpOpen" :initial-tab="helpTab" @close="helpOpen = false" />
 
     <UpdatesModal
@@ -588,7 +628,7 @@ function openFromLobby(tab: 'table' | 'characters' | 'rules') {
     />
 
     <GameOptionsModal v-if="gameOptionsOpen" :request="api" @close="gameOptionsOpen = false" />
-    <ModsDialog v-if="modsOpen" :request="loggedIn ? api : undefined" @close="modsOpen = false; if (loggedIn) void loadImporters()" />
+    <ModsDialog v-if="modsOpen" :request="loggedIn ? api : undefined" :campaign-id="loggedIn ? campaignId : ''" @close="modsOpen = false; if (loggedIn) void loadImporters()" />
 
     <ConfirmDialog />
   </main>

@@ -66,7 +66,7 @@ export type SpellTemplate = {
   duration: { kind: string; value: number; text: string; concentration: boolean; dismiss: string; stacks: boolean };
   targeting: {
     kind: string;
-    count: number; countMode: 'exact' | 'up-to'; side: string; includeSelf: boolean; distinct: boolean; maxApartFeet: number;
+    count: number; countMode: 'exact' | 'up-to' | 'any'; side: string; includeSelf: boolean; distinct: boolean; maxApartFeet: number;
     typeMode: 'any' | 'only' | 'except'; types: string[]; maxSize: string; maxHp: number; maxInt: number;
     seesCaster: boolean; hearsCaster: boolean; understands: boolean;
     shape: string; sizeFeet: number; widthFeet: number; heightFeet: number; origin: string; affects: string; chosenMax: number; aroundCorners: boolean;

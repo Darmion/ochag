@@ -2,6 +2,7 @@
 import { computed } from 'vue';
 import HudPortrait from '../HudPortrait.vue';
 import GameIcon from '../GameIcon.vue';
+import ConditionIcon from '../../conditions/ConditionIcon.vue';
 import { conditionInfo } from '../../../rules/conditions';
 import type { ActionBarProps } from '../../../actionBar/types';
 
@@ -33,37 +34,38 @@ const actorConditions = computed(() => (props.actor?.conditions ?? []).map(code 
       @click="emit('openSheet')"
       @dblclick="emit('focus')"
     >
-      <HudPortrait :name="actor?.name ?? '?'" :image-url="actor?.imageUrl ?? null" :image-crop="actor?.imageCrop" :crest="actor?.crest" />
+      <HudPortrait :name="actor?.name ?? '?'" :image-url="actor?.imageUrl ?? null" :image-crop="actor?.imageCrop" :crest="actor?.crest" round />
       <span v-if="hpPercent !== null" class="hp-ring" :class="hpState" :style="{ '--g-action-hp': `${hpPercent}%` }" />
     </button>
 
     <div class="actor-info">
       <strong class="actor-name">
         <span class="actor-name-text" :title="actor?.name">{{ actor?.name ?? 'Не выбран' }}</span>
-        <button v-if="actor" type="button" class="actor-clear" title="Снять выбор (Esc) — никем не действовать" aria-label="Снять выбор" @click="emit('deselect')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <slot name="tools" />
+        <button v-if="actor" type="button" class="actor-clear icon-only" title="Снять выбор (Esc) — никем не действовать" aria-label="Снять выбор" @click="emit('deselect')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </strong>
       <span v-if="actor?.hp" class="actor-hp" :class="hpState">
         <GameIcon name="heart" :size="14" /> {{ actor.hp.current }} / {{ actor.hp.max }}<template v-if="actor.hp.temp"> +{{ actor.hp.temp }}</template>
       </span>
       <span v-else-if="actor" class="actor-hp muted">хиты скрыты</span>
       <span v-if="movementLeft" class="actor-move" :class="{ empty: movementLeft.feet <= 0 }" :title="`Движение в этот ход: осталось ${movementLeft.feet} из ${movementLeft.budget} фут.`">
-        <GameIcon name="run" :size="13" /> {{ movementLeft.feet }} / {{ movementLeft.budget }} фут.
+        <GameIcon name="econMovement" :size="13" /> {{ movementLeft.feet }} / {{ movementLeft.budget }} фут.
         <i class="move-bar" :style="{ '--g-action-move': `${movementLeft.budget > 0 ? Math.max(0, Math.min(100, Math.round(movementLeft.feet / movementLeft.budget * 100))) : 0}%` }" aria-hidden="true" />
       </span>
       <span v-if="actorConditions.length" class="actor-conditions">
-        <span v-for="condition in actorConditions" :key="condition.code" class="condition" :title="`${condition.label}: ${condition.rule}`"><GameIcon :name="condition.icon" :size="13" /></span>
+        <span v-for="condition in actorConditions" :key="condition.code" class="condition" :title="`${condition.label}: ${condition.rule}`"><ConditionIcon :name="condition.icon" :image="condition.image" :size="13" /></span>
       </span>
       <span v-if="economy" class="economy" aria-label="Что осталось в этот ход">
         <button
-          v-for="pip in ([['action', '●', 'Действие'], ['bonus', '▲', 'Бонусное действие'], ['reaction', '⟲', 'Реакция']] as const)"
-          :key="pip[0]" type="button" class="pip" :class="[pip[0], { spent: !economy[pip[0]] }]" :disabled="working"
+          v-for="pip in ([['action', 'econAction', 'Действие'], ['bonus', 'econBonus', 'Бонусное действие'], ['reaction', 'econReaction', 'Реакция']] as const)"
+          :key="pip[0]" type="button" class="pip icon-only" :class="[pip[0], { spent: !economy[pip[0]] }]" :disabled="working"
           :title="`${pip[2]}: ${economy[pip[0]] ? 'есть — щелчок отмечает потраченным' : 'потрачено'}`"
           @click="emit('economy', pip[0])"
-        >{{ pip[1] }}</button>
+        ><GameIcon :name="pip[1]" :size="14" /></button>
       </span>
       <span v-if="error" class="action-error" role="alert">
         <span>{{ error }}</span>
-        <button type="button" aria-label="Закрыть сообщение" @click="emit('dismiss')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button class="icon-only" type="button" aria-label="Закрыть сообщение" @click="emit('dismiss')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </span>
     </div>
   </div>

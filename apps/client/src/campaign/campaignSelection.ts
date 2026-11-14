@@ -106,5 +106,15 @@ export function useCampaignSelection({ api, run, campaigns, campaignId, serverUr
     });
   }
 
-  return { invitationCode, campaignName, isMaster, currentCampaignName, inviteServerMismatch, refreshCampaigns, joinCampaign, onCampaignImported, createCampaign };
+  function onAdventureCreated(result: { campaignId: string; name: string; problems: string[] }) {
+    return run(async () => {
+      await refreshCampaigns(result.campaignId);
+      showLobby();
+      message.value = result.problems.length
+        ? `Кампания «${result.name}» создана из приключения. Пропущено: ${result.problems.length} — список в окне «Готовые приключения».`
+        : `Кампания «${result.name}» создана из приключения. Сцены, заметки и задания уже на месте — пригласите игроков.`;
+    });
+  }
+
+  return { invitationCode, campaignName, isMaster, currentCampaignName, inviteServerMismatch, refreshCampaigns, joinCampaign, onCampaignImported, onAdventureCreated, createCampaign };
 }

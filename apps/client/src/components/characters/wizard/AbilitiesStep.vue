@@ -2,6 +2,7 @@
 import { ABILITIES, ABILITY_HINTS, ABILITY_LABELS, mod, signed } from '../../../characterWizard/catalog';
 import type { HeroBuilder } from '../../../characterWizard/heroBuilder';
 import GameIcon from '../../game/GameIcon.vue';
+import { abilityIcon } from '../../../rules/skillIcons';
 
 defineProps<{
   wizard: HeroBuilder;
@@ -17,7 +18,7 @@ defineProps<{
     <button type="button" role="radio" :aria-checked="wizard.choice.method === 'standard'" :class="{ active: wizard.choice.method === 'standard' }" @click="wizard.choice.method = 'standard'">Стандартный набор <small>15, 14, 13, 12, 10, 8</small></button>
   </div>
   <div class="ability-tools">
-    <button v-if="wizard.choice.method !== 'roll' || wizard.rolled" type="button" @click="wizard.abilitiesTouched = false; wizard.arrangeForClass()"><GameIcon class="inline-icon" name="sparkle" :size="16" /> Расставить за меня — для класса «{{ wizard.heroClass?.nameRu }}»</button>
+    <button v-if="wizard.choice.method !== 'roll' || wizard.rolled" type="button" @click="wizard.abilitiesTouched = false; wizard.arrangeForClass()"><GameIcon class="inline-icon" name="autoPick" :size="16" /> Расставить за меня — для класса «{{ wizard.heroClass?.nameRu }}»</button>
     <button v-if="wizard.choice.method === 'roll'" type="button" class="primary" :disabled="wizard.working" @click="wizard.rollAbilities"><GameIcon class="inline-icon" name="d20" :size="16" /> {{ wizard.rolled ? 'Бросить заново' : 'Бросить 4к6 шесть раз' }}</button>
     <span v-if="wizard.choice.method === 'pointbuy'" class="points" :class="{ over: wizard.pointsSpent > wizard.budget }">Очки: {{ wizard.budget - wizard.pointsSpent }} осталось</span>
   </div>
@@ -27,7 +28,7 @@ defineProps<{
   <div v-if="wizard.choice.method !== 'roll' || wizard.rolled" class="ability-cards">
     <div v-for="ability in ABILITIES" :key="ability" class="ability-card" :class="{ primary: wizard.primary.has(ability) }">
       <div class="ability-top">
-        <strong>{{ ABILITY_LABELS[ability] }}</strong>
+        <strong><GameIcon v-if="abilityIcon(ability)" class="inline-icon" :name="abilityIcon(ability)!" :size="16" /> {{ ABILITY_LABELS[ability] }}</strong>
         <span v-if="wizard.primary.has(ability)" class="badge">важно для класса</span>
       </div>
       <div class="ability-value">

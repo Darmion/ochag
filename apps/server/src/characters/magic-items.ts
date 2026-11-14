@@ -2,9 +2,11 @@ import type { Queryable } from '../db.ts';
 import { insertChatMessage } from '../campaign/chat-routes.ts';
 import { objectSchema, reject, uuid, type SceneFeatureContext } from '../tabletop/scene-feature.ts';
 import { parseFormula, rollDice } from '../../../../packages/domain/dice/dice.ts';
+import { scrollSpell, srdMagicItemList } from './magic-presets.ts';
+import { magicItemBase, magicItemCategory } from '../../../../packages/domain/character/magic-item-base.ts';
 import { magicItemPriceCp,
-  ABILITIES, ATTUNEMENT_LIMIT, DAMAGE_TYPES, RARITIES, RARITY_LABELS, RECHARGE_LABELS, SRD_MAGIC_ITEMS,
-  applyBonuses, bonusProblems, bonusText, dawnCount, itemActive, revertBonuses,
+  ABILITIES, ATTUNEMENT_LIMIT, DAMAGE_TYPES, RARITIES, RARITY_LABELS, RECHARGE_LABELS,
+  applyBonuses, bonusProblems, bonusText, dawnCount, findSrdMagicItem, itemActive, magicUseLabel, revertBonuses,
   type AppliedBonuses, type MagicBonuses, type Recharge, type SheetNumbers,
 } from '../../../../packages/domain/character/magic-items.ts';
 
@@ -13,7 +15,8 @@ const ABILITY_COLUMNS = ABILITIES.join(', ');
 async function loadSheet(q: Queryable, campaignId: string, characterId: string) {
   const row = (
     await q.query(
-      `SELECT armor_class, speed_feet::float8 AS speed_feet, ${ABILITY_COLUMNS}, damage_resistances, hp_max, hp_current, level
+      `SELECT armor_class, speed_feet::float8 AS speed_feet, ${ABILITY_COLUMNS}, damage_resistances, damage_immunities, hp_max, hp_current, level,
+              sheet_extra->'itemSpellBonus' AS spell_bonus
        FROM characters WHERE campaign_id=$1 AND id=$2 FOR UPDATE`,
       [campaignId, characterId],
     )
@@ -23,6 +26,8 @@ async function loadSheet(q: Queryable, campaignId: string, characterId: string) 
     armorClass: Number(row.armor_class), speed: Number(row.speed_feet ?? 0),
     abilities: Object.fromEntries(ABILITIES.map(ability => [ability, Number(row[ability])])) as SheetNumbers['abilities'],
     resistances: Array.isArray(row.damage_resistances) ? row.damage_resistances.map(String) : [],
+    immunities: Array.isArray(row.damage_immunities) ? row.damage_immunities.map(String) : [],
+    spellBonus: { attack: Number(row.spell_bonus?.attack ?? 0), dc: Number(row.spell_bonus?.dc ?? 0) },
     hpMax: Number(row.hp_max), hpCurrent: Number(row.hp_current), level: row.level ?? null,
   } satisfies SheetNumbers;
 }
@@ -30,11 +35,15 @@ async function loadSheet(q: Queryable, campaignId: string, characterId: string) 
 async function saveSheet(q: Queryable, campaignId: string, characterId: string, sheet: SheetNumbers) {
   await q.query(
     `UPDATE characters SET armor_class=$3, speed_feet=$4, strength=$5, dexterity=$6, constitution=$7, intelligence=$8, wisdom=$9, charisma=$10,
-       damage_resistances=$11::jsonb, hp_max=$12, hp_current=$13, revision=revision+1
+       damage_resistances=$11::jsonb, hp_max=$12, hp_current=$13, damage_immunities=$14::jsonb,
+       sheet_extra = CASE WHEN $15::jsonb IS NULL THEN coalesce(sheet_extra, '{}'::jsonb) - 'itemSpellBonus'
+                          ELSE jsonb_set(coalesce(sheet_extra, '{}'::jsonb), '{itemSpellBonus}', $15::jsonb) END,
+       revision=revision+1
      WHERE campaign_id=$1 AND id=$2`,
     [
       campaignId, characterId, sheet.armorClass, sheet.speed, ...ABILITIES.map(ability => sheet.abilities[ability]),
-      JSON.stringify(sheet.resistances), sheet.hpMax, sheet.hpCurrent,
+      JSON.stringify(sheet.resistances), sheet.hpMax, sheet.hpCurrent, JSON.stringify(sheet.immunities ?? []),
+      sheet.spellBonus && (sheet.spellBonus.attack || sheet.spellBonus.dc) ? JSON.stringify(sheet.spellBonus) : null,
     ],
   );
 }
@@ -170,6 +179,7 @@ export function magicView(row: MagicRow, holderId: string | null) {
     bonuses: row.bonuses ?? {},
     bonusText: bonusText(row.bonuses ?? {}),
     srdIndex: row.srd_index,
+    useLabel: row.destroyed ? null : magicUseLabel(row.srd_index),
   };
 }
 
@@ -192,8 +202,16 @@ const bonusesSchema = {
       type: 'object', additionalProperties: false,
       properties: Object.fromEntries(ABILITIES.map(ability => [ability, { type: 'integer', minimum: 1, maximum: 30 }])),
     },
+    abilityRaise: {
+      type: 'object', additionalProperties: false,
+      properties: Object.fromEntries(ABILITIES.map(ability => [ability, { type: 'integer', minimum: 1, maximum: 10 }])),
+    },
     speed: { type: 'integer', minimum: -30, maximum: 120 },
-    resistances: { type: 'array', maxItems: 13, uniqueItems: true, items: { type: 'string', enum: [...DAMAGE_TYPES] } },
+    resistances: { type: 'array', maxItems: 14, uniqueItems: true, items: { type: 'string', enum: [...DAMAGE_TYPES, 'nonmagical'] } },
+    immunities: { type: 'array', maxItems: 14, uniqueItems: true, items: { type: 'string', enum: [...DAMAGE_TYPES, 'nonmagical'] } },
+    spellAttack: { type: 'integer', minimum: -5, maximum: 10 },
+    spellDc: { type: 'integer', minimum: -5, maximum: 10 },
+    weapon: { type: 'integer', minimum: -5, maximum: 10 },
   },
 };
 
@@ -259,7 +277,7 @@ export function registerMagicItemRoutes(ctx: MagicItemsContext) {
 
   app.get('/srd/magic-items', async request => {
     await auth(request);
-    return { items: SRD_MAGIC_ITEMS, attribution: 'System Reference Document 5.1, Wizards of the Coast, CC-BY-4.0' };
+    return srdMagicItemList();
   });
 
   app.get<{ Params: { campaignId: string; characterId: string } }>(
@@ -305,14 +323,29 @@ export function registerMagicItemRoutes(ctx: MagicItemsContext) {
     },
   );
 
-  app.post<{ Params: { campaignId: string; characterId: string }; Body: { srdIndex: string } }>(
+  app.post<{ Params: { campaignId: string; characterId: string }; Body: { srdIndex: string; base?: string | null; spell?: string | null } }>(
     '/campaigns/:campaignId/characters/:characterId/items',
-    { schema: { params: characterParams, body: objectSchema({ srdIndex: { type: 'string', minLength: 1, maxLength: 64 } }) } },
+    {
+      schema: {
+        params: characterParams,
+        body: objectSchema({
+          srdIndex: { type: 'string', minLength: 1, maxLength: 64 },
+          base: { anyOf: [{ type: 'string', maxLength: 64 }, { type: 'null' }] },
+          spell: { anyOf: [{ type: 'string', pattern: '^[a-z0-9-]{1,64}$' }, { type: 'null' }] },
+        }, ['srdIndex']),
+      },
+    },
     async (request, reply) => {
       const userId = await auth(request);
       const { campaignId, characterId } = request.params;
-      const preset = SRD_MAGIC_ITEMS.find(item => item.index === request.body.srdIndex);
+      const preset = findSrdMagicItem(request.body.srdIndex);
       if (!preset) reject(404, 'Такого предмета в списке нет.');
+      const made = magicItemBase(preset!, request.body.base);
+      if ('problem' in made) reject(400, made.problem);
+      const { base, name: madeName } = made as Exclude<typeof made, { problem: string }>;
+      const scroll = scrollSpell(preset!, request.body.spell);
+      if (typeof scroll === 'string') reject(400, scroll);
+      const name = scroll ? `${madeName}: «${scroll.name}»` : madeName;
       const item = await db.transaction(async q => {
         const member = await membership(q, campaignId, userId, true);
         if (!(await isGm(q, member, userId))) reject(403, 'Магические предметы дарит мастер.');
@@ -320,20 +353,23 @@ export function registerMagicItemRoutes(ctx: MagicItemsContext) {
         if (!holder || holder.kind === 'object') reject(400, 'Подарить можно существу.');
         const created = (
           await q.query(
-            `INSERT INTO characters (campaign_id, owner_user_id, name, kind, size, container_id, sheet_extra, price_cp)
-             VALUES ($1,$2,$3,'object','tiny',$4,$5::jsonb,$6) RETURNING id, name, price_cp`,
-            [campaignId, holder.owner_user_id, preset.nameRu, characterId, JSON.stringify({ srdMagicItem: preset.index }), magicItemPriceCp(preset.rarity)],
+            `INSERT INTO characters (campaign_id, owner_user_id, name, kind, size, container_id, sheet_extra, price_cp, item_srd, item_category, weight_lb)
+             VALUES ($1,$2,$3,'object','tiny',$4,$5::jsonb,$6,$7,$8,$9) RETURNING id, name, price_cp`,
+            [
+              campaignId, holder.owner_user_id, name, characterId, JSON.stringify({ srdMagicItem: preset.index }), magicItemPriceCp(preset.rarity),
+              base?.ref ?? null, base?.category ?? magicItemCategory(preset!), base?.weightLb ?? null,
+            ],
           )
         ).rows[0];
         const minutes = Number((await q.query('SELECT world_minutes FROM campaigns WHERE id=$1', [campaignId])).rows[0]?.world_minutes ?? 0);
         await q.query(
           `INSERT INTO magic_items (campaign_id, character_id, rarity, description, requires_attunement, charges_max, charges_current,
-             recharge, recharge_formula, destroy_on_empty, recharged_dawn, bonuses, srd_index)
-           VALUES ($1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11::jsonb,$12)`,
+             recharge, recharge_formula, destroy_on_empty, recharged_dawn, bonuses, srd_index, spell_index)
+           VALUES ($1,$2,$3,$4,$5,$6,$6,$7,$8,$9,$10,$11::jsonb,$12,$13)`,
           [
             campaignId, created.id, preset.rarity, preset.description, preset.attunement, preset.charges?.max ?? null,
-            preset.charges?.recharge ?? null, preset.charges?.formula ?? null, preset.charges?.destroyOnEmpty === true,
-            dawnCount(minutes), JSON.stringify(preset.bonuses ?? {}), preset.index,
+            preset!.charges ? preset!.charges.recharge ?? null : null, preset!.charges?.formula ?? null, preset!.charges?.destroyOnEmpty === true,
+            dawnCount(minutes), JSON.stringify(preset.bonuses ?? {}), preset.index, scroll ? scroll.index : null,
           ],
         );
         return created;
@@ -353,7 +389,7 @@ export function registerMagicItemRoutes(ctx: MagicItemsContext) {
           type: 'object', additionalProperties: false,
           properties: {
             rarity: { type: 'string', enum: [...RARITIES] },
-            description: { type: 'string', maxLength: 2000 },
+            description: { type: 'string', maxLength: 8000 },
             requiresAttunement: { type: 'boolean' },
             chargesMax: { oneOf: [{ type: 'integer', minimum: 1, maximum: 100 }, { type: 'null' }] },
             chargesCurrent: { oneOf: [{ type: 'integer', minimum: 0, maximum: 100 }, { type: 'null' }] },

@@ -28,7 +28,9 @@ export function objectHint(material: Material, size: CreatureSize, durability: D
   return {
     ac,
     hp,
-    text: `КД ${ac}, хиты ${hp} (${dice})${perSection ? ' на каждую часть 10×10 фут.' : ''}. Иммунитет к яду и психической энергии.`,
+    text: perSection
+      ? `КД ${ac}, хиты ${hp} (${dice}) на каждую часть 10×10 фут. Иммунитет к яду и психической энергии.`
+      : `КД ${ac}, хиты ${hp} (${dice}). Иммунитет к яду и психической энергии.`,
   };
 }
 
@@ -47,3 +49,5 @@ export const DAMAGE_TYPES: Array<{ id: string; label: string }> = [
   { id: 'slashing', label: 'рубящий' },
   { id: 'thunder', label: 'звук' },
 ];
+
+export const DEFENSE_TYPES: Array<{ id: string; label: string }> = [...DAMAGE_TYPES, { id: 'nonmagical', label: 'немагическое оружие (Д/К/Р)' }];

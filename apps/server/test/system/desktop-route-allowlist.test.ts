@@ -31,6 +31,7 @@ test('every asset kind the server accepts can be uploaded through the desktop ap
     assert.ok(allowed.test(`/campaigns/${campaign}/assets?kind=${kind}`), `kind=${kind} не пропускает api-routes.cjs`);
   }
   assert.ok(allowed.test(`/campaigns/${campaign}/appearance`));
+  assert.ok(allowed.test(`/campaigns/${campaign}/characters/${campaign}/examine?heroId=${campaign}`), 'the examine window asks for an earlier look by the hero');
   assert.ok(!allowed.test(`/campaigns/${campaign}/assets?kind=evil`));
   assert.ok(!allowed.test('/campaigns/x/assets?kind=audio&next=http://evil'));
 });

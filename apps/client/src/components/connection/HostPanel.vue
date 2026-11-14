@@ -258,7 +258,7 @@ onBeforeUnmount(() => {
     <p v-else class="muted">Игроки через интернет (туннель Cloudflare, белый IP) — во вкладке «Сервер» после входа.</p>
 
     <ServerSection
-      v-if="hostRunning" id="addresses" ref="addressesSection" icon="door" eyebrow="ПРИГЛАШЕНИЕ В ИГРУ" title="Куда подключаться игрокам"
+      v-if="hostRunning" id="addresses" ref="addressesSection" icon="invite" eyebrow="ПРИГЛАШЕНИЕ В ИГРУ" title="Куда подключаться игрокам"
       :summary="addressesSignal.summary" :status="addressesSignal.status" :tone="addressesSignal.tone" default-open
     >
       <HostAddresses :copied="copied" :service-addresses="serviceAddresses" :has-vpn="hasVpn" @copy="copy" />
@@ -283,7 +283,7 @@ onBeforeUnmount(() => {
       </ServerSection>
 
       <ServerSection
-        v-if="hostRunning && ownerId && request" id="accounts" icon="crown" eyebrow="ДОСТУП" title="Аккаунты и права"
+        v-if="hostRunning && ownerId && request" id="accounts" icon="key" eyebrow="ДОСТУП" title="Аккаунты и права"
         summary="Кто может создавать кампании · права в ваших кампаниях"
         :status="accountCount === null ? undefined : `аккаунтов: ${accountCount}`" tone="info"
         @toggle="open => { if (open) accountsPanel?.refresh(); }"

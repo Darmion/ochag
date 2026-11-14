@@ -26,7 +26,7 @@ export function validateTemplate(t: SpellTemplate): { errors: TemplateIssue[]; w
   const ids = new Set(actions.map(({ action }) => action.id));
   const usesTargets = actions.some(({ action }) => action.who === 'targets');
   if (usesTargets && (t.targeting.kind === 'none')) error('Г1', 'Действие касается целей, а целей у заклинания нет.');
-  if (actions.some(({ action }) => action.who === 'area') && t.targeting.kind !== 'area' && !allEffects(t).some(({ effect }) => effect.kind === 'zone')) {
+  if (actions.some(({ action }) => action.who === 'area') && t.targeting.kind !== 'area' && t.targeting.kind !== 'wall' && !allEffects(t).some(({ effect }) => effect.kind === 'zone')) {
     error('Г1', 'Действие касается «всех в области», а области нет.');
   }
   for (const { action, scope } of actions) {

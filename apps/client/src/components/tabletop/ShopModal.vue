@@ -156,7 +156,7 @@ onMounted(load);
     <section class="modal-card shop">
       <header>
         <h2>Лавка: {{ merchantName }}</h2>
-        <button type="button" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button class="icon-only" type="button" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
       <label v-if="buyers.length" class="buyer">Кто торгует
         <select v-model="buyerId" :disabled="working">
@@ -182,7 +182,7 @@ onMounted(load);
                   :aria-label="`Цена «${good.name}», зм`"
                   @change="setPrice(good, ($event.target as HTMLInputElement).value)"
                 /> зм
-                <button type="button" class="link-button" :disabled="working" title="Убрать с прилавка" @click="removeGood(good)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+                <button type="button" class="link-button icon-only" :disabled="working" title="Убрать с прилавка" @click="removeGood(good)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
               </span>
               <button
                 v-if="buyers.length && good.price_cp !== null" type="button" :disabled="working || !buyerId || good.price_cp > wallet"

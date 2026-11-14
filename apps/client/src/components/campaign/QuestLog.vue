@@ -134,10 +134,10 @@ watch(() => [props.revision, props.campaignId], load);
                 {{ objective.text }}
               </label>
               <span v-else><GameIcon class="inline-icon" :name="objective.done ? 'boxChecked' : 'box'" :size="15" /> {{ objective.text }}</span>
-              <button v-if="canManage" type="button" class="link-button" :disabled="working" title="Убрать цель" @click="removeObjective(quest, objective)">×</button>
+              <button v-if="canManage" type="button" class="link-button remove-objective icon-only" :disabled="working" title="Убрать цель" aria-label="Убрать цель" @click="removeObjective(quest, objective)"><GameIcon name="close" :size="14" /></button>
             </li>
           </ul>
-          <p v-if="quest.xp_reward" class="reward"><GameIcon class="inline-icon" name="starFilled" :size="16" /> Награда: {{ quest.xp_reward }} опыта каждому{{ quest.rewarded_at ? ' — выдана' : '' }}</p>
+          <p v-if="quest.xp_reward" class="reward"><GameIcon class="inline-icon" name="xp" :size="16" /> Награда: {{ quest.xp_reward }} опыта каждому{{ quest.rewarded_at ? ' — выдана' : '' }}</p>
           <div v-if="canManage" class="quest-actions">
             <template v-if="quest.status === 'active'">
               <button type="button" class="primary" :disabled="working" title="Опыт — персонажам игроков на этой сцене (без сцены — всем)" @click="complete(quest)">Выполнено</button>
@@ -185,6 +185,7 @@ watch(() => [props.revision, props.campaignId], load);
 .objectives li{display:flex;align-items:center;justify-content:space-between;gap:6px}
 .objectives li.done{opacity:.7;text-decoration:line-through}
 .objectives label{margin:0}
+.remove-objective{display:inline-grid;place-items:center;place-content:center;vertical-align:middle;min-height:24px;width:24px;padding:0}
 .reward{margin:4px 0;font-weight:600;color:#b8862e}
 .quest-actions,.add-objective{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
 .quest-actions button,.add-objective button{min-height:28px;padding:2px 10px;font-size:13px}

@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
+import { useMinigameSync } from '../../minigames/minigameSync';
 import { SEALS, type Ritual } from '../../../../../packages/domain/minigames/seal-ritual';
 import { useEscapeClose } from '../../ui/escapeStack';
 import { confirmAction } from '../../ui/confirmDialog';
@@ -11,14 +12,14 @@ const game = ref<Ritual | null>(null), manager = ref(false), loaded = ref(false)
 const limit = ref(10), selected = ref(0), amount = ref(1);
 const active = computed(() => game.value?.phase === 'active' && !busy.value);
 const path = `/campaigns/${props.campaignId}/minigames/seal-ritual`;
-let timer: ReturnType<typeof setTimeout> | undefined, disposed = false, generation = 0;
+let disposed = false, generation = 0;
 function apply(result: { game: Ritual | null; manager: boolean }) { game.value = result.game; manager.value = result.manager; loaded.value = true; }
 async function refresh() {
   const ticket = ++generation;
   try { const result = await props.request(path); if (!disposed && ticket === generation) apply(result); }
   catch (cause) { if (!disposed && ticket === generation) error.value = cause instanceof Error ? cause.message : 'Нет связи с сервером.'; }
 }
-async function poll() { if (!busy.value && !document.hidden) await refresh(); if (!disposed) timer = setTimeout(poll, 2000); }
+useMinigameSync('seal-ritual', refresh, busy);
 async function act(action: string, extra: Record<string, unknown> = {}) {
   if (busy.value || !loaded.value) return;
   const revision = game.value?.revision ?? 0; busy.value = true;
@@ -30,12 +31,11 @@ async function act(action: string, extra: Record<string, unknown> = {}) {
   } catch (cause) { error.value = cause instanceof Error ? cause.message : 'Не удалось выполнить действие. Попробуйте ещё раз.'; await refresh(); }
   finally { busy.value = false; }
 }
-onMounted(() => void poll());
-onBeforeUnmount(() => { disposed = true; generation++; clearTimeout(timer); });
+onBeforeUnmount(() => { disposed = true; generation++; });
 </script>
 <template>
   <div class="modal-overlay ritual-overlay" role="dialog" aria-modal="true" aria-labelledby="ritual-title"><div class="modal-card ritual-card">
-    <header><button type="button" aria-label="К списку мини-игр" @click="emit('back')">←</button><div><small>Совместный ритуал · весь отряд</small><h3 id="ritual-title">Четыре печати</h3></div><button type="button" aria-label="Закрыть мини-игру" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button></header>
+    <header><button class="icon-only" type="button" aria-label="К списку мини-игр" @click="emit('back')"><GameIcon name="arrowLeft" :size="16" /></button><div><small>Совместный ритуал · весь отряд</small><h3 id="ritual-title">Четыре печати</h3></div><button class="icon-only" type="button" aria-label="Закрыть мини-игру" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button></header>
     <main>
       <p v-if="error" role="alert">{{ error }} <button type="button" :disabled="busy" @click="refresh">Обновить</button></p>
       <p v-if="!loaded" role="status">Пробуждаем печати…</p>
@@ -55,7 +55,7 @@ onBeforeUnmount(() => { disposed = true; generation++; clearTimeout(timer); });
         <form v-if="manager && (!game || game.phase !== 'active')" class="setup" @submit.prevent="act('create', { limit })"><h4>Начать новый ритуал</h4><label>Общий запас ходов (6–20)<input v-model.number="limit" type="number" min="6" max="20" required :disabled="busy" /></label><button type="submit" class="primary" :disabled="busy">Пробудить печати</button></form>
         <p v-else-if="!game">Мастер ещё не начал ритуал. Все участники увидят один общий круг.</p>
       </template>
-      <details class="rules" open><summary>Правила — шаг за шагом</summary><ol><li><b>Цель:</b> получить по 3 энергии во всех четырёх печатях до конца запаса ходов. Всего всегда 12 энергии.</li><li>Нажмите печать-источник, выберите 1 или 2 энергии и соседа слева или справа по кругу. Через центр передавать нельзя. Один перенос расходует один общий ход.</li><li>В печати может быть от 0 до 6 энергии. Если передача превысит 6, энергия останется на месте, ход потратится и нестабильность вырастет на 1. Третья перегрузка завершает ритуал неудачей.</li><li>«Успокоить круг» снижает нестабильность на 1 и тоже расходует ход. Недостаток энергии у источника — недоступное действие, ход не тратится.</li><li>Все действуют совместно, без очереди. Обсудите план перед нажатием: ходов на весь отряд один запас. Победа возможна и последним ходом.</li></ol><p><b>Пример:</b> у Пламени 5, у Прилива 1. Перенос 2 энергии из Пламени в Прилив даст обеим печатям по 3 и потратит один ход.</p><p>Это отдельный игровой круг: позиции фигур, боевые действия, урон и награды автоматически не меняются. Мастер применяет последствия сцены сам. Закрытие окна сохраняет ритуал до перезапуска сервера.</p></details>
+      <details class="rules" open><summary>Правила — шаг за шагом</summary><ol><li><b>Цель:</b> получить по 3 энергии во всех четырёх печатях до конца запаса ходов. Всего всегда 12 энергии.</li><li>Нажмите печать-источник, выберите 1 или 2 энергии и соседа слева или справа по кругу. Через центр передавать нельзя. Один перенос расходует один общий ход.</li><li>В печати может быть от 0 до 6 энергии. Если передача превысит 6, энергия останется на месте, ход потратится и нестабильность вырастет на 1. Третья перегрузка завершает ритуал неудачей.</li><li>«Успокоить круг» снижает нестабильность на 1 и тоже расходует ход. Недостаток энергии у источника — недоступное действие, ход не тратится.</li><li>Все действуют совместно, без очереди. Обсудите план перед нажатием: ходов на весь отряд один запас. Победа возможна и последним ходом.</li></ol><p><b>Пример:</b> у Пламени 5, у Прилива 1. Перенос 2 энергии из Пламени в Прилив даст обеим печатям по 3 и потратит один ход.</p><p>Это отдельный игровой круг: позиции фигур, боевые действия, урон и награды автоматически не меняются. Мастер применяет последствия сцены сам. Ритуал хранится в кампании: его не сбрасывают ни закрытие окна, ни перезапуск программы.</p></details>
     </main>
   </div></div>
 </template>

@@ -33,7 +33,7 @@ watch([smiteOffer, () => props.popoverOpen, () => props.actorId], () => fitOnScr
     <button type="button" :disabled="working" @click="stunOffer = null">Не надо</button>
   </div>
   <div v-if="quiveringOffer && mine(quiveringOffer) && !smiteOffer && !stunOffer" class="smite-offer g-frame" role="alertdialog" aria-label="Дрожащая ладонь">
-    <span><GameIcon class="inline-icon" name="yinYang" :size="16" /> Безоружный удар по «{{ quiveringOffer.targetName }}» — «Дрожащая ладонь»? ({{ quiveringOffer.cost }} ци из {{ quiveringOffer.ki }}; оборвать — действием в «Умениях»)</span>
+    <span><GameIcon class="inline-icon" name="quiveringPalm" :size="16" /> Безоружный удар по «{{ quiveringOffer.targetName }}» — «Дрожащая ладонь»? ({{ quiveringOffer.cost }} ци из {{ quiveringOffer.ki }}; оборвать — действием в «Умениях»)</span>
     <button type="button" class="primary" :disabled="working" @click="emit('quivering')">Вложить дрожь</button>
     <button type="button" :disabled="working" @click="quiveringOffer = null">Не надо</button>
   </div>

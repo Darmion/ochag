@@ -15,12 +15,12 @@ export type MarqueeDeps = {
   isWallDrawMode: () => boolean;
   templateList: () => AreaTemplate[];
   tool: () => TableTool;
-  isTerrainBrush: () => boolean;
+  isBrushMode: () => boolean;
 };
 
 export function createMarquee({
   canvas, tools, scene, camera, cameraScheme, cameraGesture, holdCamera, objectEntries,
-  isWallPickMode, wallList, isWallDrawMode, templateList, tool, isTerrainBrush,
+  isWallPickMode, wallList, isWallDrawMode, templateList, tool, isBrushMode,
 }: MarqueeDeps) {
   let marquee: { x0: number; y0: number; x1: number; y1: number; el: HTMLDivElement | null } | null = null;
   let marqueeEnded = false;
@@ -35,7 +35,7 @@ export function createMarquee({
     if (info.type === PointerEventTypes.POINTERDOWN) {
       const event = info.event as PointerEvent;
       const plainMarquee = cameraScheme() === 'tts' && !event.altKey && !isWallPickMode();
-      if (event.button !== 0 || !(event.shiftKey || plainMarquee) || tool() !== 'select' || isWallDrawMode() || isTerrainBrush() || !tools.onMarquee || cameraGesture(event)) return;
+      if (event.button !== 0 || !(event.shiftKey || plainMarquee) || tool() !== 'select' || isWallDrawMode() || isBrushMode() || !tools.onMarquee || cameraGesture(event)) return;
       if (scene.pick(scene.pointerX, scene.pointerY, mesh => Boolean(mesh.metadata?.objectId || mesh.metadata?.wallId))?.hit) return;
       marquee = { x0: scene.pointerX, y0: scene.pointerY, x1: scene.pointerX, y1: scene.pointerY, el: null };
       holdCamera(info.event);

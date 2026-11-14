@@ -35,6 +35,7 @@ type Member = {
 };
 
 const MAX_COPIES = 20;
+const MAX_SPOTS = 60;
 const MAX_MEMBERS = 50;
 
 export function startOf(scene: any, x: number, z: number, n: number) {
@@ -133,14 +134,24 @@ export function registerEncounterRoutes(context: EncounterContext) {
 
   app.post<{
     Params: { campaignId: string; characterId: string };
-    Body: { count: number; sceneId?: string };
+    Body: { count: number; sceneId?: string; spots?: Array<{ x: number; z: number; rotationY?: number; scale?: number }> };
   }>(
     '/campaigns/:campaignId/characters/:characterId/duplicate',
     {
       schema: {
         params: objectSchema({ campaignId: uuid, characterId: uuid }),
         body: objectSchema(
-          { count: { type: 'integer', minimum: 1, maximum: MAX_COPIES }, sceneId: uuid },
+          {
+            count: { type: 'integer', minimum: 1, maximum: MAX_SPOTS },
+            sceneId: uuid,
+            spots: {
+              type: 'array', minItems: 1, maxItems: MAX_SPOTS,
+              items: objectSchema({
+                x: { type: 'number' }, z: { type: 'number' },
+                rotationY: { type: 'number', minimum: 0, maximum: 360 }, scale: { type: 'number', minimum: 0.1, maximum: 50 },
+              }, ['x', 'z']),
+            },
+          },
           ['count'],
         ),
       },
@@ -148,7 +159,9 @@ export function registerEncounterRoutes(context: EncounterContext) {
     async (request, reply) => {
       const userId = await auth(request);
       const { campaignId, characterId } = request.params;
-      const { count, sceneId } = request.body;
+      const { count, sceneId, spots: given } = request.body;
+      if (given && (!sceneId || given.length !== count)) reject(400, 'Точки копий — на сцене и по одной на каждую копию.');
+      if (!given && count > MAX_COPIES) reject(400, `Копий за раз — не больше ${MAX_COPIES}.`);
 
       const result = await db.transaction(async q => {
         await requireManager(q, campaignId, userId);
@@ -167,20 +180,31 @@ export function registerEncounterRoutes(context: EncounterContext) {
           const original = placements.find(placement => placement.character_id === characterId);
           if (!original) reject(400, 'Этот объект не стоит на этой сцене — копии некуда поставить рядом.');
 
-          const occupied = new Set(placements.flatMap(placement =>
-            occupiedCells(scene, placement.world_x, placement.world_z, footprintCells(placement.size))
-              .map(cell => `${cell.col}:${cell.row}`)));
-          const n = footprintCells(original.size);
-          const origin = startOf(scene, original.world_x, original.world_z, n);
-          const found = freeSpotsAround(scene, origin, n, occupied, count);
-          if (found.length < count) reject(400, 'На карте не хватает свободных клеток для стольких копий.');
+          if (given) {
+            const halfWidth = scene.width_cells / 2;
+            const halfHeight = scene.height_cells / 2;
+            if (given.some(spot => Math.abs(spot.x) > halfWidth || Math.abs(spot.z) > halfHeight)) reject(400, 'Точка копии — за краем карты.');
+            spots = given.map(spot => ({
+              x: spot.x, z: spot.z, y: original.world_y,
+              rotationY: spot.rotationY ?? original.rotation_y, scale: spot.scale ?? original.scale,
+              snapToGrid: original.snap_to_grid, hidden: original.hidden,
+            }));
+          } else {
+            const occupied = new Set(placements.flatMap(placement =>
+              occupiedCells(scene, placement.world_x, placement.world_z, footprintCells(placement.size))
+                .map(cell => `${cell.col}:${cell.row}`)));
+            const n = footprintCells(original.size);
+            const origin = startOf(scene, original.world_x, original.world_z, n);
+            const found = freeSpotsAround(scene, origin, n, occupied, count);
+            if (found.length < count) reject(400, 'На карте не хватает свободных клеток для стольких копий.');
 
-          spots = found.map(spot => ({
-            x: spot.col + n / 2 - scene.width_cells / 2,
-            z: spot.row + n / 2 - scene.height_cells / 2,
-            y: original.world_y, rotationY: original.rotation_y, scale: original.scale,
-            snapToGrid: original.snap_to_grid, hidden: original.hidden,
-          }));
+            spots = found.map(spot => ({
+              x: spot.col + n / 2 - scene.width_cells / 2,
+              z: spot.row + n / 2 - scene.height_cells / 2,
+              y: original.world_y, rotationY: original.rotation_y, scale: original.scale,
+              snapToGrid: original.snap_to_grid, hidden: original.hidden,
+            }));
+          }
         }
 
         const names = await copyNames(q, campaignId, String(snapshot.character.name), count);

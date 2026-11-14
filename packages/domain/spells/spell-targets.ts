@@ -9,7 +9,7 @@ export const CREATURE_TYPE_LABELS: Record<CreatureType, string> = {
 };
 
 const RU_TYPES: Array<[RegExp, CreatureType]> = [
-  [/^аберрац/i, 'aberration'], [/^зверь|^звери/i, 'beast'], [/^небожит/i, 'celestial'], [/^конструкт/i, 'construct'],
+  [/^аберрац/i, 'aberration'], [/^зверь|^звери|^рой .*звер/i, 'beast'], [/^небожит/i, 'celestial'], [/^конструкт/i, 'construct'],
   [/^дракон/i, 'dragon'], [/^элементал/i, 'elemental'], [/^фея|^феи/i, 'fey'], [/^исчади/i, 'fiend'], [/^великан/i, 'giant'],
   [/^гуманоид/i, 'humanoid'], [/^чудовищ|^монстр/i, 'monstrosity'], [/^слиз/i, 'ooze'], [/^растени/i, 'plant'], [/^нежит/i, 'undead'],
 ];

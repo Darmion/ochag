@@ -128,7 +128,7 @@ const tabList = computed(() => [
       <GameIcon :name="GAME_WINDOW_ICON[props.id]" :size="20" />
       <h3>{{ props.title }}</h3>
       <span class="window-size-wrap">
-        <button type="button" class="game-window-size" :aria-expanded="sizeMenu" aria-label="Ширина окна" :title="`Ширина: ${width} px`" @click="sizeMenu = !sizeMenu">
+        <button type="button" class="game-window-size icon-only" :aria-expanded="sizeMenu" aria-label="Ширина окна" :title="`Ширина: ${width} px`" @click="sizeMenu = !sizeMenu">
           <GameIcon name="resize" :size="15" />
         </button>
         <span v-if="sizeMenu" class="window-size-menu g-frame" role="menu" @keydown.esc.stop="sizeMenu = false">
@@ -139,7 +139,7 @@ const tabList = computed(() => [
           <small class="size-hint">или тяните за край окна</small>
         </span>
       </span>
-      <button type="button" class="game-window-close" aria-label="Закрыть окно" @click="closeGameWindow(props.id)">
+      <button type="button" class="game-window-close icon-only" aria-label="Закрыть окно" @click="closeGameWindow(props.id)">
         <GameIcon name="close" :size="16" />
       </button>
     </header>

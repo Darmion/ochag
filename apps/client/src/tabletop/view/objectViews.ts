@@ -1,11 +1,12 @@
 import { computed, watch, type Ref, type ComputedRef } from 'vue';
-import type { ObjectSide, PlacedObject, GizmoMode, Tabletop } from '../scene';
+import type { LabelIcon, ObjectSide, PlacedObject, GizmoMode, Tabletop } from '../scene';
 import { OBJECT_KINDS, KIND_GROUP_LABELS } from '../../campaign/objects';
 import type { ObjectState } from '../../components/objects/ObjectStatePanel.vue';
 import { objectImageId } from '../../art/portraitArt';
+import { boardImageId } from '../../art/openPairs';
 import { conditionInfo } from '../../rules/conditions';
+import { itemArt } from '../../art/itemArt';
 import type { SceneObjectDTO, TabletopProps, Character, InitiativeEntry } from './types';
-import type { GameIconName } from '../../ui/gameIcons';
 
 export type ObjectViewsDeps = {
   props: TabletopProps;
@@ -61,12 +62,13 @@ export function useObjectViews({ props, characters, objects, activeObjectId, ini
     side: sideOf(object),
     appearance: object.model_asset_id
       ? { kind: 'model', assetId: object.model_asset_id }
-      : objectImageId(object)
-        ? { kind: 'image', assetId: objectImageId(object)! }
+      : boardImageId(object, objectImageId(object))
+        ? { kind: 'image', assetId: boardImageId(object, objectImageId(object))! }
         : { kind: 'default' },
     world_x: object.world_x,
     world_y: object.world_y,
     world_z: object.world_z,
+    walk: object.walk ?? null,
     rotation_y: object.rotation_y,
     scale: object.scale,
     animation_name: object.animation_name,
@@ -79,7 +81,13 @@ export function useObjectViews({ props, characters, objects, activeObjectId, ini
         bright: object.state.light.bright / feetPerUnit.value, dim: object.state.light.dim / feetPerUnit.value,
         cone: object.state.light.cone ? facingOf(object) : null,
       }
-      : null,
+      : object.heldLight
+        ? { bright: object.heldLight.bright / feetPerUnit.value, dim: object.heldLight.dim / feetPerUnit.value, cone: object.heldLight.cone ? facingOf(object) : null }
+        : null,
+    held: (object.held ?? []).map(item => ({
+      hand: item.hand, look: item.look, twoHanded: item.twoHanded, imageAssetId: item.imageAssetId,
+      art: item.imageAssetId ? null : itemArt(item.name, item.srd?.replace(/^[a-z]+:/, '') ?? null),
+    })),
   })));
 
   function facingOf(object: SceneObjectDTO) {
@@ -94,10 +102,16 @@ export function useObjectViews({ props, characters, objects, activeObjectId, ini
     return ((total % 360) + 360) % 360;
   }
 
-  function labelIcons(object: SceneObjectDTO): GameIconName[] {
+  const readyLevels = computed(() => new Set(characters.value.filter(entry => entry.level_ready).map(entry => entry.id)));
+
+  function labelIcons(object: SceneObjectDTO): LabelIcon[] {
     return [
+      ...(readyLevels.value.has(object.character_id) ? ['levelUp' as const] : []),
       ...(object.state?.light?.lit ? ['flame' as const] : []),
-      ...(object.conditions ?? []).slice(0, 5).map(code => conditionInfo(code).icon),
+      ...(object.conditions ?? []).slice(0, 5).map(code => {
+        const info = conditionInfo(code);
+        return info.image ? { image: info.image } : info.icon;
+      }),
       ...(object.loot ? ['chest' as const] : []),
     ];
   }

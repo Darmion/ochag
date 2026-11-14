@@ -1,4 +1,4 @@
-import type { GameIconName } from '../ui/gameIcons.ts';
+import { GAME_ICONS, type GameIconName } from '../ui/gameIcons.ts';
 import { itemArt } from '../art/itemArt.ts';
 import type { Ability, Kit } from './types.ts';
 
@@ -56,6 +56,15 @@ export const NAMES: Record<string, string[]> = {
   tiefling: ['Акменос', 'Нирея', 'Дамакос', 'Криелла', 'Мордай', 'Орианна'],
 };
 
+export function raceIcon(race: { id: string; icon?: string } | null | undefined): GameIconName {
+  if (!race) return 'raceCustom';
+  return RACE_INFO[race.id]?.icon ?? (race.icon && race.icon in GAME_ICONS ? race.icon as GameIconName : 'raceCustom');
+}
+
+export function raceTagline(race: { id: string; tagline?: string }): string {
+  return RACE_INFO[race.id]?.tagline ?? race.tagline ?? '';
+}
+
 export const mod = (score: number) => Math.floor((score - 10) / 2);
 export const signed = (value: number) => (value >= 0 ? `+${value}` : String(value));
 export const bonusText = (bonuses: Partial<Record<Ability, number>>) => Object.entries(bonuses).map(([ability, value]) => `${ABILITY_SHORT[ability as Ability]} +${value}`).join(', ');
@@ -70,8 +79,8 @@ export function toggle(list: string[], value: string, limit: number) {
   else if (list.length < limit) list.push(value);
 }
 
-export function randomHeroName(race: string, current: string, roll = Math.random) {
-  const list = NAMES[race] ?? NAMES.human!;
+export function randomHeroName(race: string, current: string, roll = Math.random, names?: string[]) {
+  const list = names?.length ? names : NAMES[race] ?? NAMES.human!;
   const options = list.filter(name => name !== current);
   return options[Math.floor(roll() * options.length)] ?? list[0]!;
 }

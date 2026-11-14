@@ -42,8 +42,11 @@ export function useVision({ props, viewOnly, sceneDetail, objects, fog, visionIn
   });
 
   const lightSources = computed(() => objects.value
-    .filter(object => object.state?.light)
-    .map(object => ({ characterId: object.character_id, name: object.name, kind: object.kind, light: object.state!.light! })));
+    .filter(object => object.state?.light || object.heldLight)
+    .map(object => ({
+      characterId: object.character_id, name: object.name, kind: object.kind,
+      light: object.state?.light ?? { ...object.heldLight!, lit: true },
+    })));
   const partySight = computed(() => objects.value
     .filter(object => object.kind === 'character' && !object.parent_object_id)
     .map(object => ({ characterId: object.character_id, name: object.name, darkvisionFeet: Number(object.darkvision_feet ?? 0) })));

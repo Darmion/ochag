@@ -59,7 +59,7 @@ function rounds(count: number) {
       <template v-if="counter.can_edit && !readonly">
         <button type="button" :disabled="busy" aria-label="Уменьшить" @click="emit('change', { id: counter.id, delta: -1 })">−</button>
         <button type="button" :disabled="busy" aria-label="Увеличить" @click="emit('change', { id: counter.id, delta: 1 })">+</button>
-        <button type="button" :disabled="busy" aria-label="Убрать" @click="emit('remove', counter)">×</button>
+        <button type="button" class="remove icon-only" :disabled="busy" aria-label="Убрать" @click="emit('remove', counter)"><GameIcon name="close" :size="13" /></button>
       </template>
     </div>
 
@@ -100,6 +100,7 @@ function rounds(count: number) {
 .counter-icon{opacity:.85}
 .counter-value{color:#f5c469;font-variant-numeric:tabular-nums}
 .counter-chip button{min-width:24px;min-height:24px;padding:0 4px;font-size:14px;line-height:1}
+.counter-chip .remove{display:inline-grid;place-items:center;place-content:center;vertical-align:middle;}
 .counter-add{min-height:28px;padding:2px 10px;font-size:13px;background:#1a120be6;color:#f1e4c5}
 .counter-form{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 8px;background:#1a120bf0;color:#f1e4c5;border:1px solid var(--brass, #a68148);border-radius:4px}
 .counter-form input[type="number"]{width:72px}

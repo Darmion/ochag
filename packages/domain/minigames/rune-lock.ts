@@ -3,6 +3,9 @@ export const RUNES = [
   { glyph: '✦', name: 'Звезда' }, { glyph: '♨', name: 'Пламя' },
   { glyph: '❧', name: 'Лист' }, { glyph: '≈', name: 'Волна' },
 ] as const;
+import type { LockTarget } from './links.ts';
+import { assertFreshTry, type CheckActor, type SkillCheck } from './skill-checks.ts';
+
 export type RuneSymbol = { name: string; assetId: string | null };
 export type RuneLock = {
   symbols: RuneSymbol[];
@@ -10,21 +13,22 @@ export type RuneLock = {
   solution: number[]; rings: number[]; revealed: boolean[]; hint: string;
   attempts: number; limit: number; message: string;
   history: { rings: number[]; matches: number }[];
+  target?: LockTarget | null; effect?: string | null; check?: SkillCheck | null;
 };
-export type RuneView = Omit<RuneLock, 'solution'> & { solution?: number[] };
+export type RuneView = Omit<RuneLock, 'solution' | 'target'> & { solution?: number[]; target?: LockTarget | null };
 export type RuneAction = { action: 'rotate'; ring: number; step: number }
   | { action: 'reveal'; ring: number } | { action: 'check' | 'open' | 'cancel' };
-export function createRuneLock(solution: number[], hint: string, limit: number, revision: number, symbols: RuneSymbol[] = RUNES.map(r => ({ name: r.name, assetId: null }))): RuneLock {
+export function createRuneLock(solution: number[], hint: string, limit: number, revision: number, symbols: RuneSymbol[] = RUNES.map(r => ({ name: r.name, assetId: null })), target: LockTarget | null = null, check: SkillCheck | null = null): RuneLock {
   if (solution.length !== 3 || solution.some(n => !Number.isInteger(n) || n < 0 || n >= RUNES.length)) throw new Error('Выберите три символа.');
   if (!Number.isInteger(limit) || limit < 1 || limit > 12) throw new Error('Число проверок: от 1 до 12.');
   if (hint.length > 600) throw new Error('Подсказка: не более 600 символов.');
   return { symbols: structuredClone(symbols), revision, phase: 'active', solution: [...solution], rings: [0, 0, 0], revealed: [false, false, false],
-    hint: hint.trim(), attempts: 0, limit, history: [], message: 'Совместите три руны и проверьте комбинацию.' };
+    hint: hint.trim(), attempts: 0, limit, history: [], message: 'Совместите три руны и проверьте комбинацию.', target, effect: null, check };
 }
-// Explicit public projection: never serialize a player's copy of the secret solution.
+// Explicit public projection: never serialize a player's copy of the secret solution, nor what the lock holds shut.
 export function viewRuneLock(game: RuneLock, manager: boolean): RuneView {
-  const { solution, ...publicState } = structuredClone(game);
-  return manager ? { ...publicState, solution } : publicState;
+  const { solution, target, ...publicState } = structuredClone(game);
+  return manager ? { ...publicState, solution, target: target ?? null } : publicState;
 }
 export function actRuneLock(current: RuneLock, command: RuneAction, manager: boolean): RuneLock {
   if (['reveal', 'open', 'cancel'].includes(command.action) && !manager) throw new Error('Это действие доступно только мастеру.');
@@ -57,6 +61,26 @@ export function actRuneLock(current: RuneLock, command: RuneAction, manager: boo
       game.message = matches === 3 ? 'Все три руны совпали. Замок открыт!' : `Верных позиций: ${matches} из 3. ${game.phase === 'jammed' ? 'Замок заклинило — обратитесь к мастеру.' : 'Попробуйте другую комбинацию.'}`;
     }
   }
+  game.revision += 1;
+  return game;
+}
+
+// A hero's check fixes the ring they work on; it is allowed before the dice roll, so a refused try leaves no roll behind.
+export function runeCheckAllowed(game: RuneLock, ring: number, actor: CheckActor) {
+  if (!game.check) throw new Error('Мастер не назначил проверку навыка для этого замка.');
+  if (game.phase !== 'active') throw new Error('Проверка доступна, пока замок не открыт и не заклинил.');
+  if (!Number.isInteger(ring) || ring < 0 || ring > 2) throw new Error('Кольцо не найдено.');
+  if (game.revealed[ring]) throw new Error('Это кольцо уже закреплено.');
+  assertFreshTry(game.check.tried, actor);
+}
+export function applyRuneCheck(current: RuneLock, ring: number, actor: CheckActor, success: boolean): RuneLock {
+  runeCheckAllowed(current, ring, actor);
+  const game = structuredClone(current);
+  game.check!.tried.push({ id: actor.id, name: actor.name });
+  if (success) {
+    game.rings[ring] = game.solution[ring]!; game.revealed[ring] = true;
+    game.message = `${actor.name}: проверка удалась — кольцо ${ring + 1} встало на место.`;
+  } else game.message = `${actor.name}: проверка не удалась — руны не поддались.`;
   game.revision += 1;
   return game;
 }

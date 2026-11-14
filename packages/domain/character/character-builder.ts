@@ -3,9 +3,10 @@ import { CLASS_LABELS, hitDieForClass, type ClassId } from './classes.ts';
 import { spellSlotsFor } from '../spells/spell-slots.ts';
 import { SRD_WEAPONS, srdWeaponFields } from '../srd/weapons.ts';
 import {
-  ARMOR, DRAGON_ANCESTRIES, EXPLORER_PACK, FIGHTING_STYLES, POINT_BUY_BUDGET, POINT_BUY_COST, SRD_BACKGROUNDS, SRD_CLASSES, SRD_RACES,
+  ARMOR, DRAGON_ANCESTRIES, EXPLORER_PACK, FIGHTING_STYLES, POINT_BUY_BUDGET, POINT_BUY_COST, SRD_BACKGROUNDS, SRD_CLASSES,
   STANDARD_ARRAY, type HeroAbility,
 } from '../srd/heroes.ts';
+import { heroRace } from './races.ts';
 
 export const HERO_ABILITIES: HeroAbility[] = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
 export const HERO_SKILLS = [
@@ -67,7 +68,7 @@ const sameMultiset = (a: number[], b: number[]) => a.length === b.length && [...
 
 export function buildCharacter(input: BuildInput, spellList: SpellInfo[]) {
   const problems: string[] = [];
-  const race = SRD_RACES.find(entry => entry.id === input.race);
+  const race = heroRace(input.race);
   const heroClass = SRD_CLASSES.find(entry => entry.id === input.className);
   const background = SRD_BACKGROUNDS.find(entry => entry.id === input.background);
   if (!input.name.trim()) problems.push('Нужно имя.');
@@ -170,7 +171,9 @@ export function buildCharacter(input: BuildInput, spellList: SpellInfo[]) {
   }
   const classId = heroClass.id as ClassId;
   const hitDie = hitDieForClass(classId);
-  const hpMax = Math.max(1, hitDie + mods.constitution + (subrace?.hpPerLevel ?? 0) + (heroClass.subclass?.hpPerLevel ?? 0));
+  const hpMax = Math.max(1, hitDie + mods.constitution + (race.hpPerLevel ?? 0) + (subrace?.hpPerLevel ?? 0) + (heroClass.subclass?.hpPerLevel ?? 0));
+  const speed = subrace?.speed ?? race.speed;
+  const darkvision = subrace?.darkvision ?? race.darkvision;
   const shield = kit?.shield ? 2 : 0;
   let armorClass: number;
   if (armor) {
@@ -183,7 +186,7 @@ export function buildCharacter(input: BuildInput, spellList: SpellInfo[]) {
   } else {
     armorClass = 10 + mods.dexterity + shield;
   }
-  if (problems.length) return { problems, summary: { hpMax, armorClass, scores, mods, speed: race.speed, hitDie } };
+  if (problems.length) return { problems, summary: { hpMax, armorClass, scores, mods, speed, hitDie } };
 
   const raceWeapons = new Set([...(race.weapons ?? []), ...(subrace?.weapons ?? [])]);
   const monkWeapon = (index: string) => classId === 'monk' && (index === 'shortsword' || SRD_WEAPONS.some(w => w.index === index && w.category === 'simple' && w.kind === 'melee' && !w.properties.includes('two-handed') && !w.properties.includes('heavy')));
@@ -237,7 +240,7 @@ export function buildCharacter(input: BuildInput, spellList: SpellInfo[]) {
   const slots = spellSlotsFor(classId, 1) ?? [];
   const spellcastingAbility = caster?.ability ?? race.racialCantrip?.ability ?? (subrace?.wizardCantrip ? 'intelligence' : null);
 
-  const resistances = [...new Set([...(race.resistances ?? []), ...(race.ancestry && ancestry ? [ancestry.damage] : [])])];
+  const resistances = [...new Set([...(race.resistances ?? []), ...(subrace?.resistances ?? []), ...(race.ancestry && ancestry ? [ancestry.damage] : [])])];
   const ancestryText = ancestry ? `${ancestry.nameRu} дракон: ${ancestry.breath}, спасбросок ${SAVE_LABEL[ancestry.save]}.` : '';
   const features = [
     ...race.traits, ...(subrace?.traits ?? []),
@@ -273,9 +276,9 @@ export function buildCharacter(input: BuildInput, spellList: SpellInfo[]) {
     ...scores,
     hp_max: hpMax,
     armor_class: armorClass,
-    speed_feet: race.speed,
+    speed_feet: speed,
     sheet_extra: {
-      ...(race.darkvision ? { darkvisionFeet: race.darkvision } : {}),
+      ...(darkvision ? { darkvisionFeet: darkvision } : {}),
       builder: {
         race: race.id, subrace: subrace?.id ?? null, class: classId, background: background.id, method: input.method,
         ...(race.custom ? { raceName: input.raceName?.trim().slice(0, 40) || race.nameRu } : {}),
@@ -311,6 +314,6 @@ export function buildCharacter(input: BuildInput, spellList: SpellInfo[]) {
       spellSlots: slots.flatMap((max, index) => (max > 0 ? [{ level: index + 1, max }] : [])),
     },
     items,
-    summary: { hpMax, armorClass, scores, mods, speed: race.speed, hitDie },
+    summary: { hpMax, armorClass, scores, mods, speed, hitDie },
   };
 }

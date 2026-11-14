@@ -49,6 +49,7 @@ export function useActionEvents({ objects, activeObjectId, initiativeEntries, fe
       side: placement ? sideOf(placement) : 'neutral',
       legendary: (entry.legendary_actions ?? 0) > 0 ? { max: entry.legendary_actions!, used: entry.legendary_used ?? 0 } : null,
       dead: Boolean(placement && (placement.conditions ?? []).includes('dead')),
+      event: entry.event_kind ?? null,
     };
   }));
 

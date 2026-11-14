@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue';
 
 import { useEscapeClose } from '../../ui/escapeStack';
-import { DEFAULT_GRID, gridPrefs, normalizeGrid, type GridLook } from '../../settings/gridSettings';
+import { DEFAULT_GRID, GRID_MODES, gridPrefs, normalizeGrid, type GridLook, type GridMode } from '../../settings/gridSettings';
 import { t } from '../../i18n/i18n';
 import GridLookFields from './GridLookFields.vue';
 import GameIcon from '../game/GameIcon.vue';
@@ -36,6 +36,13 @@ function resetScene() {
   sceneDraft.value = { ...DEFAULT_GRID };
   emit('save', null);
 }
+
+function setMode(mode: GridMode) {
+  if (mode === 'custom' && JSON.stringify(normalizeGrid(gridPrefs.custom)) === JSON.stringify(DEFAULT_GRID)) {
+    gridPrefs.custom = normalizeGrid(props.sceneGrid);
+  }
+  gridPrefs.mode = mode;
+}
 </script>
 
 <template>
@@ -43,20 +50,36 @@ function resetScene() {
     <div class="modal-card g-frame">
       <header class="modal-header">
         <h3>{{ t('Сетка стола') }}</h3>
-        <button type="button" class="modal-close" :aria-label="t('Закрыть')" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="modal-close icon-only" :aria-label="t('Закрыть')" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
       <p class="hint">{{ t('Только вид линий: клетки, привязка фигур и движение не меняются.') }}</p>
 
       <section v-if="canManage" class="grid-section">
         <h4>{{ t('Для всех на сцене «{name}»', { name: sceneName }) }}</h4>
         <GridLookFields v-model="sceneDraft" :disabled="busy" :theme-color="themeColor" />
-        <p v-if="gridPrefs.mode !== 'scene'" class="hint warn">{{ t('У вас своя сетка (в «Настройках»), поэтому общий вид сетки виден вам только во время правки.') }}</p>
+        <p v-if="gridPrefs.mode !== 'scene'" class="hint warn">{{ t('У вас своя сетка, поэтому общий вид сетки виден вам только во время правки.') }}</p>
         <div class="actions">
           <button type="button" :disabled="busy || isDefault" @click="resetScene">{{ t('Сбросить вид сетки') }}</button>
           <button type="button" class="primary" :disabled="busy || !dirty" @click="save">{{ t('Сохранить для всех') }}</button>
         </div>
       </section>
-      <p v-else class="hint">{{ t('Вид сетки сцены задаёт мастер. Свою сетку — показать, цвет, скрыть — выберите в «Настройках».') }}</p>
+
+      <section class="grid-section">
+        <h4>{{ t('Только у меня') }}</h4>
+        <label class="mode">
+          {{ t('Сетка на этом компьютере') }}
+          <select :value="gridPrefs.mode" @change="setMode(($event.target as HTMLSelectElement).value as GridMode)">
+            <option v-for="entry in GRID_MODES" :key="entry.id" :value="entry.id">{{ t(entry.label) }}</option>
+          </select>
+        </label>
+        <GridLookFields v-if="gridPrefs.mode === 'custom'" v-model="gridPrefs.custom" :theme-color="themeColor" />
+        <p class="hint">{{ canManage
+          ? t('Видите только вы: игрокам остаётся сетка сцены.')
+          : t('Видите только вы. Сетку сцены для всех задаёт мастер — «Как у мастера» вернёт её.') }}</p>
+        <div class="actions">
+          <button type="button" :disabled="gridPrefs.mode === 'scene'" @click="setMode('scene')">{{ canManage ? t('Как на сцене') : t('Как у мастера') }}</button>
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -73,5 +96,6 @@ function resetScene() {
 .grid-section h4{margin:0 0 10px}
 .mode{display:flex;flex-direction:column;gap:4px;margin:0 0 12px;font-size:13px;font-weight:600}
 .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+.grid-section .hint{margin:10px 0 0}
 .actions button{min-height:34px;padding:4px 14px}
 </style>

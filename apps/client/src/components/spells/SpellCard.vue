@@ -12,6 +12,7 @@ import ItemArt from '../rpg/ItemArt.vue';
 import SpellMechanicsEditor, { type MechanicsOverrides, type SpellFormulas } from './SpellMechanicsEditor.vue';
 import VisibilityControl, { type CampaignMember, type VisibilitySetting } from '../common/VisibilityControl.vue';
 import GameIcon from '../game/GameIcon.vue';
+import DamageTag from '../common/DamageTag.vue';
 
 const props = defineProps<{
   selected: BrowseItem | null;
@@ -100,7 +101,7 @@ function hintFor(item: BrowseItem): string[] {
       <div class="card-tags">
         <span class="status" :class="statusOf(selected).tone">{{ statusOf(selected).label }}</span>
         <span v-for="purpose in selected.purposes" :key="purpose" class="tag">{{ SPELL_PURPOSES.find(entry => entry.id === purpose)?.label }}</span>
-        <span v-for="type in selected.damageTypes" :key="type" class="tag element">{{ DAMAGE_TYPE_LABELS[type] }}</span>
+        <span v-for="type in selected.damageTypes" :key="type" class="tag element"><DamageTag :type="type" :label="DAMAGE_TYPE_LABELS[type]" /></span>
         <span v-if="selected.spell.concentration" class="tag">концентрация</span>
         <span v-if="selected.spell.ritual" class="tag">ритуал</span>
         <span v-if="selected.entry?.slotless" class="tag">без ячейки</span>
@@ -108,8 +109,8 @@ function hintFor(item: BrowseItem): string[] {
       </div>
       <dl class="card-facts">
         <div><dt><GameIcon class="inline-icon" name="clock" :size="16" /> Время накладывания</dt><dd>{{ spellTextRu(selected.spell.castingTime) }}</dd></div>
-        <div><dt><GameIcon class="inline-icon" name="dash" :size="16" /> Дистанция</dt><dd>{{ spellTextRu(selected.spell.range) }}</dd></div>
-        <div><dt><GameIcon class="inline-icon" name="hand" :size="16" /> Компоненты</dt><dd>{{ componentsRu(selected.spell.components) }}<small v-if="selected.spell.material" class="material">{{ selected.spell.material }}</small></dd></div>
+        <div><dt><GameIcon class="inline-icon" name="range" :size="16" /> Дистанция</dt><dd>{{ spellTextRu(selected.spell.range) }}</dd></div>
+        <div><dt><GameIcon class="inline-icon" name="components" :size="16" /> Компоненты</dt><dd>{{ componentsRu(selected.spell.components) }}<small v-if="selected.spell.material" class="material">{{ selected.spell.material }}</small></dd></div>
         <div><dt><GameIcon class="inline-icon" name="hourglass" :size="16" /> Длительность</dt><dd>{{ selected.spell.concentration ? 'Концентрация, ' : '' }}{{ selected.spell.concentration ? spellTextRu(selected.spell.duration).toLowerCase() : spellTextRu(selected.spell.duration) }}</dd></div>
       </dl>
       <div class="card-desc">
@@ -133,7 +134,7 @@ function hintFor(item: BrowseItem): string[] {
               type="button" class="primary" :disabled="castBusy || !canCastNow(selected.entry)" :aria-expanded="castMenuFor === selected.entry.id"
               :title="canCastNow(selected.entry) ? 'Сотворить: ячейка тратится, урон и лечение бросаются в общий журнал' : 'Нет подходящих ячеек — вернутся после отдыха'"
               @click="emit('cast', selected.entry, $event)"
-            ><GameIcon class="inline-icon" name="d20" :size="16" /> Сотворить{{ castOptions(selected.entry).filter(option => !option.disabled).length > 1 ? ' ▾' : '' }}</button>
+            ><GameIcon class="inline-icon" name="cast" :size="16" /> Сотворить<GameIcon v-if="castOptions(selected.entry).filter(option => !option.disabled).length > 1" class="inline-icon" name="chevron" :size="13" /></button>
           </span>
           <label v-if="selected.level > 0" class="checkbox-label" :title="selected.entry.granted ? 'Дарованное заклинание подготовлено всегда' : ''">
             <input type="checkbox" :checked="selected.entry.prepared" :disabled="busy || selected.entry.granted" @change="emit('togglePrepared', selected.entry)" />
@@ -156,7 +157,7 @@ function hintFor(item: BrowseItem): string[] {
             {{ lastFormulaRoll.formula }}: <strong>{{ lastFormulaRoll.total }}</strong> ({{ lastFormulaRoll.detail }})
           </p>
           <div class="card-tools">
-            <button v-if="mechanicsFor !== selected.entry.id" type="button" class="link-button" @click="emit('editMechanics', selected.entry.id)">Поправить механику</button>
+            <button v-if="mechanicsFor !== selected.entry.id && selected.source !== 'srd'" type="button" class="link-button" @click="emit('editMechanics', selected.entry.id)">Поправить механику</button>
             <VisibilityControl
               :field-key="`spell:${selected.entry.id}`" :campaign-id="campaignId" :character-id="characterId" :request="request"
               :setting="visibilityFor(`spell:${selected.entry.id}`)" :members="campaignMembers"

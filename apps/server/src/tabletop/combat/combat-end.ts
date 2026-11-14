@@ -119,7 +119,7 @@ export function registerCombatEndRoutes(ctx: TableContext) {
         if (await endCombatMusic(q, campaignId, userId)) musicBack = true;
         if (summary) {
           const minutes = Math.ceil(Number(summary.rounds ?? scene.combat_round ?? 1) / 10);
-          clock = await advanceWorldTime(q, campaignId, minutes);
+          clock = await advanceWorldTime(q, campaignId, minutes, userId);
           await restAfterCombat(q, campaignId, sceneId, minutes);
         }
 

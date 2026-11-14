@@ -7,6 +7,25 @@ export type HistoryEntry = {
 
 const LIMIT = 50;
 
+// Several edits made by one action (a stroke, a scatter, a spread) undo and redo as one step.
+export function groupEntry(entries: HistoryEntry[], label: string): HistoryEntry {
+  return {
+    label,
+    revert: async () => {
+      const inverses: HistoryEntry[] = [];
+      let touched = false;
+      for (const entry of [...entries].reverse()) {
+        const inverse = await entry.revert();
+        if (inverse === 'noop') continue;
+        touched = true;
+        if (inverse) inverses.push(inverse);
+      }
+      if (!touched) return 'noop';
+      return inverses.length ? groupEntry(inverses, label) : null;
+    },
+  };
+}
+
 export type TableHistory = ReturnType<typeof createHistory>;
 
 export function createHistory() {

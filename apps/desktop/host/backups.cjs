@@ -1,4 +1,4 @@
-const {app} = require('electron');
+const {app} = require('../bridge/runtime.cjs');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const {spawn} = require('node:child_process');
@@ -16,7 +16,7 @@ function runScript(script, args, env, failure) {
     let stderr = '';
 
     const proc = spawn(process.execPath, [entry, ...args], {
-      env: {...process.env, ELECTRON_RUN_AS_NODE: '1', ...env},
+      env: {...process.env, ...env},
       windowsHide: true,
     });
 

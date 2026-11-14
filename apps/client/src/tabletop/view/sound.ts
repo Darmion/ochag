@@ -50,7 +50,7 @@ export function useTableSound({ props, viewOnly, sceneId, sceneDetail, disposed,
       if (audioFailed.has(assetId) || viewOnly) return;
       audioFailed.add(assetId);
       const name = audioLibrary.value.find(asset => asset.id === assetId)?.original_filename;
-      pushToast({ tone: 'error', title: 'Звук не скачался', detail: `${name ? `«${name}»: ` : ''}${message} Приложение попробует ещё раз.` }, 9000);
+      pushToast({ tone: 'error', title: name ? `Звук «${name}» не скачался` : 'Звук не скачался', detail: `${message} Приложение попробует ещё раз.` }, 9000);
     },
     onEnded: revision => {
       if (!audioCanManage.value || viewOnly) return;

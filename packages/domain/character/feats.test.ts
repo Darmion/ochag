@@ -1,6 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {FEATS, greatWeaponReroll, hasFeat, knownFeats, knownFightingStyles, liveStyle} from './feats.ts';
+import {FEATS, GREAT_WEAPON_REROLL, hasFeat, knownFeats, knownFightingStyles, liveStyle} from './feats.ts';
+import {rerollDice} from '../dice/expression.ts';
 
 test('feats: marked in «Умения» or found in the sheet text', () => {
   assert.deepEqual(knownFeats({feats: ['alert', 'war-caster', 'nonsense']}), ['alert', 'war-caster']);
@@ -24,10 +25,10 @@ test('fighting styles: builder, marks, text; archery and dueling from the builde
   assert.equal(liveStyle({fightingStyles: ['dueling']}, 'dueling'), true);
 });
 
-test('great weapon fighting rerolls 1 and 2 once', () => {
+test('great weapon fighting rerolls 1 and 2 once (ro<3)', () => {
   const rolls = [1, 6];
-  assert.deepEqual(greatWeaponReroll([1, 2, 5, 6], () => rolls.shift()!), {dice: [1, 6, 5, 6], rerolled: 2}, 'a new 1 stays');
-  assert.deepEqual(greatWeaponReroll([3, 4], () => 6), {dice: [3, 4], rerolled: 0});
+  assert.deepEqual(rerollDice([1, 2, 5, 6], 6, GREAT_WEAPON_REROLL, () => rolls.shift()!), {dice: [1, 6, 5, 6], changes: [[1, 1], [2, 6]]}, 'a new 1 stays');
+  assert.deepEqual(rerollDice([3, 4], 6, GREAT_WEAPON_REROLL, () => 6), {dice: [3, 4], changes: []});
 });
 
 test('a Cyrillic feat name before punctuation is found', () => {

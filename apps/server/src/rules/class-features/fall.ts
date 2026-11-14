@@ -1,5 +1,5 @@
 import type { Queryable } from '../../db.ts';
-import { loadEffects, addCondition } from '../conditions.ts';
+import { loadConditionState, loadEffects, addCondition } from '../conditions.ts';
 import { objectSchema, reject } from '../../tabletop/scene-feature.ts';
 import { characterClassLevels } from '../../../../../packages/domain/character/classes.ts';
 import { fallDamageDice, classFeaturesFor, slowFallReduction, classLevelOf } from '../../../../../packages/domain/character/class-features.ts';
@@ -30,7 +30,7 @@ export async function fallOn(ctx: ClassFeatureContext, q: Queryable, campaignId:
     },
   );
   const prone = row.kind !== 'object' && amount > 0 && !change?.blocked
-    && !conditionState((await loadEffects(q, campaignId, characterId)).map(effect => effect.effect_code)).codes.has('dead');
+    && !(await loadConditionState(q, campaignId, characterId)).codes.has('dead');
   if (prone) await addCondition(q, campaignId, characterId, 'prone', { source: 'fall', sourceName: 'Падение' });
   const parts = [
     `${row.name}: падение с ${feet} фут. — ${dice}к6 = ${rolled.total}`,

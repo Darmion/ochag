@@ -14,8 +14,8 @@ defineProps<{ template: SpellTemplate; locked: boolean }>();
   <div v-if="template.targeting.kind === 'creatures' || template.targeting.kind === 'chain'" class="grid">
     <label>Г2 Сколько
       <span class="pair">
-        <select v-model="template.targeting.countMode" data-path="targeting.countMode" :disabled="locked"><option value="exact">ровно</option><option value="up-to">до</option></select>
-        <input v-model.number="template.targeting.count" data-path="targeting.count" type="number" min="1" max="100" :disabled="locked" />
+        <select v-model="template.targeting.countMode" data-path="targeting.countMode" :disabled="locked"><option value="exact">ровно</option><option value="up-to">до</option><option value="any">сколько угодно</option></select>
+        <input v-if="template.targeting.countMode !== 'any'" v-model.number="template.targeting.count" data-path="targeting.count" type="number" min="1" max="100" :disabled="locked" />
       </span>
     </label>
     <label>Г3 Какие
@@ -56,6 +56,9 @@ defineProps<{ template: SpellTemplate; locked: boolean }>();
     </label>
     <label>Г11 Кого задевает
       <select v-model="template.targeting.affects" data-path="targeting.affects" :disabled="locked"><option v-for="[value, label] in AREA_AFFECTS" :key="value" :value="value">{{ label }}</option></select>
+    </label>
+    <label v-if="template.targeting.affects === 'chosen'">Г11 Сколько выбрать (0 — сколько угодно)
+      <input v-model.number="template.targeting.chosenMax" data-path="targeting.chosenMax" type="number" min="0" max="100" :disabled="locked" />
     </label>
     <label class="checkbox-label"><input v-model="template.targeting.aroundCorners" type="checkbox" :disabled="locked" /> Г12 огибает углы</label>
   </div>

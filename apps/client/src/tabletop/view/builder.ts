@@ -2,6 +2,8 @@ import { watch, computed, type Ref, type ComputedRef } from 'vue';
 import type { WallKind, Tabletop, TableTool } from '../scene';
 import type { Position } from '../grid';
 import type { BuilderTool, SceneDetail, WallTool } from './types';
+import type { BrushDetail } from '../../../../../packages/domain/map/wall-brush';
+import type { ScatterPlan } from './scatter';
 
 export type BuilderDeps = {
   gameUi: ComputedRef<boolean>;
@@ -10,6 +12,8 @@ export type BuilderDeps = {
   targetingActive: ComputedRef<boolean>;
   templateAsTrigger: Ref<boolean>;
   wallTool: Ref<WallTool | null>;
+  wallBrushDetail: Ref<BrushDetail>;
+  scatterPlan: Ref<ScatterPlan | null>;
   wallKind: Ref<WallKind>;
   wallPopover: Ref<{ at: { x: number; y: number }; wallId: string; tile: number; edit: boolean } | null>;
   terrainMode: Ref<boolean>;
@@ -20,7 +24,7 @@ export type BuilderDeps = {
   tool: Ref<TableTool>;
 };
 
-export function useBuilder({ gameUi, sceneId, sceneDetail, targetingActive, templateAsTrigger, wallTool, wallKind, wallPopover, terrainMode, wallFirstPoint, table, railMoreOpen, builderMode, tool }: BuilderDeps) {
+export function useBuilder({ gameUi, sceneId, sceneDetail, targetingActive, templateAsTrigger, wallTool, wallBrushDetail, scatterPlan, wallKind, wallPopover, terrainMode, wallFirstPoint, table, railMoreOpen, builderMode, tool }: BuilderDeps) {
   watch(targetingActive, active => {
     if (!active) return;
     tool.value = 'select';
@@ -32,11 +36,12 @@ export function useBuilder({ gameUi, sceneId, sceneDetail, targetingActive, temp
 
   function applyBuildModes() {
     const mode = wallTool.value;
-    table()?.setSelectionEnabled(!mode && !terrainMode.value);
+    table()?.setSelectionEnabled(!mode && !terrainMode.value && !scatterPlan.value);
     table()?.setWallDrawMode(mode === 'chain' || mode === 'room');
     table()?.setWallShape(mode === 'room' ? 'room' : 'chain');
+    table()?.setWallBrush(mode === 'brush', wallBrushDetail.value);
     table()?.setWallPickMode(mode === 'pick' || mode === 'opening');
-    table()?.setTerrainBrush(terrainMode.value);
+    table()?.setTerrainBrush(terrainMode.value || Boolean(scatterPlan.value));
   }
   watch(wallTool, mode => {
     wallFirstPoint.value = null;
@@ -44,6 +49,7 @@ export function useBuilder({ gameUi, sceneId, sceneDetail, targetingActive, temp
     if (mode) {
       tool.value = 'select';
       terrainMode.value = false;
+      scatterPlan.value = null;
     }
     applyBuildModes();
   });
@@ -51,6 +57,16 @@ export function useBuilder({ gameUi, sceneId, sceneDetail, targetingActive, temp
     if (on) {
       tool.value = 'select';
       wallTool.value = null;
+      scatterPlan.value = null;
+    }
+    applyBuildModes();
+  });
+  watch(wallBrushDetail, applyBuildModes);
+  watch(scatterPlan, plan => {
+    if (plan) {
+      tool.value = 'select';
+      wallTool.value = null;
+      terrainMode.value = false;
     }
     applyBuildModes();
   });

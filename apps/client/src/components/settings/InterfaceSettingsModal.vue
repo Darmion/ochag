@@ -53,7 +53,7 @@ function onScaleInput(event: Event) {
     <div class="modal-card">
       <header class="modal-header">
         <h3>{{ t('Настройки') }}</h3>
-        <button type="button" class="modal-close" :aria-label="t('Закрыть')" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="modal-close icon-only" :aria-label="t('Закрыть')" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
 
       <section class="modal-section">

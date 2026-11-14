@@ -69,7 +69,7 @@ const percent = (value: number) => `${Math.round(value * 100)}%`;
   <div ref="root" class="sound-popover" role="dialog" aria-label="Звук" @keydown.esc.stop="emit('close')">
     <header class="sound-head">
       <strong>Звук</strong>
-      <button type="button" class="close" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+      <button type="button" class="close icon-only" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
     </header>
 
     <button v-if="blocked" type="button" class="unlock" @click="emit('unlock')"><GameIcon class="inline-icon" name="speaker" :size="16" /> Включить звук</button>
@@ -77,14 +77,14 @@ const percent = (value: number) => `${Math.round(value * 100)}%`;
     <p class="status" :class="{ off: offScene }" :title="status">{{ status }}</p>
     <small v-if="scope" class="scope">{{ scope }}</small>
     <div v-if="canManage" class="transport" role="group" aria-label="Музыка для всех">
-      <button v-if="queueLong" type="button" :disabled="busy" title="Предыдущий трек" @click="emit('control', { action: 'previous' })"><GameIcon class="inline-icon" name="skipBack" :size="16" /></button>
+      <button class="icon-only" v-if="queueLong" type="button" :disabled="busy" title="Предыдущий трек" @click="emit('control', { action: 'previous' })"><GameIcon class="inline-icon" name="skipBack" :size="16" /></button>
       <button
-        type="button" class="main" :disabled="busy"
+        type="button" class="main icon-only" :disabled="busy"
         :title="state?.playing ? 'Пауза: потом продолжится с этого же места' : paused ? 'Продолжить' : state?.asset_id ? 'Играть' : 'Выбрать музыку…'"
         @click="playPause"
       ><GameIcon class="inline-icon" :name="state?.playing ? 'pause' : 'play'" :size="16" /></button>
-      <button type="button" :disabled="busy || !state?.asset_id || (!state.playing && !paused)" title="Стоп: остановить и вернуть трек к началу" @click="emit('control', { action: 'stop' })"><GameIcon class="inline-icon" name="stop" :size="16" /></button>
-      <button v-if="queueLong" type="button" :disabled="busy" title="Следующий трек" @click="emit('control', { action: 'next' })"><GameIcon class="inline-icon" name="skipForward" :size="16" /></button>
+      <button class="icon-only" type="button" :disabled="busy || !state?.asset_id || (!state.playing && !paused)" title="Стоп: остановить и вернуть трек к началу" @click="emit('control', { action: 'stop' })"><GameIcon class="inline-icon" name="stop" :size="16" /></button>
+      <button class="icon-only" v-if="queueLong" type="button" :disabled="busy" title="Следующий трек" @click="emit('control', { action: 'next' })"><GameIcon class="inline-icon" name="skipForward" :size="16" /></button>
     </div>
 
     <div class="volumes">

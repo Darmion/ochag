@@ -4,6 +4,7 @@
 .pick-list button{display:flex;flex-shrink:0;align-items:center;gap:8px;text-align:left;justify-content:flex-start;padding:6px 8px;min-height:44px}
 .pick-list button span:last-child{display:flex;flex-direction:column}
 .pick-list button small{font-weight:400;font-size:11px;opacity:.85}
+.pick-list button small.mod-tag{font-style:italic;opacity:.7}
 .pick-list button.active{border-color:var(--burgundy,#7a2e2e);box-shadow:inset 3px 0 0 var(--burgundy,#7a2e2e);background:#7a2e2e1f}
 .pick-icon{font-size:22px;width:28px;text-align:center;flex-shrink:0}
 .pick-icon img{display:block;width:28px;height:28px;image-rendering:pixelated}

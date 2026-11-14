@@ -47,23 +47,44 @@ export function createObjectPoses({
   }
   const glides = new Map<string, Glide>();
 
-  function moveRoot(objectId: string, root: TransformNode, x: number, y: number, z: number, rotationY: number, scale: number, glide: boolean) {
+  function routeFrom(fromX: number, fromZ: number, x: number, z: number, walk: Array<[number, number]> | null | undefined) {
+    const first = walk?.[0], last = walk?.[walk.length - 1];
+    if (!walk || walk.length < 3 || !first || !last) return null;
+    if (Math.hypot(first[0] - fromX, first[1] - fromZ) > 0.6 || Math.hypot(last[0] - x, last[1] - z) > 1e-3) return null;
+    const points = walk.map(([px, pz]) => ({ x: px, z: pz }));
+    points[0] = { x: fromX, z: fromZ };
+    let total = 0;
+    const lengths = points.map((point, index) => (index ? (total += Math.hypot(point.x - points[index - 1]!.x, point.z - points[index - 1]!.z)) : 0));
+    return total > 0 ? { length: total, route: points.map((point, index) => ({ ...point, at: lengths[index]! / total })) } : null;
+  }
+
+  function moveRoot(objectId: string, root: TransformNode, x: number, y: number, z: number, rotationY: number, scale: number, glide: boolean, walk?: Array<[number, number]> | null) {
     const current = glides.get(objectId);
     const fromX = root.position.x;
     const fromY = root.position.y;
     const fromZ = root.position.z;
-    const cells = Math.hypot(x - fromX, z - fromZ);
     if (current && current.toX === x && current.toY === y && current.toZ === z) {
       setRootTransform(root, fromX, fromY, fromZ, rotationY, scale);
       return;
     }
-    if (!glide || cells < 0.3 || cells > 30) {
+    const routed = routeFrom(fromX, fromZ, x, z, walk);
+    const cells = routed ? routed.length : Math.hypot(x - fromX, z - fromZ);
+    if (!glide || cells < 0.3 || cells > (routed ? 60 : 30)) {
       glides.delete(objectId);
       setRootTransform(root, x, y, z, rotationY, scale);
       return;
     }
     setRootTransform(root, fromX, fromY, fromZ, rotationY, scale);
-    glides.set(objectId, { fromX, fromY, fromZ, toX: x, toY: y, toZ: z, start: performance.now(), duration: glideMs(cells) });
+    glides.set(objectId, { fromX, fromY, fromZ, toX: x, toY: y, toZ: z, start: performance.now(), duration: glideMs(cells), ...(routed ? { route: routed.route } : {}) });
+  }
+
+  function alongRoute(route: NonNullable<Glide['route']>, k: number) {
+    let index = 1;
+    while (index < route.length - 1 && route[index]!.at < k) index += 1;
+    const a = route[index - 1]!, b = route[index]!;
+    const span = b.at - a.at;
+    const t = span > 0 ? Math.min(1, Math.max(0, (k - a.at) / span)) : 1;
+    return { x: a.x + (b.x - a.x) * t, z: a.z + (b.z - a.z) * t };
   }
 
   scene.onBeforeRenderObservable.add(() => {
@@ -77,11 +98,8 @@ export function createObjectPoses({
       }
       const t = Math.min(1, (now - glide.start) / glide.duration);
       const k = t < 0.5 ? 2 * t * t : 1 - (-2 * t + 2) ** 2 / 2;
-      root.position.set(
-        glide.fromX + (glide.toX - glide.fromX) * k,
-        glide.fromY + (glide.toY - glide.fromY) * k,
-        glide.fromZ + (glide.toZ - glide.fromZ) * k,
-      );
+      const flat = glide.route ? alongRoute(glide.route, k) : { x: glide.fromX + (glide.toX - glide.fromX) * k, z: glide.fromZ + (glide.toZ - glide.fromZ) * k };
+      root.position.set(flat.x, glide.fromY + (glide.toY - glide.fromY) * k, flat.z);
       if (objectId === selectedObjectId()) syncHandleFromRoot(root);
       if (t >= 1) glides.delete(objectId);
     }

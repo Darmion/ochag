@@ -1,8 +1,4 @@
-const {
-  contextBridge,
-  ipcRenderer,
-  webFrame,
-} = require('electron');
+// Runs in every window inside src-tauri/src/desktop-shim.js, which supplies contextBridge, ipcRenderer and webFrame.
 
 contextBridge.exposeInMainWorld('desktop', {
   getServer: () => ipcRenderer.invoke('server:get'),
@@ -72,9 +68,12 @@ contextBridge.exposeInMainWorld('desktop', {
 
   campaign: {
     exportToFile: input => ipcRenderer.invoke('campaign:export', input),
+    saveSpellFile: input => ipcRenderer.invoke('spell:saveFile', input),
     importFromFile: input => ipcRenderer.invoke('campaign:import', input),
     exportObject: input => ipcRenderer.invoke('object:export', input),
     importObject: input => ipcRenderer.invoke('object:import', input),
+    exportScene: input => ipcRenderer.invoke('scene:export', input),
+    importScene: input => ipcRenderer.invoke('scene:import', input),
   },
 
   playerView: {

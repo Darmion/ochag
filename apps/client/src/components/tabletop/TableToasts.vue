@@ -40,7 +40,7 @@ const emit = defineEmits<{
 
         <button
           type="button"
-          class="toast-close"
+          class="toast-close icon-only"
           aria-label="Скрыть уведомление"
           @click="emit('dismiss', toast.id)"
         >
@@ -54,7 +54,7 @@ const emit = defineEmits<{
 <style scoped>
 .table-toasts{position:absolute;left:12px;bottom:12px;z-index:2;display:flex;flex-direction:column;gap:8px;width:min(380px,calc(100% - 24px));pointer-events:none}
 .table-toast{pointer-events:auto;display:flex;align-items:center;gap:10px;padding:8px 10px;background:#1a120bf0;color:#f1e4c5;border:1px solid #a68148;border-left-width:4px;border-radius:4px;box-shadow:0 6px 18px #0009}
-.toast-text{flex:1;min-width:0}
+.toast-text{flex:1;min-width:4.5em}
 .toast-title{margin:0;font:700 14px/1.3 Georgia,"Times New Roman",serif}
 .toast-detail{margin:2px 0 0;font-size:12px;line-height:1.35;color:#d9c7a3;overflow-wrap:anywhere}
 .toast-badge{display:inline-block;margin-left:4px;padding:0 6px;border:1px solid currentColor;border-radius:3px;font:600 11px/1.5 "Segoe UI",Arial,sans-serif;vertical-align:middle}

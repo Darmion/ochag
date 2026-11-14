@@ -8,7 +8,8 @@ import { type Notice as ConditionNotice, loadConditionState, addCondition } from
 import { incapacitatedReason } from '../../../../../packages/domain/combat/conditions.ts';
 
 import { autoLegendary } from '../auto-turn/legendary.ts';
-import { announceConditionNotices, applyHpChange } from './hp.ts';
+import { announceConditionNotices, announceHpChange, applyHpChange } from './hp.ts';
+import { runTimed } from '../spells/runtime/timed.ts';
 import { clearOpportunities } from './opportunity.ts';
 import { hurlReturns } from './reactions.ts';
 import type { TableContext } from '../context.ts';
@@ -94,6 +95,12 @@ export function registerTurnRoutes(ctx: TableContext) {
       let areaNotices: Awaited<ReturnType<typeof triggers.fireTurnStart>> = [];
       const endedIds: string[] = [];
       const startedIds: string[] = [];
+      const spellHp: Array<{ characterId: string; mode: 'damage' | 'heal'; change: any }> = [];
+      const timedAt = async (q: Queryable, characterId: string, moment: 'start' | 'end') => {
+        const done = await runTimed(ctx, q, campaignId, userId, characterId, moment);
+        spellHp.push(...done.report.hpChanges);
+        return done.notices;
+      };
       const timersTicked = await db.transaction(async q => {
         const member = await membership(q, campaignId, userId, true);
         const manager = await canManage(q, member, userId);
@@ -128,7 +135,9 @@ export function registerTurnRoutes(ctx: TableContext) {
         for (const index of finishing) {
           await q.query('UPDATE initiative_entries SET is_current=false WHERE id=$1', [entries[index]!.id]);
           const characterId = entries[index]!.character_id;
-          if (characterId) turnNotices.push(...await conditionEngine.endOfTurn(q, campaignId, userId, characterId));
+          if (characterId) turnNotices.push(...await conditionEngine.endOfTurn(q, campaignId, userId, characterId, entries[index]!.id));
+          if (characterId) turnNotices.push(...await timedAt(q, characterId, 'end'));
+          if (characterId) areaNotices = [...areaNotices, ...await triggers.fireTurnEnd(q, campaignId, await getScene(q, campaignId, sceneId, false), userId, characterId)];
           if (characterId) turnNotices.push(...await hurlReturns(ctx, q, campaignId, userId, characterId));
           if (characterId) endedIds.push(characterId);
           if (entries[index]!.reflex_of) await q.query('DELETE FROM initiative_entries WHERE id=$1', [entries[index]!.id]);
@@ -153,6 +162,7 @@ export function registerTurnRoutes(ctx: TableContext) {
           const characterId = entries[index]!.character_id ?? (own ? reflexOf : null);
           if (!characterId) continue;
           turnNotices.push(...await conditionEngine.startOfTurn(q, campaignId, userId, characterId, own?.id ?? entries[index]!.id));
+          turnNotices.push(...await timedAt(q, characterId, 'start'));
           turnNotices.push(...await holyNimbusTick(ctx, q, campaignId, userId, sceneId, characterId));
           turnNotices.push(...await draconicPresenceTick(ctx, q, campaignId, userId, sceneId, characterId));
           areaNotices = [...areaNotices, ...await triggers.fireTurnStart(q, campaignId, await getScene(q, campaignId, sceneId, false), userId, characterId)];
@@ -177,6 +187,7 @@ export function registerTurnRoutes(ctx: TableContext) {
       void notifyCampaign(ctx, campaignId, { type: 'initiative', sceneId });
       if (timersTicked) void notify(ctx, campaignId, sceneId);
       triggers.send(campaignId, areaNotices);
+      for (const entry of spellHp) announceHpChange(ctx, campaignId, entry.characterId, entry.mode, entry.change);
       if (turnNotices.length) {
         void notifyCampaign(ctx, campaignId, { type: 'rolls' });
         void notify(ctx, campaignId, sceneId);

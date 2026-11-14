@@ -32,7 +32,7 @@ test('what the next level brings: ability increase, spells, cantrips, expertise,
   assert.equal(levelUpPlan({...hero('Воин', 3), experience: XP_THRESHOLDS[3]! - 1}), null, 'not enough experience yet');
   assert.equal(levelUpPlan({...hero('Воин', 3), experience: 0}, true)!.to, 4, 'the GM can level up by milestone');
   assert.equal(levelUpPlan(hero('Воин', 20)), null);
-  assert.equal(levelUpPlan(hero('Чародей', 1, {sheet_extra: {builder: {class: 'sorcerer', subrace: 'hill'}}}))!.averageHp, 6 / 2 + 1 + 2 + 2);
+  assert.equal(levelUpPlan(hero('Чародей', 1, {sheet_extra: {builder: {class: 'sorcerer', race: 'dwarf', subrace: 'hill'}}}))!.averageHp, 6 / 2 + 1 + 2 + 2);
 });
 
 test('hit points: average or the die, never below 1; increases cap at 20', () => {
@@ -84,4 +84,12 @@ test('multiclass level-up: the chosen class decides the die, ASI, spells and fea
   const single = levelUpPlan(hero('Воин', 3), false)!;
   assert.deepEqual([single.classId, single.classLevel, single.newClass, single.multiclass, single.classText], ['fighter', 4, false, false, 'Воин'], 'one class — as before');
   assert.equal(levelUpPlan(hero('Воин 3 / Волшебник 3', 5), false)!.classProblem, 'сумма уровней классов (6) не равна уровню персонажа (5)');
+});
+
+test('a Champion picks a second fighting style at fighter 10, never one already known', () => {
+  const champion = levelUpPlan(hero('Воин (Чемпион) 9', 9, {sheet_extra: {builder: {fightingStyle: 'defense'}}}))!;
+  assert.ok(champion.fightingStyles && champion.fightingStyles.length > 0);
+  assert.equal(champion.fightingStyles.includes('defense'), false, 'the first style is not offered again');
+  assert.equal(levelUpProblems(champion, {hp: 'average'}, context()).includes('Выберите боевой стиль.'), true);
+  assert.equal(levelUpPlan(hero('Воин (Мастер боевых искусств) 9', 9))!.fightingStyles, null, 'only the Champion');
 });

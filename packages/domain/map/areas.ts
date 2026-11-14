@@ -56,6 +56,13 @@ export function inAreaAt(area: Area, px: number, pz: number, up: number): boolea
   return up < top - EPSILON;
 }
 
+// up may be negative on uneven ground: a sphere and a cone reach below their centre, a cylinder, cube or line only rises from its base.
+export function inAreaRelative(area: Area, px: number, pz: number, up: number): boolean {
+  if (up >= -EPSILON) return inAreaAt(area, px, pz, up);
+  if ((area.shape === 'circle' && area.height === undefined) || area.shape === 'cone') return inAreaAt(area, px, pz, -up);
+  return false;
+}
+
 export function areaCells(area: Area, dims: { widthCells: number; heightCells: number }) {
   const cells: Array<{ col: number; row: number }> = [];
   for (let row = 0; row < dims.heightCells; row += 1) {

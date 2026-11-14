@@ -5,7 +5,7 @@ import { obj, uuid, bool } from './schemas.ts';
 import type { AppDeps } from './deps.ts';
 
 export function registerHostRoutes(app: FastifyInstance, { db, presence, identity, isHostRequest, openRegistration }: AppDeps) {
-  // Loopback only (the Electron host asks over 127.0.0.1), so no token: network players never get this list.
+  // Loopback only (the desktop host asks over 127.0.0.1), so no token: network players never get this list.
   app.get('/host/connections',{config:{rateLimit:false}},async req=>{
     if (!isHostRequest(req)) return fail(403,'Список подключений доступен только на компьютере, где запущен сервер.');
     const snapshot=presence.snapshot();

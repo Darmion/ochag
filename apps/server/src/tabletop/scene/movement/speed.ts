@@ -1,7 +1,8 @@
 import type { Queryable } from '../../../db.ts';
 import { ARMOR } from '../../../../../../packages/domain/srd/heroes.ts';
 import { SRD_GEAR_BY_INDEX } from '../../../../../../packages/domain/srd/gear.ts';
-import { hasFeat } from '../../../../../../packages/domain/character/feats.ts';
+import { characterTraitEffects } from '../../../../../../packages/domain/character/hero-traits.ts';
+import { traitSpeed } from '../../../../../../packages/domain/character/traits.ts';
 import { classFeaturesFor, unarmoredDefense, unarmoredMovementFeet, classLevelOf } from '../../../../../../packages/domain/character/class-features.ts';
 import { characterClassLevels } from '../../../../../../packages/domain/character/classes.ts';
 import { findMonster } from '../../../../../../packages/domain/world/bestiary.ts';
@@ -16,6 +17,22 @@ export function flySpeedFrom(extra: any): number {
   if (own > 0) return own;
   const monster = typeof extra?.srdMonster === 'string' ? findMonster(extra.srdMonster) : undefined;
   const match = /летая (\d+) фт/i.exec(monster?.speedNote ?? '');
+  return match ? Number(match[1]) : 0;
+}
+
+export function climbSpeedFrom(extra: any): number {
+  const own = Number(extra?.climbSpeedFeet ?? 0);
+  if (own > 0) return own;
+  const monster = typeof extra?.srdMonster === 'string' ? findMonster(extra.srdMonster) : undefined;
+  const match = /лазая (\d+) фт/i.exec(monster?.speedNote ?? '');
+  return match ? Number(match[1]) : 0;
+}
+
+export function swimSpeedFrom(extra: any): number {
+  const own = Number(extra?.swimSpeedFeet ?? 0);
+  if (own > 0) return own;
+  const monster = typeof extra?.srdMonster === 'string' ? findMonster(extra.srdMonster) : undefined;
+  const match = /плавая (\d+) фт/i.exec(monster?.speedNote ?? '');
   return match ? Number(match[1]) : 0;
 }
 
@@ -41,8 +58,8 @@ export async function classSpeedBonus(q: Queryable, campaignId: string, characte
   if (!row || row.kind === 'object') return none;
   const classes = characterClassLevels(row).classes;
   const ids = new Set(classFeaturesFor(classes).map(feature => feature.id));
-  const mobile = hasFeat(row.sheet_extra, 'mobile');
-  if (!ids.has('fast-movement') && !ids.has('unarmored-movement') && !mobile) return none;
+  const traits = traitSpeed(characterTraitEffects(row));
+  if (!ids.has('fast-movement') && !ids.has('unarmored-movement') && !traits.feet) return none;
   const held = (
     await q.query(`SELECT lower(name) AS name FROM characters WHERE campaign_id=$1 AND container_id=$2 AND kind='object'`, [campaignId, characterId])
   ).rows.map(entry => String(entry.name));
@@ -60,9 +77,7 @@ export async function classSpeedBonus(q: Queryable, campaignId: string, characte
     result.feet += 10;
     result.reasons.push('скорость +10 фт.: быстрое передвижение');
   }
-  if (mobile) {
-    result.feet += 10;
-    result.reasons.push('скорость +10 фт.: мобильный');
-  }
+  result.feet += traits.feet;
+  result.reasons.push(...traits.reasons);
   return result;
 }

@@ -1,3 +1,5 @@
+import type { HeroLink } from './links.ts';
+
 export const INGREDIENTS = [
   { name: 'Уголь саламандры', glyph: '♨', heat: 2, essence: 1, stability: -1 },
   { name: 'Лунная роса', glyph: '☽', heat: -1, essence: 1, stability: 1 },
@@ -9,12 +11,12 @@ export const RECIPES = [
   { name: 'Лунный настой', heat: [0, 1], essence: 4, stability: 4, description: 'Серебристый настой, прохладный даже возле огня.' },
   { name: 'Звёздные чернила', heat: [3, 4], essence: 6, stability: 1, description: 'Чернила, в которых мерцают крошечные созвездия.' },
 ] as const;
-export type Alchemy = { revision: number; phase: 'brewing' | 'perfect' | 'flawed' | 'burned' | 'cancelled'; recipe: number; heat: number; essence: number; stability: number; stock: number[]; moves: number; limit: number; message: string; history: string[] };
+export type Alchemy = { revision: number; phase: 'brewing' | 'perfect' | 'flawed' | 'burned' | 'cancelled'; recipe: number; heat: number; essence: number; stability: number; stock: number[]; moves: number; limit: number; message: string; history: string[]; recipient?: HeroLink | null; effect?: string | null };
 export type AlchemyCommand = { action: 'add'; ingredient: number } | { action: 'heat' } | { action: 'cool' } | { action: 'stir' } | { action: 'bottle' } | { action: 'cancel' };
-export function createAlchemy(revision: number, recipe: number, limit: number): Alchemy {
+export function createAlchemy(revision: number, recipe: number, limit: number, recipient: HeroLink | null = null): Alchemy {
   if (!Number.isInteger(recipe) || !RECIPES[recipe]) throw new Error('Рецепт не найден.');
   if (!Number.isInteger(limit) || limit < 4 || limit > 16) throw new Error('Выберите от 4 до 16 действий.');
-  return { revision, phase: 'brewing', recipe, heat: 2, essence: 0, stability: 3, stock: [2, 2, 2, 2], moves: 0, limit, message: 'Котёл готов. Согласуйте рецепт перед добавлением ингредиентов.', history: [] };
+  return { revision, phase: 'brewing', recipe, heat: 2, essence: 0, stability: 3, stock: [2, 2, 2, 2], moves: 0, limit, message: 'Котёл готов. Согласуйте рецепт перед добавлением ингредиентов.', history: [], recipient, effect: null };
 }
 export function alchemyReady(game: Alchemy): boolean {
   const recipe = RECIPES[game.recipe];

@@ -30,10 +30,12 @@ export type GameLogProps = {
   resizable?: boolean;
   applyTargets?: Array<{ id: string; name: string }>;
   defaultTargetId?: string | null;
+  // The player's own roll buttons; without it the chat has none.
+  macros?: { campaignId: string; request: (path: string, method?: string, body?: unknown) => Promise<any>; heroes: Array<{ id: string; name: string }> } | null;
 };
 
 export type GameLogEvents = {
-  roll: [{ formula: string; label: string; hidden: boolean }];
+  roll: [{ formula: string; label: string; hidden: boolean; characterId?: string }];
   say: [{ body: string; inCharacter: boolean; characterId?: string; toUserId?: string }];
   applyRoll: [{ rollId: string; characterId: string; mode: 'damage' | 'heal'; critical?: boolean; damageType?: string }];
 };

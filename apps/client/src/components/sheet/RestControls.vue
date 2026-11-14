@@ -52,7 +52,7 @@ async function rest(body: Record<string, unknown>) {
         Сколько нужно
       </button>
       <button type="button" class="primary" :disabled="disabled || working" title="Все хиты, половина костей хитов, ячейки, ресурсы, истощение −1" @click="rest({ kind: 'long' })">
-        <GameIcon class="ui-icon" name="moon" :size="20" />Долгий отдых
+        <GameIcon class="ui-icon" name="restLong" :size="20" />Долгий отдых
       </button>
     </div>
     <p v-if="error" class="error" role="alert">{{ error }}</p>

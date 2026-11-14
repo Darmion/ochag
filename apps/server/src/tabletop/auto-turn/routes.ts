@@ -11,6 +11,7 @@ import { useFeaturesBeforeStrike } from './act/features.ts';
 import { castPlannedSpells } from './act/spells.ts';
 import { attackWithWeapons } from './act/attacks.ts';
 import { castStrikeSpell } from './act/strike-spell.ts';
+import { autoEvent } from '../combat/initiative-events.ts';
 
 
 export function registerAutoTurnRoutes(ctx: TableContext) {
@@ -31,6 +32,16 @@ export function registerAutoTurnRoutes(ctx: TableContext) {
       const pace = AUTO_PACES[paceName];
 
       const headers = { authorization: request.headers.authorization ?? '' };
+      const event = await autoEvent(ctx, campaignId, sceneId, userId);
+      if (event) {
+        let advanced = false;
+        if (advance) {
+          await pauseMs(pace.end);
+          const response = await app.inject({ method: 'POST', url: `/campaigns/${campaignId}/scenes/${sceneId}/initiative/advance`, headers, payload: { entryId: event.entryId } });
+          advanced = response.statusCode < 300;
+        }
+        return reply.send({ npc: event.owner, event: event.option, summary: event.summary, advanced, targetMode });
+      }
       const shapedNow = await autoWildShape(ctx, campaignId, sceneId, headers);
       const opening = await autoOpening(ctx, campaignId, sceneId, headers);
       const input: TurnInput = { campaignId, sceneId, userId, targetMode, shapedNow, opening };

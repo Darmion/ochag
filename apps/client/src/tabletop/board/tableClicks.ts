@@ -21,13 +21,13 @@ export type TableClicksDeps = {
   pickGroundPoint: (snap: boolean) => Position | null;
   firePing: (point: Position) => void;
   consumeMarqueeEnd: () => boolean;
-  isTerrainBrush: () => boolean;
+  isBrushMode: () => boolean;
 };
 
 export function createTableClicks({
   options, widthCells, heightCells, tools, scene, ground, isSelectionEnabled, wallUnderPointer,
   isWallPickMode, wallPointUnderPointer, wallList, isWallDrawMode, aimActive, aimTap, tool,
-  pickGroundPoint, firePing, consumeMarqueeEnd, isTerrainBrush,
+  pickGroundPoint, firePing, consumeMarqueeEnd, isBrushMode,
 }: TableClicksDeps) {
   scene.onPointerObservable.add(info => {
     if (info.type !== PointerEventTypes.POINTERTAP || info.event.button !== 2 || !options.onContextClick) return;
@@ -47,7 +47,7 @@ export function createTableClicks({
     if (info.type !== PointerEventTypes.POINTERTAP || info.event.button !== 0) return;
 
     if (tool() === 'measure' || tool() === 'draw' || tool() === 'template') return;
-    if (isTerrainBrush()) return;
+    if (isBrushMode()) return;
     if (consumeMarqueeEnd()) return;
     if (aimActive()) {
       aimTap();

@@ -230,25 +230,9 @@ test('gameplay automation', async t => {
     assert.equal(await hp(hero.id), 1 + cure.healingRoll.total);
   });
 
-  await t.test('6.4: the derived mechanics can be corrected by hand and reset', async () => {
-    const corrected = await request('POST', '/srd/spells/fire-bolt/mechanics', gm.token, {damageType: 'cold', conditionCode: 'prone'});
-    assert.equal(corrected.statusCode, 200, corrected.body);
-    assert.deepEqual([corrected.json().mechanics.damageType, corrected.json().mechanics.condition], ['cold', 'prone']);
-    const listed = (await request('GET', '/srd/spells', gm.token)).json().spells.find((spell: any) => spell.index === 'fire-bolt');
-    assert.equal(listed.mechanics.damageType, 'cold');
-    assert.equal(listed.mechanicsOverrides.conditionCode, 'prone');
-    const reset = await request('POST', '/srd/spells/fire-bolt/mechanics', gm.token, {damageType: null, conditionCode: null});
-    assert.deepEqual([reset.json().mechanics.damageType, reset.json().mechanics.condition], ['fire', null]);
-  });
-
-  await t.test('10.8: a spell flagged createsZone spawns a persistent trigger matching its template — fires on entry, and disappears when concentration ends', async () => {
+  await t.test('10.8: a zone spell spawns a persistent trigger matching its template — fires on entry, and disappears when concentration ends', async () => {
     await pg.query(`DELETE FROM character_effects WHERE character_id=$1`, [goblin.id]);
     await pg.query(`UPDATE characters SET hp_current=40 WHERE id=$1`, [goblin.id]);
-    const mechanics = await request('POST', '/srd/spells/spike-growth/mechanics', gm.token, {
-      damageFormula: '2d4', damageType: 'piercing', createsZone: true,
-    });
-    assert.equal(mechanics.statusCode, 200, mechanics.body);
-    assert.equal(mechanics.json().mechanics.createsZone, true);
 
     await pg.query(
       `INSERT INTO character_spell_slots(campaign_id, character_id, level, current, max) VALUES ($1,$2,2,3,3)
@@ -271,7 +255,7 @@ test('gameplay automation', async t => {
     assert.equal(first.damage_formula, '2d4');
     assert.equal(first.damage_type, 'piercing');
     assert.equal(first.once, false, 'fires every entry, not just the first');
-    assert.equal(first.on_turn, true, 'no condition on the spell — bites standing creatures every turn too');
+    assert.equal(first.on_turn, false, 'the thorns hurt a creature that moves through them, not one that stands still');
     assert.equal(first.secret, false);
 
     const goblinPlace = (await pg.query<any>('SELECT id, revision FROM scene_objects WHERE character_id=$1', [goblin.id])).rows[0];
@@ -291,14 +275,12 @@ test('gameplay automation', async t => {
     assert.equal(remaining.length, 1, 'the old zone is gone, only the new one from the recast is left');
     assert.equal(Number(remaining[0].x), -5);
 
-    const web = await request('POST', '/srd/spells/web/mechanics', gm.token, { createsZone: true });
-    assert.equal(web.statusCode, 200, web.body);
     const webId = await learn('web');
     const templateId3 = (await request('POST', `${scenePath}/templates`, gm.token, {shape: 'circle', x: 8, z: 8, direction: 0, sizeFeet: 15})).json().id;
     const webCast = await cast(webId, {templateId: templateId3, sceneId});
     assert.equal(webCast.statusCode, 201, webCast.body);
     const webTrigger = await triggerOf();
-    assert.equal(webTrigger.on_turn, false, 'restrained already has its own repeat save — re-triggering on_turn would be redundant');
+    assert.equal(webTrigger.on_turn, true, 'a creature that starts its turn in the webs saves again');
 
     await pg.query('DELETE FROM scene_triggers WHERE campaign_id=$1 AND scene_id=$2', [campaignId, sceneId]);
     await pg.query(`DELETE FROM character_effects WHERE character_id=$1`, [hero.id]);

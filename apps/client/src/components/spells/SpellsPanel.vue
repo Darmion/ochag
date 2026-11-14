@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, toRef, watch } from 'vue';
 import { cssZoom } from '../../settings/uiScale';
-import { ensureSrdSpells, invalidateSrdSpells, type SrdSpell } from '../../rules/srd';
+import { ensureSrdSpells, type SrdSpell } from '../../rules/srd';
 import { describeGroups } from '../../rules/dice';
 import type { VisibilitySetting, CampaignMember } from '../common/VisibilityControl.vue';
 import ItemCard from '../rpg/ItemCard.vue';
@@ -59,7 +59,7 @@ async function loadKnown() {
     const data = await props.request(
       `/campaigns/${props.campaignId}/characters/${props.characterId}/spells`,
     );
-    known.value = data.spells;
+    known.value = data.spells.filter((entry: { item?: unknown }) => !entry.item);
   } catch (cause) {
     error.value = cause instanceof Error ? cause.message : 'Не удалось загрузить заклинания. Попробуйте ещё раз.';
   } finally {
@@ -89,7 +89,7 @@ const castBusy = ref(false);
 const lastCast = ref<LastCast | null>(null);
 
 function overridesOf(entry: CharacterSpellEntry): MechanicsOverrides | null {
-  if (entry.source === 'srd') return srdLibrary.value.find(spell => spell.index === entry.srdIndex)?.mechanicsOverrides as MechanicsOverrides ?? null;
+  if (entry.source === 'srd') return null;
   const spell = entry.spell as any;
   return spell ? {
     attackKind: spell.attackKind ?? null, saveAbility: spell.saveAbility ?? null, halfOnSave: spell.halfOnSave ?? null,
@@ -105,25 +105,12 @@ async function saveMechanics(entry: CharacterSpellEntry, overrides: MechanicsOve
   busy.value = true;
   error.value = '';
   try {
-    if (entry.source === 'srd') {
-      await props.request(`/srd/spells/${entry.srdIndex}/mechanics`, 'POST', {
-        ...overrides,
-        ...(formulas?.damageFormula ? { damageFormula: formulas.damageFormula } : {}),
-        ...(formulas?.healingFormula ? { healingFormula: formulas.healingFormula } : {}),
+    await props.request(`/campaigns/${props.campaignId}/spells/${entry.customSpellId}/mechanics`, 'PUT', overrides);
+    if (formulas) {
+      await props.request(`/campaigns/${props.campaignId}/spells/${entry.customSpellId}`, 'PATCH', {
+        damageFormula: formulas.damageFormula, healingFormula: formulas.healingFormula, upcastFormula: formulas.upcastFormula ?? null,
       });
-      invalidateSrdSpells();
-      srdLibrary.value = await ensureSrdSpells(props.request);
-      if (formulas?.upcastFormula) {
-        await props.request(`/srd/spells/${entry.srdIndex}/mechanics`, 'POST', { upcastFormula: formulas.upcastFormula });
-      }
-    } else {
-      await props.request(`/campaigns/${props.campaignId}/spells/${entry.customSpellId}/mechanics`, 'PUT', overrides);
-      if (formulas) {
-        await props.request(`/campaigns/${props.campaignId}/spells/${entry.customSpellId}`, 'PATCH', {
-          damageFormula: formulas.damageFormula, healingFormula: formulas.healingFormula, upcastFormula: formulas.upcastFormula ?? null,
-        });
-        await loadLibrary();
-      }
+      await loadLibrary();
     }
     mechanicsFor.value = '';
     await loadKnown();

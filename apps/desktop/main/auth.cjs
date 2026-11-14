@@ -1,4 +1,4 @@
-const { ipcMain, net } = require('electron');
+const { ipcMain, net } = require('../bridge/runtime.cjs');
 const credentials = require('../host/credentials.cjs');
 const { isCertificatePrompt, networkFailure, probeServer, setServerUrl } = require('./connection.cjs');
 const { validateSender } = require('./senders.cjs');

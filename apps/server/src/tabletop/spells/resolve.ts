@@ -18,7 +18,6 @@ import { findMonster } from '../../../../../packages/domain/world/bestiary.ts';
 import { creatureTypeOf } from './rules.ts';
 import { hasRaceTrait, characterRace } from '../../../../../packages/domain/character/races.ts';
 import { sleepers } from '../../../../../packages/domain/spells/spell-riders.ts';
-import { spellShape } from '../../../../../packages/domain/spells/summons.ts';
 import { classFeaturesFor, discipleOfLifeBonus } from '../../../../../packages/domain/character/class-features.ts';
 import { characterClassLevels } from '../../../../../packages/domain/character/classes.ts';
 import { rollSaveAgainst } from '../rolls/checks.ts';
@@ -217,7 +216,7 @@ export async function resolveSavingThrow(run: CastRun) {
   const { q, body, ctx, userId } = run;
   const { campaignId, characterId } = run.params;
   const { templateId, sceneId, hidden } = run.body;
-  const { mechanics, metamagic, character, known, castPlan, spellSchool, effectiveLevel, level, spellName } = run.setup;
+  const { mechanics, metamagic, character, castPlan, spellSchool, effectiveLevel, level, spellName } = run.setup;
   const { resolvedDamage, rollDamageDice } = run.dice;
   const { targets, areaCover } = run.aim;
   const { dc, hurt, putCondition, applyRiders, results, sharedTargets } = run.effects;
@@ -229,7 +228,8 @@ export async function resolveSavingThrow(run: CastRun) {
   const sides = await relationsFor(q, campaignId, [characterId, ...targets.map(target => target.id)]);
   const ally = (id: string) => id === characterId || (sides.factionsOf(characterId).length > 0 && sides.allies(characterId, id));
   const careful = new Set(metamagic === 'careful' ? targets.filter(target => ally(target.id)).slice(0, Math.max(1, abilityModifier(character.charisma))).map(target => target.id) : []);
-  const willing = new Set(known.source === 'srd' && !castPlan && spellShape(known.srd_index) ? targets.filter(target => ally(target.id)).map(target => target.id) : []);
+  const shapes = castPlan?.shape ?? null;
+  const willing = new Set(shapes ? targets.filter(target => ally(target.id)).map(target => target.id) : []);
   const sculptor = /evocation|воплощени/i.test(spellSchool) && classFeaturesFor(characterClassLevels(character).classes).some(feature => feature.id === 'sculpt-spells');
   const sculpted = new Set(sculptor ? targets.filter(target => target.id !== characterId && ally(target.id)).slice(0, 1 + effectiveLevel).map(target => target.id) : []);
   const heightened = metamagic === 'heightened'

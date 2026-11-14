@@ -22,13 +22,16 @@ const SKIP_FILES = new Set(['itemArt.ts']);
 const PARSER_SAMPLES = new Set(['example', 'higher']);
 const PLURAL_CALL = /(?<![\w.$])tn\(\s*[^,()]+,\s*(['"`])((?:\\.|(?!\1)[^\\])*)\1/g;
 
+// The Tauri build folders hold staged copies of the whole app.
+const SKIP_DIRS = new Set(['locales', 'node_modules', 'target', 'gen']);
+
 function walk(dir) {
   const files = [];
   for (const entry of readdirSync(dir, { withFileTypes: true })) {
     const path = join(dir, entry.name);
     if (entry.isDirectory()) {
-      if (entry.name !== 'locales' && entry.name !== 'node_modules') files.push(...walk(path));
-    } else if (/\.(vue|ts|cjs)$/.test(entry.name) && entry.name !== 'i18nCore.ts' && !entry.name.endsWith('.d.ts') && !entry.name.endsWith('.test.ts') && !SKIP_FILES.has(entry.name)) {
+      if (!SKIP_DIRS.has(entry.name)) files.push(...walk(path));
+    } else if (/\.(vue|ts|cjs|rs)$/.test(entry.name) && entry.name !== 'i18nCore.ts' && !entry.name.endsWith('.d.ts') && !entry.name.endsWith('.test.ts') && !SKIP_FILES.has(entry.name)) {
       files.push(path);
     } else if (entry.name === 'artLibrary.json' || entry.name === 'library.json') {
       files.push(path);
@@ -268,6 +271,17 @@ function libraryLabels(text, add) {
   }
 }
 
+// String literals of the Tauri shell outside comments: the page translates the errors it hands over.
+function rustStrings(text, add) {
+  let at = 0;
+  for (const line of text.split('\n')) {
+    if (!line.trimStart().startsWith('//')) {
+      for (const match of line.matchAll(/"((?:\\.|[^"\\])*)"/g)) add(match[1].replace(/\\(["\\])/g, '$1').replace(/\\n/g, '\n'), at + match.index);
+    }
+    at += line.length + 1;
+  }
+}
+
 export function collectStrings(root = CLIENT) {
   loadParsers();
   const strings = new Map();
@@ -285,6 +299,10 @@ export function collectStrings(root = CLIENT) {
     };
     if (file.endsWith('.json')) {
       libraryLabels(text, add);
+      continue;
+    }
+    if (file.endsWith('.rs')) {
+      rustStrings(text, add);
       continue;
     }
     if (file.endsWith('.vue')) {

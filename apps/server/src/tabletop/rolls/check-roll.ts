@@ -28,7 +28,7 @@ export async function rollD20(ctx: TableContext, q: Queryable, campaignId: strin
   const templatedRuling = kind === 'attack' ? null : rollMods(await spellModsFor(q, campaignId, characterId), kind === 'save' ? 'save' : 'check', check.ability, kind === 'skill' ? key : null);
   if (templatedRuling?.spentRuling.length) await q.query('DELETE FROM character_effects WHERE id = ANY($1::uuid[])', [templatedRuling.spentRuling]);
   const ruling = d20Ruling({
-    kind, ability: check.ability as ConditionAbility, own: seenStates?.own ?? own, target: marks ? marks.target : seenStates ? seenStates.target : targetState, targetWithin5ft: within5ft, requested: advantage ?? 'none',
+    kind, ability: check.ability as ConditionAbility, own: seenStates?.own ?? own, target: marks ? marks.target : seenStates ? seenStates.target : targetState, targetId: target?.id ?? null, targetWithin5ft: within5ft, requested: advantage ?? 'none',
     inspiration: inspiration === true, extraDisadvantages: [...(situation?.disadvantages ?? []), ...(feral ? [] : sightReasons), ...unseenDisadvantages(stealth?.disadvantages ?? [], feral), ...(marks?.disadvantages ?? []), ...(horde ? ['уйти от толпы'] : []), ...(templatedRuling?.disadvantages ?? [])],
     extraAdvantages: [...(templatedRuling?.advantages ?? []),
       ...unseenAdvantages(stealth?.advantages ?? [], alerted), ...(situation?.advantages ?? []), ...(marks?.advantages ?? []), ...(reckless ? ['безрассудная атака'] : []),
@@ -87,7 +87,7 @@ export async function rollD20(ctx: TableContext, q: Queryable, campaignId: strin
       void notifyCampaign(ctx, campaignId, { type: 'character', characterId });
     }
   }
-  const riders = await rollRiders(q, campaignId, characterId, kind, bardic === true, check.ability, kind === 'skill' ? key : null);
+  const riders = await rollRiders(q, campaignId, characterId, kind, bardic === true, check.ability, kind === 'skill' ? key : null, sense ?? null);
   ruling.reasons.push(...riders.reasons);
   let peerless = 0;
   if (body.peerless && (kind === 'skill' || kind === 'ability')) {

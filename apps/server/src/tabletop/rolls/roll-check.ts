@@ -1,6 +1,7 @@
 import { smiteOffer, stunOffer, maneuverOffer, quiveringOffer, hurlOffer } from '../../rules/class-features.ts';
 import type { ActionUse } from '../../rules/action-economy.ts';
 import { type Advantage } from '../../../../../packages/domain/dice/dice.ts';
+import { attackMotion } from '../../../../../packages/domain/character/held.ts';
 
 import { announceHpChange } from '../combat/hp.ts';
 import { type Opportunity, reactionAttackers, settleOpportunities, takeOpportunity } from '../combat/opportunity.ts';
@@ -15,6 +16,8 @@ import { reject } from '../shared.ts';
 import { prepareCheck } from './check-prepare.ts';
 import { rollD20 } from './check-roll.ts';
 import { applyHitDamage, resolveHit, type CheckRun } from './check-hit.ts';
+
+const isUuid = (value: string) => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value);
 
 export type CheckBody = {
   characterId: string;
@@ -175,9 +178,14 @@ export async function rollCheckAs(ctx: TableContext, userId: string, campaignId:
   }
   const attackOutcomeView = (result as any).outcome;
   if (kind === 'attack' && sceneId && attackOutcomeView?.target) {
+    const weapon = isUuid(key)
+      ? (await db.query('SELECT weapon_kind, properties, damage_type FROM character_weapons WHERE campaign_id=$1 AND character_id=$2 AND id=$3', [campaignId, characterId, key])).rows[0] as any
+      : null;
+    const ranged = attackOutcomeView.ranged === true;
     void notifyCampaign(ctx, campaignId, {
       type: 'attack', sceneId, attackerId: characterId, targetId: attackOutcomeView.target.id, source: 'weapon',
-      effect: attackOutcomeView.critical ? 'crit' : attackOutcomeView.hit ? 'hit' : 'miss', ranged: attackOutcomeView.ranged === true,
+      effect: attackOutcomeView.critical ? 'crit' : attackOutcomeView.hit ? 'hit' : 'miss', ranged,
+      motion: attackMotion(weapon ? { kind: weapon.weapon_kind === 'ranged' ? 'ranged' : 'melee', properties: Array.isArray(weapon.properties) ? weapon.properties : [], damageType: weapon.damage_type ?? null } : null, ranged),
     });
   }
   if (kind === 'attack' && sceneId && attackOutcomeView?.target) {

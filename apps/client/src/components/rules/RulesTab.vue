@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue';
+import GameIcon from '../game/GameIcon.vue';
 
 import FormulaInput from './FormulaInput.vue';
-import { createRule, KEY_HINT, KNOWN_FLAGS, loadRules, updateRule, RULE_KINDS, RULE_KIND_HINTS, RULE_KIND_LABELS, type CampaignRule } from '../../campaign/campaignRules';
+import { createRule, KEY_HINT, knownFlags, loadRules, updateRule, RULE_KINDS, RULE_KIND_HINTS, RULE_KIND_LABELS, type CampaignRule, type KnownFlag } from '../../campaign/campaignRules';
 import { RULES_GLOSSARY } from '../../rules/rulesGlossary';
 import RuleCard from './RuleCard.vue';
 import { RULE_TOPICS, topicLabel } from '../../rulesTab/topics';
@@ -45,11 +46,11 @@ async function refresh() {
 watch(() => props.campaignId, refresh, { immediate: true });
 
 const toggling = ref('');
-function knownFlagValue(flag: typeof KNOWN_FLAGS[number]) {
+function knownFlagValue(flag: KnownFlag) {
   const rule = rules.value.find(entry => entry.key === flag.key && entry.kind === 'flag');
   return rule ? rule.value === true : flag.enabled;
 }
-async function toggleKnownFlag(flag: typeof KNOWN_FLAGS[number]) {
+async function toggleKnownFlag(flag: KnownFlag) {
   if (!canManage.value || toggling.value) return;
   toggling.value = flag.key;
   error.value = '';
@@ -101,7 +102,7 @@ const { creatingTutorial, tutorialError, tutorialSceneName, createTutorialScene 
         <span>Поиск</span>
         <span class="search-control">
           <input v-model="searchQuery" type="search" placeholder="Название, описание, ключ или значение" autocomplete="off" />
-          <button v-if="searchQuery" type="button" class="clear-search" aria-label="Очистить поиск" title="Очистить поиск" @click="clearSearch">×</button>
+          <button v-if="searchQuery" type="button" class="clear-search icon-only" aria-label="Очистить поиск" title="Очистить поиск" @click="clearSearch"><GameIcon name="close" :size="16" /></button>
         </span>
       </label>
       <label class="rules-sort">
@@ -123,7 +124,7 @@ const { creatingTutorial, tutorialError, tutorialSceneName, createTutorialScene 
         </select>
       </label>
       <p v-if="!loading" class="search-summary" aria-live="polite">
-        Автоматика: <b>{{ visibleFlags.length }}</b> из {{ KNOWN_FLAGS.length }} · Правила: <b>{{ visibleRules.length }}</b> из {{ rules.length }}
+        Автоматика: <b>{{ visibleFlags.length }}</b> из {{ knownFlags().length }} · Правила: <b>{{ visibleRules.length }}</b> из {{ rules.length }}
       </p>
     </section>
 
@@ -135,7 +136,11 @@ const { creatingTutorial, tutorialError, tutorialSceneName, createTutorialScene 
           <span><b>{{ topicLabel(topicForFlag(flag)) }}</b><small>{{ RULE_TOPICS.find(topic => topic.id === topicForFlag(flag))?.hint }}</small></span>
         </li>
         <li>
-          <span class="flag-text"><b>{{ flag.label }}</b><small>{{ flag.description }}</small></span>
+          <span class="flag-text">
+            <b :translate="flag.modName ? 'no' : undefined">{{ flag.label }}</b>
+            <small :translate="flag.modName ? 'no' : undefined">{{ flag.description }}</small>
+            <small v-if="flag.modName" class="mod-tag">{{ `мод «${flag.modName}»` }}</small>
+          </span>
           <button
             type="button" class="flag-switch" role="switch" :aria-checked="knownFlagValue(flag)"
             :disabled="!canManage || toggling === flag.key"
@@ -294,12 +299,13 @@ const { creatingTutorial, tutorialError, tutorialSceneName, createTutorialScene 
 </template>
 
 <style scoped>
+.mod-tag{align-self:flex-start;display:inline-block;margin-top:2px;padding:0 6px;border-radius:8px;font-size:11px;color:var(--g-gold-hi,#e8cf8f);box-shadow:inset 0 0 0 1px var(--g-gold-lo,#8a6a35)}
 .rules-toolbar{display:grid;grid-template-columns:minmax(240px,1fr) repeat(2,minmax(180px,.45fr));gap:10px 14px;align-items:end;margin:18px 0;padding:14px;border:1px solid var(--brass-light);border-radius:6px;background:var(--surface-inset)}
 .rules-toolbar label{display:grid;gap:5px;margin:0;font-size:12px;font-weight:700;color:var(--muted-ink)}
 .rules-toolbar :is(input,select){width:100%;min-width:0;box-sizing:border-box}
 .search-control{position:relative;display:block}
 .search-control input{padding-right:38px}
-.clear-search{position:absolute;top:50%;right:5px;translate:0 -50%;width:28px;min-height:28px;padding:0;border:0;background:transparent;box-shadow:none;color:var(--muted-ink);font-size:20px;line-height:1}
+.clear-search{display:grid;place-items:center;place-content:center;position:absolute;top:50%;right:5px;translate:0 -50%;width:28px;min-height:28px;padding:0;border:0;background:transparent;box-shadow:none;color:var(--muted-ink);font-size:20px;line-height:1}
 .clear-search:hover{color:var(--ink)}
 .search-summary{grid-column:1 / -1;margin:0;font-size:12px;color:var(--muted-ink)}
 .search-summary b{color:var(--ink);font-variant-numeric:tabular-nums}

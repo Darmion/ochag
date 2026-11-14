@@ -1,0 +1,16 @@
+{
+  "id": "ash-folk",
+  "name": "Пепельный народ",
+  "version": "1.0.0",
+  "kind": "mechanics",
+  "author": "Пример из docs/MODS.md",
+  "description": "Своя раса «Пеплорождённый» с двумя подрасами, подраса «Пепельный дварф» для дварфа SRD, черта «Хладнокровный», существо бестиария «Пепельная гончая» и окна «Пепельный вихрь» и «Отряхнуть пепел».",
+  "entry": "index.js",
+  "translations": {
+    "en": {
+      "name": "Ash Folk",
+      "author": "Example from docs/MODS.md",
+      "description": "A new race, the Ashborn, with two subraces; an Ash Dwarf subrace for the SRD dwarf; the Cool-Headed feat; a bestiary creature, the Ash Hound; and two windows, Ash Whirl and Shake Off the Ash."
+    }
+  }
+}

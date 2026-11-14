@@ -1,3 +1,4 @@
+import { registerClimbingRoute } from './objects/climbing.ts';
 import type { TableContext } from '../context.ts';
 import { registerPlaceObjectRoute } from './objects/place.ts';
 import { registerMoveObjectRoute } from './objects/move.ts';
@@ -6,6 +7,7 @@ import { registerRemoveObjectRoute } from './objects/remove.ts';
 import { registerFlightRoute } from './objects/flight.ts';
 import { registerSharedObjectRoute } from './objects/shared-flag.ts';
 import { registerReachRoute } from './objects/reach.ts';
+import { registerObjectPicturesRoute } from './objects/pictures.ts';
 
 export function registerObjectRoutes(ctx: TableContext) {
   registerPlaceObjectRoute(ctx);
@@ -13,6 +15,8 @@ export function registerObjectRoutes(ctx: TableContext) {
   registerUnplaceObjectRoute(ctx);
   registerRemoveObjectRoute(ctx);
   registerFlightRoute(ctx);
+  registerClimbingRoute(ctx);
   registerSharedObjectRoute(ctx);
   registerReachRoute(ctx);
+  registerObjectPicturesRoute(ctx);
 }

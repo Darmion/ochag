@@ -16,6 +16,7 @@ export type ActionActor = {
   canAct: boolean;
   conditions: string[];
   inspired: boolean;
+  manualDeathSaves?: boolean;
 };
 
 export type AttackTarget = { characterId: string; name: string; side: string; distanceFeet: number | null };
@@ -29,12 +30,17 @@ export type SlotPicks = Record<SlotRecovery, Record<string, number>>;
 export type MenuButton = { id: string; label: string; icon: GameIconName; pressed: boolean; hotkey?: string };
 
 export type Metamagic = '' | 'quickened' | 'twinned' | 'careful' | 'heightened' | 'distant' | 'extended' | 'subtle';
-export type SpellSlot = { level: number; current: number; max: number };
+export type SpellSlot = { level: number; current: number; max: number; cost?: number };
+// A spell cast from a wand, staff, ring or scroll: the levels its charges pay for, a save DC or attack the item may fix.
+export type ItemSpellView = {
+  itemId: string; name: string; levels: Array<{ level: number; cost: number }>; charges: { current: number; max: number } | null;
+  dc: number | null; attack: number | null; scroll: boolean;
+};
 export type PactSlots = { current: number; max: number; slotLevel: number };
 
 export type ProjectileRule = { base: number; noun: 'ray' | 'dart' | 'beam'; perSlotFrom: number | null; byLevel: Array<[number, number]> | null };
 export type SpellEntry = {
-  id: string; prepared: boolean; slotless?: boolean;
+  id: string; prepared: boolean; slotless?: boolean; item?: ItemSpellView;
   spell: {
     name: string; nameRu?: string | null; level: number; range?: string; mechanics?: SpellMechanicsView; ritual?: boolean;
     projectiles?: ProjectileRule | null; riders?: string[]; targetLimit?: number | null;
@@ -47,6 +53,8 @@ export type SpellEntry = {
     art?: string | null;
     needsTarget?: boolean;
     teleport?: { rangeFeet: number } | null;
+    castTime?: string;
+    concentration?: boolean;
   } | null;
 };
 export type BeastForm = { index: string; name: string; nameEn: string; cr: number; size: string };
@@ -80,7 +88,7 @@ export type FeatureView = {
     | 'breath-weapon' | 'draconic-resistance' | 'hellish-resistance' | 'infernal-legacy'
     | 'feats' | 'fighting-styles';
   name: string; text: string; use: 'bonus' | 'action' | 'free' | 'passive'; detail: string; active: boolean;
-  resource: { name: string; current: number; max: number } | null; available: boolean; reason: string | null;
+  resource: { name: string; current: number; max: number; recharge?: 'short' | 'long' | null } | null; available: boolean; reason: string | null;
   choices?: Array<{ value: string; label: string; active?: boolean; count?: number; hint?: string }>;
   limit?: number;
   legacy?: Array<{ index: string; name: string; minLevel: number; castAt: number; open: boolean; entryId: string | null; charge: { current: number; max: number } | null }>;
@@ -98,7 +106,10 @@ export type Popover = 'attack' | 'spell' | 'skill' | 'save' | 'ability' | 'rest'
 
 export type AttackPreview = { hitChance: number | null; averageDamage: number | null; tooFar: string | null };
 
-export type FeatureAim = { id: string; label: string; art: string | null; rangeFeet: number | null; self: boolean; only?: string[]; run: (characterId: string) => unknown };
+export type FeatureAim = {
+  id: string; label: string; art: string | null; rangeFeet: number | null; self: boolean; only?: string[]; run: (characterId: string) => unknown;
+  place?: boolean; runPlace?: (point: { x: number; z: number }) => unknown; hint?: string;
+};
 
 export type FeatureCall = 'rage' | 'end-rage' | 'second-wind' | 'action-surge' | 'bardic-inspiration' | 'turn-undead' | 'sacred-weapon'
   | 'flurry-of-blows' | 'patient-defense' | 'step-of-the-wind' | 'lay-on-hands' | 'wild-shape' | 'end-wild-shape'

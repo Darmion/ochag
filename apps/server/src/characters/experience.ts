@@ -6,6 +6,7 @@ import { guessHitDie } from '../../../../packages/domain/character/rest.ts';
 import { advanceClassText, characterClassLevels, characterClassText, hitDieForClass } from '../../../../packages/domain/character/classes.ts';
 import { applyClassSlots } from './class-slots.ts';
 import { experienceFor, levelForExperience, levelUpHitPoints, splitExperience } from '../../../../packages/domain/character/experience.ts';
+import { simpleLevelStep, withLevelStep } from '../../../../packages/domain/character/level-steps.ts';
 
 export type ExperienceAward = {
   characterId: string;
@@ -29,14 +30,14 @@ export function createExperience({ campaignFlag }: Context) {
   async function grant(q: Queryable, campaignId: string, characterId: string, amount: number): Promise<ExperienceAward | null> {
     const row = (
       await q.query(
-        `SELECT id, name, kind, level, experience, constitution, hp_current, hp_max, hit_die, sheet_extra, class_name
+        `SELECT id, name, kind, level, experience, constitution, hp_current, hp_max, hit_die, sheet_extra, class_name, level_steps
          FROM characters WHERE campaign_id=$1 AND id=$2 FOR UPDATE`,
         [campaignId, characterId],
       )
     ).rows[0] as any;
     if (!row || row.kind === 'object') return null;
 
-    const experience = Math.min(10_000_000, row.experience + Math.max(0, amount));
+    const experience = Math.max(0, Math.min(10_000_000, row.experience + amount));
     const current = row.level ?? 1;
     const reached = Math.max(current, levelForExperience(experience));
     const auto = (await campaignFlag(q, campaignId, 'auto_level')) !== false;
@@ -44,29 +45,32 @@ export function createExperience({ campaignFlag }: Context) {
     let level = row.level;
     let hpGain = 0;
     let className: string | null = row.class_name;
+    let steps = row.level_steps;
     if (reached > current && auto && !choices) {
       const parsed = characterClassLevels(row);
       const die = parsed.multiclass ? hitDieForClass(parsed.classes[0]!.id) : row.hit_die ?? guessHitDie(characterClassText(row));
       hpGain = levelUpHitPoints(die, abilityModifier(row.constitution), reached - current);
-      if (parsed.multiclass) {
-        let text = characterClassText(row);
-        for (let step = current; step < reached; step += 1) text = advanceClassText(text, step, parsed.classes[0]!.id);
-        className = text;
+      let text = parsed.multiclass ? characterClassText(row) : row.class_name;
+      for (let step = current; step < reached; step += 1) {
+        const before = step === current ? row.class_name : text;
+        if (parsed.multiclass) text = advanceClassText(text, step, parsed.classes[0]!.id);
+        steps = withLevelStep(steps, simpleLevelStep(step, step + 1, levelUpHitPoints(die, abilityModifier(row.constitution), 1), before ?? null, parsed.classes[0]?.id ?? null));
       }
+      className = text;
       level = reached;
     }
 
     await q.query(
       `UPDATE characters SET experience=$3, level=$4, hp_max=hp_max+$5,
          hp_current = CASE WHEN hp_current > 0 THEN hp_current + $5 ELSE hp_current END,
-         class_name=$6, revision=revision+1
+         class_name=$6, level_steps=$7::jsonb, revision=revision+1
        WHERE campaign_id=$1 AND id=$2`,
-      [campaignId, characterId, experience, level, hpGain, className],
+      [campaignId, characterId, experience, level, hpGain, className, JSON.stringify(steps ?? [])],
     );
     const slotsUpdated = (level ?? 1) > current ? Boolean((await applyClassSlots(q, campaignId, characterId))?.slots) : false;
 
     return {
-      characterId, name: row.name, amount, experience, level: level ?? 1,
+      characterId, name: row.name, amount: experience - row.experience, experience, level: level ?? 1,
       leveledUp: hpGain > 0 || (level ?? 1) > current,
       readyLevel: (!auto || choices) && reached > current && (level ?? 1) < reached ? reached : null,
       hpGain,
@@ -129,6 +133,7 @@ export function announceExperience(
   void notifyCampaign(campaignId, { type: 'experience', reason: event.reason, awards: event.awards });
   void notifyCampaign(campaignId, { type: 'changed' });
   for (const award of event.awards) void notifyCampaign(campaignId, { type: 'character', characterId: award.characterId });
+  if (event.awards.some(award => award.readyLevel || award.amount < 0)) void notifyCampaign(campaignId, { type: 'characters' });
 }
 
 export function registerExperienceRoutes(ctx: SceneFeatureContext & {
@@ -144,7 +149,7 @@ export function registerExperienceRoutes(ctx: SceneFeatureContext & {
         params: objectSchema({ campaignId: uuid }),
         body: objectSchema({
           characterIds: { type: 'array', minItems: 1, maxItems: 30, uniqueItems: true, items: uuid },
-          amount: { type: 'integer', minimum: 1, maximum: 1000000 },
+          amount: { type: 'integer', minimum: -1000000, maximum: 1000000, not: { const: 0 } },
           split: { type: 'boolean' },
           reason: { type: 'string', maxLength: 200 },
         }, ['characterIds', 'amount']),
@@ -157,7 +162,8 @@ export function registerExperienceRoutes(ctx: SceneFeatureContext & {
 
       const event = await db.transaction(async q => {
         const member = await membership(q, campaignId, userId, true);
-        if (!(await isCharacterManager(q, member, userId))) reject(403, 'Опыт выдаёт мастер.');
+        if (!(await isCharacterManager(q, member, userId))) reject(403, amount < 0 ? 'Отнимать опыт может мастер.' : 'Опыт выдаёт мастер.');
+        if (amount < 0 && split) reject(400, 'Отнимают опыт без дележа: укажите, сколько отнять у каждого.');
         const known = (
           await q.query(`SELECT id FROM characters WHERE campaign_id=$1 AND id = ANY($2::uuid[]) AND kind <> 'object'`, [campaignId, characterIds])
         ).rows.map(row => row.id as string);
@@ -169,7 +175,7 @@ export function registerExperienceRoutes(ctx: SceneFeatureContext & {
           const award = await experience.grant(q, campaignId, id, share);
           if (award) awards.push(award);
         }
-        return { reason: reason?.trim() || 'Награда мастера', awards };
+        return { reason: reason?.trim() || (amount < 0 ? 'Мастер отнял опыт' : 'Награда мастера'), awards };
       });
 
       announceExperience(notifyCampaign, campaignId, event);

@@ -6,6 +6,8 @@ import { type Position, snapToLatticePoint } from '../grid';
 import { type WallChange, wallSteps } from '../../components/game/WallPopover.vue';
 import type { WallCoords, TabletopProps, SceneDetail, WallTool, WallGroupEntry } from './types';
 import type { TableHistory, HistoryEntry } from '../history';
+import { paintTerrainRect, type TerrainKind } from '../../../../../packages/domain/map/terrain';
+import { paintHeightRect } from '../../../../../packages/domain/map/relief';
 
 export type WallsDeps = {
   props: TabletopProps;
@@ -18,6 +20,8 @@ export type WallsDeps = {
   wallTextureId: Ref<string | null>;
   wallPopover: Ref<{ at: { x: number; y: number }; wallId: string; tile: number; edit: boolean } | null>;
   wallFirstPoint: Ref<Position | null>;
+  terrainKind: Ref<TerrainKind | 'height'>;
+  terrainHeight: Ref<number>;
   basePath: () => string;
   refresh: () => Promise<void>;
   run: (action: () => Promise<void>) => Promise<void>;
@@ -28,7 +32,7 @@ export type WallsDeps = {
   wallRemovedEntry: (wallId: string, coords: WallCoords, label: string) => HistoryEntry;
 };
 
-export function useWalls({ props, sceneDetail, walls, wallTool, openingKind, wallStyle, wallKind, wallTextureId, wallPopover, wallFirstPoint, basePath, refresh, run, history, wallsAddedEntry, wallAddedEntry, wallsRemovedEntry, wallRemovedEntry }: WallsDeps) {
+export function useWalls({ props, sceneDetail, walls, wallTool, openingKind, wallStyle, wallKind, wallTextureId, wallPopover, wallFirstPoint, terrainKind, terrainHeight, basePath, refresh, run, history, wallsAddedEntry, wallAddedEntry, wallsRemovedEntry, wallRemovedEntry }: WallsDeps) {
   function placeWallPoint(point: Position) {
     if (!sceneDetail.value) return;
 
@@ -73,6 +77,15 @@ export function useWalls({ props, sceneDetail, walls, wallTool, openingKind, wal
     });
   }
 
+  function brushWalls(segments: Array<{ x1: number; z1: number; x2: number; z2: number }>, closed: boolean) {
+    if (!segments.length) return;
+    return run(async () => {
+      const result = await props.request(`${basePath()}/walls/batch`, 'POST', { walls: segments, ...newWallLook() });
+      history.record(wallsAddedEntry(result.walls, closed ? 'кисть: замкнутая' : 'кисть'));
+      await refresh();
+    });
+  }
+
   function newWallLook(): { style: WallStyle; textureAssetId?: string; kind?: WallKind } {
     const kind = wallKind.value === 'wall' ? {} : { kind: wallKind.value };
     if (wallStyle.value === 'image' && wallTextureId.value) return { style: 'image', textureAssetId: wallTextureId.value, ...kind };
@@ -82,23 +95,24 @@ export function useWalls({ props, sceneDetail, walls, wallTool, openingKind, wal
   function paintTerrain(from: { col: number; row: number }, to: { col: number; row: number }) {
     const detail = sceneDetail.value;
     if (!detail) return;
-    const cells = new Map((detail.difficult_cells ?? []).map(([c, r]) => [`${c}:${r}`, [c!, r!]]));
-    const erase = cells.has(`${from.col}:${from.row}`);
-    for (let col = Math.min(from.col, to.col); col <= Math.max(from.col, to.col); col += 1) {
-      for (let row = Math.min(from.row, to.row); row <= Math.max(from.row, to.row); row += 1) {
-        if (erase) cells.delete(`${col}:${row}`);
-        else cells.set(`${col}:${row}`, [col, row]);
-      }
-    }
+    const kind = terrainKind.value;
+    const body = kind === 'height'
+      ? { cells: detail.difficult_cells ?? [], heights: paintHeightRect(detail.elevation_cells ?? [], from, to, terrainHeight.value) }
+      : (() => {
+        const next = paintTerrainRect({ difficult: detail.difficult_cells ?? [], water: detail.water_cells ?? [] }, from, to, kind);
+        return { cells: next.difficult, water: next.water };
+      })();
     return run(async () => {
-      await props.request(`${basePath()}/terrain`, 'PUT', { cells: [...cells.values()] });
+      await props.request(`${basePath()}/terrain`, 'PUT', body);
       await refresh();
     });
   }
 
   function clearTerrain() {
+    const detail = sceneDetail.value;
+    const body = terrainKind.value === 'height' ? { cells: detail?.difficult_cells ?? [], heights: [] } : { cells: [], water: [] };
     return run(async () => {
-      await props.request(`${basePath()}/terrain`, 'PUT', { cells: [] });
+      await props.request(`${basePath()}/terrain`, 'PUT', body);
       await refresh();
     });
   }
@@ -209,5 +223,5 @@ export function useWalls({ props, sceneDetail, walls, wallTool, openingKind, wal
     });
   }
 
-  return { placeWallPoint, newWallLook, paintTerrain, clearTerrain, onWallPictureForNew, restyleWalls, wallPopoverWall, wallPopoverPicture, wallPopoverEverywhere, wallPopoverEdit, setWallOpening, toggleDoor, removeAllWalls };
+  return { placeWallPoint, brushWalls, newWallLook, paintTerrain, clearTerrain, onWallPictureForNew, restyleWalls, wallPopoverWall, wallPopoverPicture, wallPopoverEverywhere, wallPopoverEdit, setWallOpening, toggleDoor, removeAllWalls };
 }

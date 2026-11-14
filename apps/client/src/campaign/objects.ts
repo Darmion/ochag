@@ -47,6 +47,7 @@ export type CampaignObject = {
   can_control: boolean;
   container_id?: string | null;
   container_name?: string | null;
+  level_ready?: boolean;
 };
 
 export function kindBadge(object: { kind: ObjectKind; disposition: Disposition | null }) {

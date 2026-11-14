@@ -2,7 +2,7 @@ import { reject, objectSchema, uuid } from '../../tabletop/scene-feature.ts';
 import { characterClassLevels, type ClassId, SUBCLASSES, CLASS_LABELS } from '../../../../../packages/domain/character/classes.ts';
 import { type ClassFeature, INVOCATIONS, knownInvocations, METAMAGIC, knownMetamagic, MANEUVERS, knownManeuvers, HUNTERS_PREY, knownHuntersPrey, knownAncestry, DEFENSIVE_TACTICS, knownDefensiveTactics, HUNTER_MULTIATTACK, knownHunterMultiattack, FIENDISH_RESILIENCE_TYPES, knownFiendishResilience, SUPERIOR_HUNTERS_DEFENSE, knownSuperiorDefense, FAVORED_ENEMY_TYPES, knownFavoredEnemies, favoredEnemyLimit, classLevelOf, spellPicks } from '../../../../../packages/domain/character/class-features.ts';
 import { characterRace } from '../../../../../packages/domain/character/races.ts';
-import { FEATS, knownFeats, STYLE_PATTERNS, knownFightingStyles } from '../../../../../packages/domain/character/feats.ts';
+import { featCatalog, knownFeats, STYLE_PATTERNS, knownFightingStyles } from '../../../../../packages/domain/character/feats.ts';
 import { DRAGON_ANCESTRIES } from '../../../../../packages/domain/srd/heroes.ts';
 
 import type { ClassFeatureContext } from '../class-features.ts';
@@ -151,7 +151,7 @@ export function registerChoiceRoutes(ctx: ClassFeatureContext) {
   choiceRoute(ctx, 'superior-hunters-defense', 'superiorDefense', SUPERIOR_HUNTERS_DEFENSE, 'superior-hunters-defense', knownSuperiorDefense, true);
   choiceRoute(ctx, 'favored-enemy', 'favoredEnemies', FAVORED_ENEMY_TYPES.map(id => ({ id })), 'favored-enemy', knownFavoredEnemies, false, false,
     (row, classes) => favoredEnemyLimit(classLevelOf(classes, 'ranger', row.level)));
-  markRoute(ctx, 'feats', 'feats', FEATS, knownFeats);
+  markRoute(ctx, 'feats', 'feats', featCatalog(), knownFeats);
   markRoute(ctx, 'fighting-styles', 'fightingStyles', STYLE_PATTERNS, sheetExtra => knownFightingStyles(sheetExtra).ids);
 
   app.get<{ Params: { campaignId: string; characterId: string }; Querystring: { targetId?: string } }>(

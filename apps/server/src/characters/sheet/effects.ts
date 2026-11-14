@@ -1,4 +1,4 @@
-import { removeCondition } from '../../rules/conditions.ts';
+import { removeCondition, spellsEnded } from '../../rules/conditions.ts';
 
 import { characterForEditing } from './access.ts';
 import { characterParams, type CharacterParams, effectParams, type EffectParams, reject } from './shared.ts';
@@ -124,7 +124,8 @@ export function registerEffectRoutes(ctx: RouteContext) {
         if (effect && (effect.effect_code === 'concentration' || effect.effect_code === 'raging' || effect.effect_code === 'wild_shape' || effect.effect_code === 'hasted')) {
           await removeCondition(q, campaignId, characterId, effect.effect_code);
         } else {
-          await q.query('DELETE FROM character_effects WHERE campaign_id=$1 AND character_id=$2 AND id=$3', [campaignId, characterId, effectId]);
+          const gone = (await q.query('DELETE FROM character_effects WHERE campaign_id=$1 AND character_id=$2 AND id=$3 RETURNING effect_code, parameters', [campaignId, characterId, effectId])).rows[0];
+          if (gone?.effect_code === 'spell_cast') await spellsEnded(q, campaignId, [{ character_id: characterId, parameters: gone.parameters }]);
         }
       });
 

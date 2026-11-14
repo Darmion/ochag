@@ -78,6 +78,19 @@ export async function notifyCampaign(ctx: TableContext, campaignId: string, mess
   }
 }
 
+// A removed scene fails the scene check, so membership alone is checked here: the people on it still have to learn it is gone.
+export async function notifySceneRemoved(ctx: TableContext, campaignId: string, sceneId: string, name: string) {
+  const message = JSON.stringify({ type: 'scene-removed', sceneId, name });
+  for (const sub of ctx.subscriptions) {
+    if (sub.campaignId !== campaignId) continue;
+    try {
+      if (!(await validSubscription(ctx, { ...sub, sceneId: '' }))) continue;
+      if (sub.socket.readyState === 1) sub.socket.send(message);
+    } catch {
+    }
+  }
+}
+
 export async function notifyUsers(ctx: TableContext, campaignId: string, userIds: Iterable<string>, message: Record<string, unknown>) {
   const { subscriptions } = ctx;
   const wanted = new Set(userIds);

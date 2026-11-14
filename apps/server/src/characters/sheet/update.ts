@@ -1,4 +1,5 @@
 import { createExperience, type ExperienceEvent } from '../experience.ts';
+import { refreshGearAc } from '../inventory-state.ts';
 import { recordCombatEvent } from '../../tabletop/combat/combat-events.ts';
 import { CHALLENGE_RATINGS } from '../../../../../packages/domain/character/experience.ts';
 
@@ -59,6 +60,7 @@ export function registerUpdateRoute(ctx: RouteContext) {
       disposition?: Disposition | null;
       size?: Size;
       imageAssetId?: string | null;
+      imageOpenAssetId?: string | null;
       imageCrop?: { x: number; y: number; zoom: number } | null;
       modelAssetId?: string | null;
       coins?: { cp?: number; sp?: number; ep?: number; gp?: number; pp?: number };
@@ -107,6 +109,7 @@ export function registerUpdateRoute(ctx: RouteContext) {
             disposition: { oneOf: [{ type: 'string', enum: [...DISPOSITIONS] }, { type: 'null' }] },
             size: { type: 'string', enum: [...SIZES] },
             imageAssetId: nullableUuid,
+            imageOpenAssetId: nullableUuid,
             imageCrop: { oneOf: [{type: 'object', additionalProperties: false, required: ['x', 'y', 'zoom'], properties: {x: {type: 'number', minimum: 0, maximum: 100}, y: {type: 'number', minimum: 0, maximum: 100}, zoom: {type: 'number', minimum: 1, maximum: 5}}}, { type: 'null' }] },
             modelAssetId: nullableUuid,
             coins: {
@@ -124,7 +127,7 @@ export function registerUpdateRoute(ctx: RouteContext) {
       const userId = await auth(request);
       const { campaignId, characterId } = request.params;
       const {
-        revision, sheetExtra, kind, disposition, size, imageAssetId, imageCrop, modelAssetId, damageThreshold,
+        revision, sheetExtra, kind, disposition, size, imageAssetId, imageOpenAssetId, imageCrop, modelAssetId, damageThreshold,
         damageResistances, damageImmunities, damageVulnerabilities, spellcastingAbility, hitDie, hitDiceSpent,
         experience, challengeRating, xpAward, className, attacksPerAction, coins, priceCp, weightLb, merchant, ...fields
       } = request.body;
@@ -156,6 +159,10 @@ export function registerUpdateRoute(ctx: RouteContext) {
 
         if (imageAssetId) await assertAsset(q, campaignId, imageAssetId, 'object_image');
         if (modelAssetId) await assertAsset(q, campaignId, modelAssetId, 'object_model');
+        if (imageOpenAssetId !== undefined) {
+          if (imageOpenAssetId) await assertAsset(q, campaignId, imageOpenAssetId, 'object_image');
+          await q.query('UPDATE characters SET image_open_asset_id=$3 WHERE campaign_id=$1 AND id=$2', [campaignId, characterId, imageOpenAssetId]);
+        }
 
         if (coins !== undefined || priceCp !== undefined || weightLb !== undefined || merchant !== undefined) {
           if (merchant !== undefined) {
@@ -205,7 +212,7 @@ export function registerUpdateRoute(ctx: RouteContext) {
              spellcasting_ability = CASE WHEN $29 THEN $30 ELSE spellcasting_ability END,
              hit_die = CASE WHEN $31 THEN $32::integer ELSE hit_die END,
              hit_dice_spent = COALESCE($33, hit_dice_spent),
-             -- Потрачено поправили руками — раскладка по костям выводится заново.
+             -- Spent dice edited by hand: the split by die is derived again.
              hit_dice_spent_by_die = CASE WHEN $33::integer IS NULL THEN hit_dice_spent_by_die END,
              experience = COALESCE($34, experience),
              challenge_rating = CASE WHEN $35 THEN $36::numeric ELSE challenge_rating END,
@@ -265,6 +272,14 @@ export function registerUpdateRoute(ctx: RouteContext) {
         );
 
         const after = updated.rows[0] as any;
+        if ((await q.query('SELECT ac_mode FROM characters WHERE campaign_id=$1 AND id=$2', [campaignId, characterId])).rows[0]?.ac_mode === 'gear') {
+          if (fields.armorClass != null && Number(fields.armorClass) !== Number(character.armor_class)) {
+            await q.query(`UPDATE characters SET ac_mode='manual' WHERE campaign_id=$1 AND id=$2`, [campaignId, characterId]);
+          } else {
+            const gearAc = await refreshGearAc(q, campaignId, characterId);
+            if (gearAc !== null) after.armor_class = gearAc;
+          }
+        }
         if (after.kind === 'npc' && Number(character.hp_current) > 0 && Number(after.hp_current) === 0) {
           defeated = await experienceEngine.awardForDefeat(q, campaignId, characterId);
         }

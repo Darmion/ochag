@@ -30,7 +30,7 @@ test('channel divinity is locked while active and named without the prefix', () 
   const card = featureButton(make({ id: 'turn-undead', name: 'Божественный канал: Изгнание нежити', detail: 'спасбросок МДР', active: true, resource: { current: 0, max: 1 } }), false);
   assert.equal(card.label, 'Изгнание нежити');
   assert.equal(card.note, 'Божественный канал · спасбросок МДР · 0/1');
-  assert.equal(card.icon, 'holy');
+  assert.equal(card.icon, 'turnUndead');
   assert.equal(card.blocked, true);
 });
 
@@ -58,9 +58,9 @@ test('the button list and passive icons', () => {
   assert.equal(FEATURE_BUTTONS.size, 18);
   assert.equal(FEATURE_BUTTONS.has('bardic-inspiration'), false);
   assert.equal(passiveIcon({ id: 'sneak-attack', name: 'Скрытая атака' }), 'dagger');
-  assert.equal(passiveIcon({ id: 'unarmored-defense', name: 'Защита без доспехов' }), 'shield');
-  assert.equal(passiveIcon({ id: 'darkvision', name: 'Раса: Тёмное зрение' }), 'person');
-  assert.equal(passiveIcon({ id: 'extra-attack', name: 'Дополнительная атака' }), 'sparkle');
+  assert.equal(passiveIcon({ id: 'unarmored-defense', name: 'Защита без доспехов' }), 'unarmored');
+  assert.equal(passiveIcon({ id: 'darkvision', name: 'Раса: Тёмное зрение' }), 'race');
+  assert.equal(passiveIcon({ id: 'extra-attack', name: 'Дополнительная атака' }), 'feature');
 });
 
 test('row heads show icon, short name and the note', () => {
@@ -73,15 +73,15 @@ test('row heads show icon, short name and the note', () => {
   assert.equal(featureHead(make({ id: 'frenzy', name: 'Путь берсерка: Бешенство', detail: 'атака бонусным' })).note, 'атака бонусным');
   assert.equal(featureHead(make({ id: 'open-hand-technique', name: 'Путь открытой ладони: Техника' })).label, 'Техника');
   assert.equal(featureHead(make({ id: 'cunning-action', name: 'Хитрое действие' })).note, null);
-  assert.deepEqual(featureHead(make({ id: 'feats', name: 'Черты' })), { icon: 'star', label: 'Черты', note: null });
-  assert.equal(featureHead(make({ id: 'signature-spells', name: 'Фирменные заклинания' })).icon, 'sparkle');
-  assert.equal(headIcon('metamagic'), 'sparkle');
-  assert.equal(headIcon('eldritch-invocations'), 'sparkle');
+  assert.deepEqual(featureHead(make({ id: 'feats', name: 'Черты' })), { icon: 'feat', label: 'Черты', note: null });
+  assert.equal(featureHead(make({ id: 'signature-spells', name: 'Фирменные заклинания' })).icon, 'signatureSpells');
+  assert.equal(headIcon('metamagic'), 'metamagic');
+  assert.equal(headIcon('eldritch-invocations'), 'feature');
 });
 
 test('choice heads show points and the detail only where it helps', () => {
-  assert.deepEqual(choiceHead(make({ id: 'metamagic', name: 'Метамагия', resource: { current: 4, max: 5 } })), { icon: 'sparkle', label: 'Метамагия', points: 'очки 4/5', detail: null });
-  assert.deepEqual(choiceHead(make({ id: 'hunters-prey', name: 'Охотник: Добыча охотника', detail: '' })), { icon: 'target', label: 'Добыча охотника', points: null, detail: '' });
+  assert.deepEqual(choiceHead(make({ id: 'metamagic', name: 'Метамагия', resource: { current: 4, max: 5 } })), { icon: 'metamagic', label: 'Метамагия', points: 'очки 4/5', detail: null });
+  assert.deepEqual(choiceHead(make({ id: 'hunters-prey', name: 'Охотник: Добыча охотника', detail: '' })), { icon: 'huntersMark', label: 'Добыча охотника', points: null, detail: '' });
   assert.equal(choiceHead(make({ id: 'combat-superiority', name: 'Превосходство', resource: { current: 3, max: 4 } })).points, 'кости 3/4');
   assert.equal(choiceHead(make({ id: 'eldritch-invocations', name: 'Воззвания', detail: '2 из 2' })).detail, null);
   assert.equal(choiceInput('hunters-prey'), 'radio');
@@ -93,7 +93,7 @@ test('action rows list their buttons and what each one calls', () => {
   assert.deepEqual([...ACTION_ROWS], ['step-of-the-wind', 'draconic-presence', 'cunning-action']);
   assert.deepEqual(rowActions('step-of-the-wind').map(action => [action.label, action.icon, action.call]), [
     ['Рывок', 'run', { kind: 'feature', id: 'step-of-the-wind', mode: 'dash' }],
-    ['Отход', 'door', { kind: 'feature', id: 'step-of-the-wind', mode: 'disengage' }],
+    ['Отход', 'disengage', { kind: 'feature', id: 'step-of-the-wind', mode: 'disengage' }],
   ]);
   assert.deepEqual(rowActions('draconic-presence').map(action => [action.label, action.icon]), [['Аура страха', null], ['Аура очарования', null]]);
   assert.deepEqual(rowActions('cunning-action').map(action => action.call), [

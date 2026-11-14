@@ -1,6 +1,6 @@
 const path = require('node:path');
 const fs = require('node:fs/promises');
-const { app, dialog, ipcMain, net } = require('electron');
+const { app, dialog, ipcMain, net } = require('../bridge/runtime.cjs');
 const { isInternetName } = require('./server-url.cjs');
 const { networkFailure } = require('./connection.cjs');
 const { validateSender } = require('./senders.cjs');
@@ -13,6 +13,23 @@ function registerTransferHandlers(ctx) {
   function validToken(token) {
     return typeof token === 'string' && /^[A-Za-z0-9_-]{43}$/.test(token);
   }
+
+  // A spell template is saved through a save dialog: WebView2 would drop a plain download into
+  // Downloads without asking.
+  ipcMain.handle('spell:saveFile', async (event, input) => {
+    validateSender(ctx, event);
+    const text = input?.text;
+    if (typeof text !== 'string' || Buffer.byteLength(text, 'utf8') > 20 * 1024 * 1024) throw new Error('Некорректный файл заклинания.');
+    const name = (typeof input?.name === 'string' ? input.name : '').replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 80).trim() || nativeText('Заклинание');
+    const { canceled, filePath } = await dialog.showSaveDialog(ctx.mainWindow, {
+      title: nativeText('Сохранить заклинание в файл'),
+      defaultPath: path.join(app.getPath('documents'), `${name}.spell.json`),
+      filters: [{ name: nativeText('Заклинание «Очага»'), extensions: ['json'] }],
+    });
+    if (canceled || !filePath) return { canceled: true };
+    await fs.writeFile(filePath, text, 'utf8');
+    return { ok: true, filePath };
+  });
 
   ipcMain.handle('campaign:export', async (event, input) => {
     validateSender(ctx, event);
@@ -164,6 +181,73 @@ function registerTransferHandlers(ctx) {
       const data = await response.json().catch(() => null);
       if (!response.ok) return { ok: false, message: data?.message ?? `Сервер ответил ошибкой ${response.status}.` };
       return { ok: true, fileName: path.basename(filePaths[0]), characterId: data.characterId, name: data.name, kind: data.kind };
+    } catch (error) {
+      const failure = networkFailure(error, ctx.serverUrl);
+      return { ok: false, message: failure.data.message, hints: failure.data.hints };
+    }
+  });
+
+  const sceneFilters = () => [{ name: nativeText('Сцена «Очага»'), extensions: ['ochag-scene'] }];
+
+  ipcMain.handle('scene:export', async (event, input) => {
+    validateSender(ctx, event);
+    const { campaignId, sceneId } = input ?? {};
+    if (typeof campaignId !== 'string' || !UUID_PATTERN.test(campaignId) || typeof sceneId !== 'string' || !UUID_PATTERN.test(sceneId) || !validToken(input?.token)) {
+      throw new Error('Некорректный запрос экспорта сцены.');
+    }
+    const name = typeof input?.name === 'string' ? input.name : nativeText('Сцена');
+    const safeName = name.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_').slice(0, 80).trim() || nativeText('Сцена');
+    const { canceled, filePath } = await dialog.showSaveDialog(ctx.mainWindow, {
+      title: nativeText('Сохранить сцену в файл'),
+      defaultPath: path.join(app.getPath('documents'), `${safeName}.ochag-scene`),
+      filters: sceneFilters(),
+    });
+    if (canceled || !filePath) return { canceled: true };
+    try {
+      const response = await net.fetch(`${ctx.serverUrl}/campaigns/${campaignId}/scenes/${sceneId}/export?creatures=${input.creatures === true ? 'yes' : 'no'}`, {
+        headers: { Authorization: `Bearer ${input.token}` }, credentials: 'omit', redirect: 'error', signal: AbortSignal.timeout(TRANSFER_TIMEOUT),
+      });
+      if (!response.ok) {
+        const data = await response.json().catch(() => null);
+        return { ok: false, message: data?.message ?? `Сервер ответил ошибкой ${response.status}.` };
+      }
+      const data = Buffer.from(await response.arrayBuffer());
+      await fs.writeFile(filePath, data);
+      return { ok: true, filePath, sizeBytes: data.length };
+    } catch (error) {
+      const failure = networkFailure(error, ctx.serverUrl);
+      return { ok: false, message: failure.data.message, hints: failure.data.hints };
+    }
+  });
+
+  ipcMain.handle('scene:import', async (event, input) => {
+    validateSender(ctx, event);
+    const campaignId = input?.campaignId;
+    if (typeof campaignId !== 'string' || !UUID_PATTERN.test(campaignId) || !validToken(input?.token)) throw new Error('Некорректный запрос импорта сцены.');
+    const { canceled, filePaths } = await dialog.showOpenDialog(ctx.mainWindow, {
+      title: nativeText('Загрузить сцену из файла'), properties: ['openFile'], filters: sceneFilters(),
+    });
+    if (canceled || !filePaths[0]) return { canceled: true };
+    const stat = await fs.stat(filePaths[0]);
+    if (stat.size > 300 * 1024 * 1024) return { ok: false, message: 'Файл больше 300 МБ.' };
+    if (stat.size > 100 * 1024 * 1024 && isInternetName(new URL(ctx.serverUrl).hostname)) {
+      return {
+        ok: false,
+        message: 'Через туннель Cloudflare файл сцены больше 100 МБ не пройдёт.',
+        hints: ['Загрузите сцену на компьютере мастера (там сервер на этом же компьютере) или подключитесь к нему по домашней или виртуальной локальной сети.'],
+      };
+    }
+    try {
+      const form = new FormData();
+      form.append('file', new Blob([await fs.readFile(filePaths[0])], { type: 'application/gzip' }), path.basename(filePaths[0]));
+      const response = await net.fetch(`${ctx.serverUrl}/campaigns/${campaignId}/scenes/import`, {
+        method: 'POST', headers: { Authorization: `Bearer ${input.token}` }, body: form,
+        credentials: 'omit', redirect: 'error', signal: AbortSignal.timeout(TRANSFER_TIMEOUT),
+      });
+      const data = await response.json().catch(() => null);
+      if (response.status === 413 && !data) return { ok: false, message: 'Файл сцены слишком большой для этого подключения (Cloudflare пропускает до 100 МБ).' };
+      if (!response.ok) return { ok: false, message: data?.message ?? `Сервер ответил ошибкой ${response.status}.` };
+      return { ok: true, fileName: path.basename(filePaths[0]), sceneId: data.id, name: data.name, skipped: data.skipped };
     } catch (error) {
       const failure = networkFailure(error, ctx.serverUrl);
       return { ok: false, message: failure.data.message, hints: failure.data.hints };

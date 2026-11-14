@@ -83,6 +83,24 @@ test('area templates and saves for everyone caught in them', async t => {
     assert.deepEqual([circle.direction, circle.width_feet], [0, null]);
   });
 
+  await t.test('a circle the GM gives a height is a cylinder: a flyer above it is not caught', async () => {
+    const far = (await pg.query<{character_id: string}>(`SELECT p.character_id FROM scene_objects p JOIN characters c ON c.id=p.character_id WHERE p.scene_id=$1 AND c.name='Гоблин далеко'`, [sceneId])).rows[0]!.character_id;
+    await pg.query(`INSERT INTO character_effects (campaign_id, character_id, effect_code, parameters) VALUES ($1,$2,'flying','{"feet": 30, "height": 15}'::jsonb)`, [campaignId, far]);
+    const caught = async (id: string) => (await request('POST', `${scenePath}/templates/${id}/saves`, gm.token, {ability: 'dexterity', dc: 1})).json().results.map((r: any) => r.name);
+    const placed = (await request('POST', `${scenePath}/templates`, gm.token, {shape: 'circle', x: 4.5, z: 4.5, sizeFeet: 20, heightFeet: 10})).json();
+    assert.equal(placed.height_feet, 10);
+    assert.deepEqual(await caught(placed.id), [], '15 feet up is above a 10-foot cylinder');
+    const sphere = (await request('PATCH', `${scenePath}/templates/${placed.id}`, gm.token, {heightFeet: null})).json();
+    assert.equal(sphere.height_feet, null);
+    assert.deepEqual(await caught(placed.id), ['Гоблин далеко'], 'a 20-foot sphere reaches 15 feet up');
+    await request('PATCH', `${scenePath}/templates/${placed.id}`, gm.token, {heightFeet: 20});
+    assert.deepEqual(await caught(placed.id), ['Гоблин далеко'], 'and so does a 20-foot cylinder');
+    const square = (await request('PATCH', `${scenePath}/templates/${placed.id}`, gm.token, {shape: 'square'})).json();
+    assert.equal(square.height_feet, null, 'only a circle keeps a height');
+    await request('DELETE', `${scenePath}/templates/${placed.id}`, gm.token);
+    await pg.query(`DELETE FROM character_effects WHERE character_id=$1 AND effect_code='flying'`, [far]);
+  });
+
   await t.test('only the author or the GM removes a template', async () => {
     assert.equal((await request('DELETE', `${scenePath}/templates/${fireballId}`, bob.token)).statusCode, 403);
     assert.equal((await request('DELETE', `${scenePath}/templates/${fireballId}`, alice.token)).statusCode, 204);

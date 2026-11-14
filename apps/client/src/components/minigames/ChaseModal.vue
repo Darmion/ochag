@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
+import { useMinigameSync } from '../../minigames/minigameSync';
 import { CHASE_ROUTES, CHASE_OBSTACLES, chaseDifficulty, type Chase } from '../../../../../packages/domain/minigames/chase';
 import { useEscapeClose } from '../../ui/escapeStack';
 import { confirmAction } from '../../ui/confirmDialog';
@@ -10,14 +11,14 @@ useEscapeClose(() => emit('close'));
 const game = ref<Chase | null>(null), manager = ref(false), loaded = ref(false), busy = ref(false), error = ref('');
 const active = computed(() => game.value && ['route', 'obstacle'].includes(game.value.phase));
 const path = `/campaigns/${props.campaignId}/minigames/chase`;
-let timer: ReturnType<typeof setTimeout> | undefined, disposed = false, generation = 0;
+let disposed = false, generation = 0;
 function apply(result: { game: Chase | null; manager: boolean }) { game.value = result.game; manager.value = result.manager; loaded.value = true; }
 async function refresh() {
   const ticket = ++generation;
   try { const result = await props.request(path); if (!disposed && ticket === generation) apply(result); }
   catch (cause) { if (!disposed && ticket === generation) error.value = cause instanceof Error ? cause.message : 'Нет связи с сервером.'; }
 }
-async function poll() { if (!busy.value && !document.hidden) await refresh(); if (!disposed) timer = setTimeout(poll, 2000); }
+useMinigameSync('chase', refresh, busy);
 async function act(action: string, extra: Record<string, unknown> = {}) {
   if (busy.value || !loaded.value) return;
   const revision = game.value?.revision ?? 0; busy.value = true;
@@ -29,12 +30,11 @@ async function act(action: string, extra: Record<string, unknown> = {}) {
   } catch (cause) { error.value = cause instanceof Error ? cause.message : 'Не удалось выполнить действие. Попробуйте ещё раз.'; await refresh(); }
   finally { busy.value = false; }
 }
-onMounted(() => void poll());
-onBeforeUnmount(() => { disposed = true; generation++; clearTimeout(timer); });
+onBeforeUnmount(() => { disposed = true; generation++; });
 </script>
 <template>
   <div class="modal-overlay chase-overlay" role="dialog" aria-modal="true" aria-labelledby="chase-title"><div class="modal-card chase-card">
-    <header><button type="button" aria-label="К списку мини-игр" @click="emit('back')">←</button><div><small>Улицы спящего города · весь отряд</small><h3 id="chase-title">Погоня по переулкам</h3></div><button type="button" aria-label="Закрыть мини-игру" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button></header>
+    <header><button class="icon-only" type="button" aria-label="К списку мини-игр" @click="emit('back')"><GameIcon name="arrowLeft" :size="16" /></button><div><small>Улицы спящего города · весь отряд</small><h3 id="chase-title">Погоня по переулкам</h3></div><button class="icon-only" type="button" aria-label="Закрыть мини-игру" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button></header>
     <main>
       <p v-if="error" role="alert">{{ error }} <button type="button" :disabled="busy" @click="refresh">Обновить</button></p>
       <p v-if="!loaded" role="status">Ищу путь к убежищу…</p>
@@ -60,7 +60,7 @@ onBeforeUnmount(() => { disposed = true; generation++; clearTimeout(timer); });
         <section v-if="manager && !active" class="setup"><h4>{{ game ? 'Новая погоня' : 'Поднять тревогу' }}</h4><p>Отряд начинает с отрывом 4 и запасом сил 3. Нужно пройти 10 единиц пути за 8 участков.</p><button type="button" class="primary" :disabled="busy" @click="act('create')">Начать погоню</button></section>
         <p v-else-if="!game">Мастер ещё не начал погоню. Когда он поднимет тревогу, отряд увидит общие маршруты.</p>
       </template>
-      <details class="rules"><summary>Правила — шаг за шагом</summary><ol><li><b>Цель:</b> набрать 10 пути за 8 участков и сохранить положительный отрыв. Нулевой отрыв означает, что отряд настигли, даже у самого убежища.</li><li><b>Выберите маршрут.</b> Главная улица даёт +1 пути при успехе, переулки +2, крыши +3. Чем короче путь, тем труднее проверка. Выбор дороги сам по себе не расходует участок.</li><li><b>Изучите препятствие.</b> Оно случайно выбирается сервером и облегчает один из способов. Точный порог броска показан на кнопке. Вернуться к выбору дороги нельзя.</li><li><b>Рывок:</b> потратьте 1 силу и бросьте к6. Успех даёт продвижение маршрута и +2 отрыва. <b>Скрыться:</b> бросок без затрат сил, успех даёт продвижение маршрута и +1 отрыва. Неудача любого броска даёт только +1 пути и −2 отрыва.</li><li><b>Обход:</b> без броска получите +1 пути, −1 отрыва и восстановите 1 силу (до 4). Это тоже завершает участок.</li><li>После восьмого участка выходы перекрывают. Победа на восьмом участке возможна, если вы уже набрали 10 пути и отрыв выше нуля.</li></ol><p><b>Пример:</b> на крышах выпала телега. Для рывка нужно 4+ на к6. Выпало 5: путь +3, отрыв +2, силы −1. При результате 3: путь +1, отрыв −2, силы всё равно −1.</p><p>Отряд действует совместно, без очереди и таймера. Кости бросает сервер. Эти силы и путь относятся только к мини-игре: характеристики, позиции фигур и боевые действия персонажей не меняются. Проверки Атлетики, Акробатики и Скрытности персонажей пока не подключены. Последствия определяет мастер. Перезапуск сервера сбрасывает погоню.</p></details>
+      <details class="rules"><summary>Правила — шаг за шагом</summary><ol><li><b>Цель:</b> набрать 10 пути за 8 участков и сохранить положительный отрыв. Нулевой отрыв означает, что отряд настигли, даже у самого убежища.</li><li><b>Выберите маршрут.</b> Главная улица даёт +1 пути при успехе, переулки +2, крыши +3. Чем короче путь, тем труднее проверка. Выбор дороги сам по себе не расходует участок.</li><li><b>Изучите препятствие.</b> Оно случайно выбирается сервером и облегчает один из способов. Точный порог броска показан на кнопке. Вернуться к выбору дороги нельзя.</li><li><b>Рывок:</b> потратьте 1 силу и бросьте к6. Успех даёт продвижение маршрута и +2 отрыва. <b>Скрыться:</b> бросок без затрат сил, успех даёт продвижение маршрута и +1 отрыва. Неудача любого броска даёт только +1 пути и −2 отрыва.</li><li><b>Обход:</b> без броска получите +1 пути, −1 отрыва и восстановите 1 силу (до 4). Это тоже завершает участок.</li><li>После восьмого участка выходы перекрывают. Победа на восьмом участке возможна, если вы уже набрали 10 пути и отрыв выше нуля.</li></ol><p><b>Пример:</b> на крышах выпала телега. Для рывка нужно 4+ на к6. Выпало 5: путь +3, отрыв +2, силы −1. При результате 3: путь +1, отрыв −2, силы всё равно −1.</p><p>Отряд действует совместно, без очереди и таймера. Кости бросает сервер. Эти силы и путь относятся только к мини-игре: характеристики, позиции фигур и боевые действия персонажей не меняются. Проверки Атлетики, Акробатики и Скрытности персонажей пока не подключены. Последствия определяет мастер. Погоня хранится в кампании и переживает перезапуск программы.</p></details>
     </main>
   </div></div>
 </template>

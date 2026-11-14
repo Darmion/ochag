@@ -59,11 +59,6 @@ export async function ensureSrdSkills(request: RequestFn): Promise<SrdSkill[]> {
   return skills.value!;
 }
 
-export function invalidateSrdSpells() {
-  spells.value = null;
-  spellsPromise = null;
-}
-
 export type SrdMonsterAttack = {
   name: string; kind: 'melee' | 'ranged'; ability: 'strength' | 'dexterity'; toHit: number;
   reach?: number; range?: [number, number]; damage: string | null; average?: number; type?: string;
@@ -73,14 +68,16 @@ export type SrdMonster = {
   ac: number; acNote?: string; hp: number; hitDice: string; speed: number; speedNote?: string;
   abilities: [number, number, number, number, number, number];
   saves?: Record<string, number>; skills?: Record<string, number>;
-  vulnerable?: string[]; resistant?: string[]; immune?: string[]; conditionImmunities?: string;
+  vulnerable?: string[]; resistant?: string[]; immune?: string[]; defenseNote?: string; conditionImmunities?: string;
   darkvision?: number; senses?: string; passive: number; languages: string;
   cr: number; crText: string; xp: number; proficiency: number;
   multiattack?: { count: number; text: string };
   attacks: SrdMonsterAttack[];
   spellcasting?: { ability: string; slots: number[]; spells: string[]; text: string };
-  texts: { about: string; traits: string; actions: string; reactions: string };
+  legendary?: { actions: number; resistances?: number; options: Array<{ name: string; cost: number; text: string }> };
+  texts: { about: string; traits: string; actions: string; reactions: string; legendary: string };
   attackLines: string[];
+  modName?: string;
 };
 
 const monsters = ref<{ monsters: SrdMonster[]; attribution: string } | null>(null);

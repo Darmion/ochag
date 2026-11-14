@@ -1,10 +1,10 @@
 import { ref, computed, type Ref } from 'vue';
-import { KNOWN_FLAGS, type CampaignRule, RULE_KIND_LABELS, RULE_KINDS } from '../campaign/campaignRules';
-import { type RuleSort, type TopicFilter, normalizeSearch, type RuleTopic, ruleTopic, topicLabel, compareTopics, compareLabels } from './topics';
+import { knownFlags, type CampaignRule, type KnownFlag, RULE_KIND_LABELS, RULE_KINDS } from '../campaign/campaignRules';
+import { RULE_TOPICS, type RuleSort, type TopicFilter, normalizeSearch, type RuleTopic, ruleTopic, topicLabel, compareTopics, compareLabels } from './topics';
 
 export type RuleFiltersDeps = {
   rules: Ref<CampaignRule[]>;
-  knownFlagValue: (flag: (typeof KNOWN_FLAGS)[number]) => boolean;
+  knownFlagValue: (flag: KnownFlag) => boolean;
 };
 
 export function useRuleFilters({ rules, knownFlagValue }: RuleFiltersDeps) {
@@ -20,10 +20,10 @@ export function useRuleFilters({ rules, knownFlagValue }: RuleFiltersDeps) {
   }
 
   const topicMatches = (topic: RuleTopic) => topicFilter.value === 'all' || topicFilter.value === topic;
-  const topicForFlag = (flag: typeof KNOWN_FLAGS[number]) => ruleTopic(flag.key, flag.label, flag.description);
+  const topicForFlag = (flag: KnownFlag) => (RULE_TOPICS.some(topic => topic.id === flag.topic) ? flag.topic as RuleTopic : ruleTopic(flag.key, flag.label, flag.description));
   const topicForRule = (rule: CampaignRule) => ruleTopic(rule.key, rule.label, rule.description);
 
-  const visibleFlags = computed(() => KNOWN_FLAGS
+  const visibleFlags = computed(() => knownFlags()
     .filter(flag => topicMatches(topicForFlag(flag)) && matchesSearch([
       flag.label,
       flag.description,

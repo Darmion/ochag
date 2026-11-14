@@ -40,7 +40,7 @@ defineEmits<{
             <img :src="picture.url" alt="" />
             <span>{{ picture.label }}</span>
           </button>
-          <button type="button" class="pz-tile-delete" title="Удалить" :disabled="busy" @click="$emit('delete', picture)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+          <button type="button" class="pz-tile-delete icon-only" title="Удалить" :disabled="busy" @click="$emit('delete', picture)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
         </div>
       </div>
     </section>

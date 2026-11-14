@@ -1,7 +1,8 @@
 import { type ExpiresAt, type SpellRider, tempHpPerSlot, aidPerSlot } from '../../../../../packages/domain/spells/spell-riders.ts';
-import { spellSaveDc, spellAttackBonus, durationRounds } from '../../../../../packages/domain/spells/spell-mechanics.ts';
+import { itemSpellBonus, spellSaveDc, spellAttackBonus, durationRounds } from '../../../../../packages/domain/spells/spell-mechanics.ts';
 import { ownRollState } from '../rolls/modifiers.ts';
-import { removeCondition, conditionImmunity, addCondition, loadConditionState } from '../../rules/conditions.ts';
+import { removeCondition, conditionImmunity, addCondition, loadConditionState, cureCondition, cureKind, cureKinds } from '../../rules/conditions.ts';
+import { conditionName } from '../../rules/condition-rules.ts';
 import { durationRoundsOf } from '../../../../../packages/domain/spells/spell-template-engine.ts';
 import { CONDITION_LABELS } from '../../../../../packages/domain/combat/conditions.ts';
 import { averageDamage } from '../auto-turn/planner.ts';
@@ -12,7 +13,7 @@ import { applyHpChange } from '../combat/hp.ts';
 import { darkOnesBlessing } from '../../rules/class-features.ts';
 import type { TableContext } from '../context.ts';
 import type { Queryable } from '../../db.ts';
-import type { CastSpellParams } from '../shared.ts';
+import { reject, type CastSpellParams } from '../shared.ts';
 import type { CastBody } from './cast.ts';
 import type { CastSetup } from './prepare.ts';
 import type { CastDice } from './cast-dice.ts';
@@ -42,8 +43,9 @@ export async function castEffects(ctx: TableContext, q: Queryable, userId: strin
     return { at, of, skip: at === 'end' && currentIds.has(of) ? 1 : 0 };
   };
 
-  const dc = (legacy ? null : character.spell_save_dc_override) ?? spellSaveDc(proficiencyBonus ?? 0, castingModifier);
-  const attackBonus = (legacy ? null : character.spell_attack_override) ?? spellAttackBonus(proficiencyBonus ?? 0, castingModifier);
+  const itemBonus = itemSpellBonus(character.sheet_extra);
+  const dc = (legacy ? null : character.spell_save_dc_override) ?? spellSaveDc(proficiencyBonus ?? 0, castingModifier) + itemBonus.dc;
+  const attackBonus = (legacy ? null : character.spell_attack_override) ?? spellAttackBonus(proficiencyBonus ?? 0, castingModifier) + itemBonus.attack;
   const results: Array<Record<string, unknown>> = [];
   for (const entry of wardedOff) results.push({ characterId: entry.id, name: entry.name, sanctuary: true });
   const own = await ownRollState(q, campaignId, characterId);
@@ -117,10 +119,10 @@ export async function castEffects(ctx: TableContext, q: Queryable, userId: strin
   const templateRounds = spellTemplate ? durationRoundsOf(spellTemplate) : null;
   const LASTS: Record<string, ExpiresAt> = { 'caster-next-start': 'caster-start', 'caster-next-end': 'caster-end', 'target-next-start': 'target-start', 'target-next-end': 'target-end' };
   const templateUntil = (lasts: string, rounds: number, targetId: string) => {
-    if (LASTS[lasts]) return { expires: expiresOf(LASTS[lasts]!, targetId) };
+    if (LASTS[lasts]) return { expires: expiresOf(LASTS[lasts]!, targetId), ...(concentration ? held : {}) };
     if (lasts === 'rounds') return { remainingRounds: lasting(rounds), durationRounds: lasting(rounds) };
-    if (concentration) return held;
-    return templateRounds ? { remainingRounds: lasting(templateRounds), durationRounds: lasting(templateRounds) } : {};
+    const spellRounds = templateRounds ? { remainingRounds: lasting(templateRounds), durationRounds: lasting(templateRounds) } : {};
+    return concentration ? { ...held, ...spellRounds } : spellRounds;
   };
   const applyTemplateEffects = async (target: { id: string; name: string }) => {
     const applied: string[] = [];
@@ -161,7 +163,8 @@ export async function castEffects(ctx: TableContext, q: Queryable, userId: strin
     for (const code of castPlan.codes) {
       const aimedAt = (targetIds ?? []).find(id => id !== characterId);
       await addCondition(q, campaignId, target.id, code.code, {
-        ...base, ...code.parameters, ...templateUntil('spell', 1, target.id),
+        ...base, ...code.parameters, ...templateUntil(code.lasts ?? 'spell', 1, target.id),
+        ...(body.element && spellTemplate?.options.params.some(param => param.kind === 'damage-type') ? { damageType: body.element } : {}),
         ...(code.code === 'true_strike' && aimedAt ? { targetId: aimedAt } : {}),
       });
       applied.push(code.code);
@@ -169,9 +172,23 @@ export async function castEffects(ctx: TableContext, q: Queryable, userId: strin
     for (const removal of castPlan.removals) {
       const what = String(removal.what);
       if (what === 'conditions') {
-        for (const code of (removal.conditions as string[] | undefined) ?? []) if (await removeCondition(q, campaignId, target.id, code)) applied.push(`снято: ${CONDITION_LABELS[code] ?? code}`);
-      } else if (what === 'poison' || what === 'petrified') {
-        if (await removeCondition(q, campaignId, target.id, what === 'poison' ? 'poisoned' : 'petrified')) applied.push(what === 'poison' ? 'яд снят' : 'окаменение снято');
+        for (const code of (removal.conditions as string[] | undefined) ?? []) {
+          const cured = await cureCondition(q, campaignId, target.id, code);
+          if (cured) applied.push(`снято: ${await conditionName(q, campaignId, cured)}`);
+        }
+        for (const kind of cureKinds(removal.kinds)) {
+          for (const code of await cureKind(q, campaignId, target.id, kind)) applied.push(`снято: ${await conditionName(q, campaignId, code)}`);
+        }
+      } else if (what === 'disease' || what === 'curse') {
+        const cured = await cureKind(q, campaignId, target.id, what);
+        for (const code of cured) applied.push(`снято: ${await conditionName(q, campaignId, code)}`);
+        if (!cured.length) applied.push(what === 'disease' ? 'болезней не было' : 'проклятий не было');
+      } else if (what === 'poison') {
+        const [poison] = await cureKind(q, campaignId, target.id, 'poison', 1);
+        const cured = poison ?? await cureCondition(q, campaignId, target.id, 'poisoned');
+        applied.push(cured ? `яд снят: ${await conditionName(q, campaignId, cured)}` : 'яда не было');
+      } else if (what === 'petrified') {
+        if (await removeCondition(q, campaignId, target.id, 'petrified')) applied.push('окаменение снято');
       } else if (what === 'exhaustion') {
         const state = await loadConditionState(q, campaignId, target.id);
         if (state.exhaustion > 0) {
@@ -206,8 +223,10 @@ export async function castEffects(ctx: TableContext, q: Queryable, userId: strin
         .filter(entry => filter !== 'melee' || entry.weapon_kind !== 'ranged')
         .filter(entry => filter !== 'club-staff' || entry.srd_index === 'club' || entry.srd_index === 'quarterstaff' || /дубин|посох|club|quarterstaff/i.test(entry.name))
         .sort((a, b) => averageDamage(b.damage_formula) - averageDamage(a.damage_formula))[0];
-      if (!chosen) applied.push('подходящего оружия нет');
-      else {
+      if (!chosen) {
+        reject(400, filter === 'club-staff' ? `«${spellName}»: нужна дубинка или боевой посох в оружии.`
+          : filter === 'nonmagical' ? `«${spellName}»: у цели нет немагического оружия.` : `«${spellName}»: подходящего оружия нет.`);
+      } else {
         const until = templateUntil(String(w.lasts ?? 'spell'), Number(w.lastsRounds ?? 1), owner);
         if (Number(w.bonus ?? 0) > 0) await addCondition(q, campaignId, owner, 'magic_weapon', { ...base, weaponId: chosen.id, weaponName: chosen.name, bonus: Number(w.bonus), ...until });
         if (w.castingAbility === true || (w.die && w.die !== 'none')) {
@@ -232,10 +251,12 @@ export async function castEffects(ctx: TableContext, q: Queryable, userId: strin
     for (const rider of riders) {
       if (rider.kind === 'light' || rider.kind === 'darkness' || rider.kind === 'dispel_darkness') continue;
       if (rider.kind === 'push') {
-        const moved = sceneId ? await pushAway(q, campaignId, sceneId, characterId, target.id, rider.feet) : 0;
-        if (moved > 0) {
+        const moved = sceneId
+          ? await pushAway(q, campaignId, sceneId, characterId, target.id, rider.feet, false, (id, feet) => ctx.featureApi.fall(q, campaignId, userId, id, feet, false))
+          : { feet: 0, drop: 0 };
+        if (moved.feet > 0) {
           log.pushed = true;
-          applied.push(`отброшен на ${moved} фт.`);
+          applied.push(moved.drop ? `отброшен на ${moved.feet} фт. и падает с уступа (${moved.drop} фт.)` : `отброшен на ${moved.feet} фт.`);
         }
         continue;
       }
@@ -243,7 +264,7 @@ export async function castEffects(ctx: TableContext, q: Queryable, userId: strin
         const parsed = parseFormula(rider.dice);
         if (!parsed) continue;
         const rolled = rollDice(parsed, rollDie);
-        const value = Math.max(0, rolled.total) + tempHpPerSlot(spellText.higherLevel) * Math.max(0, extraLevels);
+        const value = Math.max(0, rolled.total) + (castPlan ? 0 : tempHpPerSlot(spellText.higherLevel) * Math.max(0, extraLevels));
         await q.query('UPDATE characters SET hp_temp = GREATEST(hp_temp, $3), revision=revision+1 WHERE campaign_id=$1 AND id=$2', [campaignId, target.id, value]);
         await insertRoll(q, campaignId, userId, characterId, `${spellName}: временные хиты — ${target.name}`.slice(0, 100), rider.dice.slice(0, 20), rolled.results, parsed.modifier, value, hidden ?? false);
         tempGiven.push(target.id);
@@ -251,12 +272,16 @@ export async function castEffects(ctx: TableContext, q: Queryable, userId: strin
         continue;
       }
       if (rider.kind === 'restore') {
+        let cured: string | null = null;
         for (const code of ['paralyzed', 'blinded', 'poisoned', 'deafened'].filter(entry => rider.conditions.includes(entry))) {
-          if (await removeCondition(q, campaignId, target.id, code)) {
-            applied.push(`снято: ${CONDITION_LABELS[code] ?? code}`);
-            break;
-          }
+          cured = await cureCondition(q, campaignId, target.id, code);
+          if (cured) break;
         }
+        for (const kind of cureKinds(rider.kinds)) {
+          if (cured) break;
+          cured = (await cureKind(q, campaignId, target.id, kind, 1))[0] ?? null;
+        }
+        if (cured) applied.push(`снято: ${await conditionName(q, campaignId, cured)}`);
         continue;
       }
       if (rider.kind === 'dispel') {
@@ -281,7 +306,7 @@ export async function castEffects(ctx: TableContext, q: Queryable, userId: strin
         continue;
       }
       if (rider.kind === 'aid') {
-        const bonus = rider.bonus + aidPerSlot(spellText.higherLevel) * Math.max(0, extraLevels);
+        const bonus = rider.bonus + (castPlan ? 0 : aidPerSlot(spellText.higherLevel) * Math.max(0, extraLevels));
         const before = Number((await q.query(`SELECT parameters->>'bonus' AS bonus FROM character_effects WHERE campaign_id=$1 AND character_id=$2 AND effect_code='aid' AND active`, [campaignId, target.id])).rows[0]?.bonus ?? 0);
         const delta = Math.max(0, bonus - before);
         if (delta > 0) {

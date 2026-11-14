@@ -17,7 +17,7 @@ defineProps<{ browser: SpellBrowser; readOnly: boolean }>();
     </div>
     <div class="filter-search">
       <input v-model="browser.filters.text" type="search" placeholder="Поиск заклинания…" aria-label="Поиск заклинания по названию" />
-      <button v-if="browser.filters.text" type="button" class="clear" aria-label="Очистить поиск" @click="browser.filters.text = ''"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+      <button v-if="browser.filters.text" type="button" class="clear icon-only" aria-label="Очистить поиск" @click="browser.filters.text = ''"><GameIcon class="inline-icon" name="close" :size="16" /></button>
     </div>
     <div class="filter-block">
       <span class="filter-label">Уровень заклинания</span>

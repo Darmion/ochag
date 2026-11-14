@@ -1,7 +1,6 @@
 import { Vector3, Matrix, Scene, ArcRotateCamera } from '@babylonjs/core';
 import { type LabelBlock, type LabelShift, layoutLabels } from '../labelLayout';
-import type { ToolHooks } from '../sceneTypes';
-import type { GameIconName } from '../../ui/gameIcons';
+import type { LabelIcon, ToolHooks } from '../sceneTypes';
 import { iconSvg } from '../../ui/iconSvg';
 
 export type OverlayLabel = {
@@ -21,6 +20,20 @@ export type LabelsDeps = {
   scene: Scene;
   camera: ArcRotateCamera;
 };
+
+const iconKey = (icon: LabelIcon) => (typeof icon === 'string' ? icon : `img:${icon.image}`);
+
+function iconNode(icon: LabelIcon): Element {
+  if (typeof icon === 'string') return iconSvg(icon, 13);
+  const image = document.createElement('img');
+  image.src = icon.image;
+  image.width = 13;
+  image.height = 13;
+  image.alt = '';
+  image.draggable = false;
+  image.className = 'label-icon label-image';
+  return image;
+}
 
 export function createLabels({ canvas, tools, scene, camera }: LabelsDeps) {
   const overlayLabels = new Set<OverlayLabel>();
@@ -44,15 +57,15 @@ export function createLabels({ canvas, tools, scene, camera }: LabelsDeps) {
     overlayLabels.delete(label);
   }
 
-  function setLabelText(label: OverlayLabel | null | undefined, text: string, icons: { before?: readonly GameIconName[]; after?: readonly GameIconName[] } = {}) {
+  function setLabelText(label: OverlayLabel | null | undefined, text: string, icons: { before?: readonly LabelIcon[]; after?: readonly LabelIcon[] } = {}) {
     if (!label) return;
     const before = icons.before ?? [];
     const after = icons.after ?? [];
-    const key = `${before.join(',')}|${text}|${after.join(',')}`;
+    const key = `${before.map(iconKey).join(',')}|${text}|${after.map(iconKey).join(',')}`;
     if (label.el.dataset.content === key) return;
     label.el.dataset.content = key;
     if (!before.length && !after.length) label.el.textContent = text;
-    else label.el.replaceChildren(...before.map(name => iconSvg(name, 13)), document.createTextNode(text), ...after.map(name => iconSvg(name, 13)));
+    else label.el.replaceChildren(...before.map(iconNode), document.createTextNode(text), ...after.map(iconNode));
     label.size = null;
   }
 

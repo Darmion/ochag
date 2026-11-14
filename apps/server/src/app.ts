@@ -19,7 +19,9 @@ import { assetRoutes } from './system/asset-routes.ts';
 import { objectFileRoutes } from './system/object-file-routes.ts';
 import { spellRoutes } from './spells/spell-routes.ts';
 import { spellTemplateRoutes } from './spells/spell-template-routes.ts';
+import { spellPackRoutes } from './spells/spell-pack-routes.ts';
 import { transferRoutes } from './system/transfer-routes.ts';
+import { adventureRoutes } from './campaign/adventure-routes.ts';
 import { updateRoutes } from './system/update-routes.ts';
 import { rulesRoutes } from './campaign/rules-routes.ts';
 import { describeValidation } from './app/errors.ts';
@@ -111,7 +113,7 @@ export async function buildApp(db: Database, options: AppOptions = {}) {
     requirePermission,
     events: campaignEvents,
   });
-  await app.register(minigameRoutes, { db, auth, membership });
+  await app.register(minigameRoutes, { db, auth, membership, events: campaignEvents });
   await app.register(noteRoutes, {
     db,
     auth,
@@ -148,6 +150,7 @@ export async function buildApp(db: Database, options: AppOptions = {}) {
     requirePermission,
   });
   await app.register(spellTemplateRoutes, { db, auth, membership, requirePermission });
+  await app.register(spellPackRoutes, { db, auth, membership, requirePermission, ...(options.mods ? { mods: options.mods } : {}) });
   await app.register(rulesRoutes, {
     db,
     auth,
@@ -168,5 +171,6 @@ export async function buildApp(db: Database, options: AppOptions = {}) {
     identity,
     requireCampaignCreator,
   });
+  await app.register(adventureRoutes, { db, auth, membership, requireCampaignCreator, ...(options.mods ? { mods: options.mods } : {}) });
   return app;
 }

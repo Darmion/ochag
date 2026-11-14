@@ -8,8 +8,10 @@ import { hotkeys } from '../../settings/hotkeys';
 import GameActionBar from '../../components/game/actionBar/GameActionBar.vue';
 import { gameWindows, closeAllGameWindows } from '../layout/gameHud';
 import type { WallTool, SceneObjectDTO } from './types';
+import type { ScatterPlan } from './scatter';
 
 export type TableKeysDeps = {
+  scatterPlan: Ref<ScatterPlan | null>;
   viewOnly: boolean;
   gameUi: ComputedRef<boolean>;
   hudHidden: Ref<boolean>;
@@ -49,7 +51,7 @@ export type TableKeysDeps = {
   handleGameKey: (event: KeyboardEvent) => boolean;
 };
 
-export function useTableKeys({ viewOnly, gameUi, hudHidden, actionBar, wallTool, wallPopover, terrainMode, wallFirstPoint, notesCanManage, table, mapFullscreen, settingsOpen, hotkeysOpen, factionsOpen, soundPopoverOpen, clockOpen, railMoreOpen, builderMode, multiCount, movingTemplateId, paletteOpen, tool, cameraMenuOpen, sectionsOpen, activeObject, frameCamera, focusActiveObject, removeFromScene, stepHistory, trapPopover, moveSelection, clearSelection, deselectActor, actorObject, tokenMenu, areaPopover, handleGameKey }: TableKeysDeps) {
+export function useTableKeys({ scatterPlan, viewOnly, gameUi, hudHidden, actionBar, wallTool, wallPopover, terrainMode, wallFirstPoint, notesCanManage, table, mapFullscreen, settingsOpen, hotkeysOpen, factionsOpen, soundPopoverOpen, clockOpen, railMoreOpen, builderMode, multiCount, movingTemplateId, paletteOpen, tool, cameraMenuOpen, sectionsOpen, activeObject, frameCamera, focusActiveObject, removeFromScene, stepHistory, trapPopover, moveSelection, clearSelection, deselectActor, actorObject, tokenMenu, areaPopover, handleGameKey }: TableKeysDeps) {
   function toggleMapFullscreen() {
     mapFullscreen.value = !mapFullscreen.value;
   }
@@ -59,6 +61,8 @@ export function useTableKeys({ viewOnly, gameUi, hudHidden, actionBar, wallTool,
     ArrowUp: [0, 1], ArrowDown: [0, -1], ArrowLeft: [-1, 0], ArrowRight: [1, 0],
   };
   const heldPanKeys = new Set<string>();
+  // Shift held with the pan keys triples the speed (board/cameraPan.ts).
+  let fastPan = false;
 
   watch(windowZoom, zoom => table()?.setWindowZoom(zoom));
   watch([cameraScheme, altMode], ([scheme]) => table()?.setCameraControls({ scheme, altRotate: altRotates() }));
@@ -79,11 +83,17 @@ export function useTableKeys({ viewOnly, gameUi, hudHidden, actionBar, wallTool,
       right += PAN_KEYS[code]![0];
       forward += PAN_KEYS[code]![1];
     }
-    table()?.setCameraPan(Math.sign(right), Math.sign(forward));
+    table()?.setCameraPan(Math.sign(right), Math.sign(forward), fastPan);
   }
 
   function handlePanKey(event: KeyboardEvent, down: boolean) {
+    if (event.key === 'Shift') {
+      fastPan = down;
+      if (heldPanKeys.size) applyPan();
+      return false;
+    }
     if (!(event.code in PAN_KEYS)) return false;
+    fastPan = event.shiftKey;
     if (down && event.code.startsWith('Arrow') && (cameraScheme.value !== 'tts' || multiCount.value > 0)) return false;
     if (down) {
       const typing = (event.target as HTMLElement | null)?.closest('input, textarea, select, [contenteditable]');
@@ -98,6 +108,7 @@ export function useTableKeys({ viewOnly, gameUi, hudHidden, actionBar, wallTool,
 
   function releasePanKeys() {
     heldPanKeys.clear();
+    fastPan = false;
     applyPan();
     altHeld.value = false;
   }
@@ -142,6 +153,7 @@ export function useTableKeys({ viewOnly, gameUi, hudHidden, actionBar, wallTool,
       if (table()?.cancelGesture()) return;
       if (paletteOpen.value) paletteOpen.value = false;
       else if (actionBar.value?.cancelStep()) return;
+      else if (scatterPlan.value) scatterPlan.value = null;
       else if (multiCount.value) clearSelection();
       else if (movingTemplateId.value) movingTemplateId.value = null;
       else if (tokenMenu.value || areaPopover.value || trapPopover.value) {

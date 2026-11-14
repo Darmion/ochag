@@ -5,6 +5,7 @@ import type {
 
 import type { Database, Queryable } from '../db.ts';
 import { isFormulaShapeValid } from '../../../../packages/domain/dice/formula.ts';
+import { modCampaignRules, modRuleProblem } from './mod-rules.ts';
 
 type Options = {
   db: Database;
@@ -102,7 +103,7 @@ async (app, options) => {
         )
       ).rows;
 
-      return { canManage, rules };
+      return { canManage, rules, modRules: modCampaignRules() };
     },
   );
 
@@ -129,6 +130,8 @@ async (app, options) => {
       const { key, kind, label, description, value } = request.body;
 
       validateValue(kind, value);
+      const modProblem = modRuleProblem(key, kind, value);
+      if (modProblem) reject(400, modProblem);
 
       const result = await db.transaction(async q => {
         const member = await membership(q, campaignId, userId, true);
@@ -181,7 +184,7 @@ async (app, options) => {
 
         const rule = (
           await q.query(
-            `SELECT kind, revision FROM campaign_rules WHERE campaign_id=$1 AND id=$2 FOR UPDATE`,
+            `SELECT key, kind, revision FROM campaign_rules WHERE campaign_id=$1 AND id=$2 FOR UPDATE`,
             [campaignId, ruleId],
           )
         ).rows[0];
@@ -192,6 +195,8 @@ async (app, options) => {
         }
 
         validateValue(rule.kind, value);
+        const modProblem = modRuleProblem(rule.key, rule.kind, value);
+        if (modProblem) reject(400, modProblem);
 
         const updated = await q.query(
           `UPDATE campaign_rules

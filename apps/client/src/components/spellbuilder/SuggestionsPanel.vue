@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import ActionSummary from './ActionSummary.vue';
+import GameIcon from '../game/GameIcon.vue';
 import { localized } from './localize';
 import { suggestedActions } from '../../spellBuilder/overview';
 import type { SuggestionState } from '../../spellBuilder/types';
@@ -13,7 +14,7 @@ const suggestionsOpen = defineModel<boolean>('open', { required: true });
   <aside class="suggestions" :class="{ collapsed: !suggestionsOpen }" aria-label="Подсказки">
     <header>
       <button type="button" class="fold" :aria-expanded="suggestionsOpen" @click="suggestionsOpen = !suggestionsOpen">
-        <span class="chevron" aria-hidden="true">▸</span>
+        <span class="chevron" aria-hidden="true"><GameIcon name="chevronRight" :size="12" /></span>
         <strong>Подсказки по описанию</strong>
         <span class="badge pending">{{ pending.length }}</span>
         <small class="muted">— ещё не приняты</small>

@@ -30,6 +30,7 @@ export type CharacterDTO = {
   disposition: Disposition | null;
   size: CreatureSize;
   image_asset_id: string | null;
+  image_open_asset_id?: string | null;
   image_crop?: unknown;
   model_asset_id: string | null;
   level: number | null;
@@ -53,6 +54,7 @@ export type CharacterDTO = {
   merchant?: boolean;
   death_successes?: number;
   death_failures?: number;
+  auto_death_saves?: boolean;
   weapons?: WeaponDTO[];
   damage_resistances?: string[];
   damage_immunities?: string[];

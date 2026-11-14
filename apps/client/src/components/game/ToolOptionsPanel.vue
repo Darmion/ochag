@@ -5,6 +5,9 @@ import { WALL_STYLES } from './WallPopover.vue';
 import type { TableTool, WallStyle } from '../../tabletop/scene';
 import type { AreaShape } from '../../tabletop/areas';
 import type { WallTool } from '../../tabletop/view/types';
+import type { TerrainKind } from '../../../../../packages/domain/map/terrain';
+import type { BrushDetail } from '../../../../../packages/domain/map/wall-brush';
+import { HEIGHT_STEPS } from '../../../../../packages/domain/map/relief';
 
 defineProps<{
   meta: { label: string; icon: GameIconName; detail: string };
@@ -15,7 +18,8 @@ defineProps<{
   wallsCount: number;
   wallTextureId: string | null;
   canManage: boolean;
-  difficultCells: number;
+  terrainCounts: Record<TerrainKind, number>;
+  elevationCells: number[][];
   colors: string[];
 }>();
 
@@ -32,12 +36,23 @@ const tool = defineModel<TableTool>('tool', { required: true });
 const shareRuler = defineModel<boolean>('shareRuler', { required: true });
 const openingKind = defineModel<'door' | 'window' | 'wall'>('openingKind', { required: true });
 const wallTool = defineModel<WallTool | null>('wallTool', { required: true });
+const wallBrushDetail = defineModel<BrushDetail>('wallBrushDetail', { required: true });
 const wallStyle = defineModel<WallStyle>('wallStyle', { required: true });
 const templateShape = defineModel<AreaShape>('templateShape', { required: true });
 const templateSizeFeet = defineModel<number>('templateSizeFeet', { required: true });
 const templateAsTrigger = defineModel<boolean>('templateAsTrigger', { required: true });
 const drawColor = defineModel<string>('drawColor', { required: true });
 const drawLayer = defineModel<'all' | 'gm'>('drawLayer', { required: true });
+const terrainKind = defineModel<TerrainKind | 'height'>('terrainKind', { required: true });
+const terrainHeight = defineModel<number>('terrainHeight', { required: true });
+
+const TERRAIN_KINDS: Array<[TerrainKind | 'height', string, string]> = [
+  ['difficult', 'Труднопроходимая', 'Каждая клетка стоит вдвое'],
+  ['shallow', 'Мелководье', 'Труднопроходимая клетка с водой'],
+  ['deep', 'Глубокая вода', 'Плавание: без скорости плавания клетка стоит вдвое; в доспехе — подсказка мастеру'],
+  ['height', 'Высота', 'Уступ, холм или яма: подъём и спуск стоят как лазание, столкнутый с уступа падает'],
+];
+const heightLabel = (feet: number) => (feet > 0 ? `+${feet} фт.` : `−${-feet} фт. (яма)`);
 
 const OPENINGS = [
   ['door', 'Дверь', 'Открывается щелчком (игроку — когда его существо рядом)'],
@@ -47,8 +62,14 @@ const OPENINGS = [
 const WALL_MODES = [
   ['chain', 'Цепочка', 'Щелчок за щелчком — стена продолжается от прошлой точки'],
   ['room', 'Комната', 'Два угла — четыре стены'],
+  ['brush', 'Кисть', 'Проведите линию от руки — она ляжет на узлы сетки цепочкой стен; конец у начала — замкнётся'],
   ['pick', 'Правка', 'Щелчок по стене — вид, картинка, удалить'],
 ] as const;
+const BRUSH_DETAILS: Array<[BrushDetail, string, string]> = [
+  ['fine', 'Подробно', 'Короткие отрезки — повторяют каждый изгиб линии'],
+  ['normal', 'Средне', 'Изгибы сглажены, мелкие дрожания руки не в счёт'],
+  ['rough', 'Крупно', 'Длинные отрезки — грубая пещера или скала'],
+];
 </script>
 
 <template>
@@ -79,6 +100,12 @@ const WALL_MODES = [
           @click="wallTool = entry[0]"
         >{{ entry[1] }}</button>
       </span>
+      <select
+        v-if="wallTool === 'brush'" v-model="wallBrushDetail" :disabled="busy" aria-label="Точность кисти"
+        :title="BRUSH_DETAILS.find(entry => entry[0] === wallBrushDetail)?.[2]"
+      >
+        <option v-for="entry in BRUSH_DETAILS" :key="entry[0]" :value="entry[0]" :title="entry[2]">{{ entry[1] }}</option>
+      </select>
       <select v-model="wallStyle" :disabled="busy" aria-label="Вид новых стен">
         <option v-for="entry in WALL_STYLES" :key="entry.id" :value="entry.id">{{ entry.label }}</option>
         <option v-if="wallTextureId" value="image">Своя картинка</option>
@@ -92,9 +119,22 @@ const WALL_MODES = [
       <button v-if="wallsCount" type="button" :disabled="busy" @click="emit('removeAllWalls')">Убрать все</button>
     </template>
     <template v-if="builderMode && terrainMode">
-      <span class="muted">Зажмите и протяните прямоугольник клеток; начали с отмеченной клетки — снимает.</span>
-      <span v-if="difficultCells" class="muted">Клеток: {{ difficultCells }}</span>
-      <button v-if="difficultCells" type="button" :disabled="busy" @click="emit('clearTerrain')">Снять всю</button>
+      <select v-model="terrainKind" :disabled="busy" aria-label="Вид местности" :title="TERRAIN_KINDS.find(entry => entry[0] === terrainKind)?.[2]">
+        <option v-for="entry in TERRAIN_KINDS" :key="entry[0]" :value="entry[0]">{{ entry[1] }}</option>
+      </select>
+      <select v-if="terrainKind === 'height'" v-model.number="terrainHeight" :disabled="busy" aria-label="Высота клеток">
+        <option v-for="feet in HEIGHT_STEPS" :key="feet" :value="feet">{{ heightLabel(feet) }}</option>
+      </select>
+      <template v-if="terrainKind === 'height'">
+        <span class="muted">Зажмите и протяните прямоугольник клеток; начали с клетки этой высоты — выравнивает её.</span>
+        <span v-if="elevationCells.length" class="muted">Клеток с высотой: {{ elevationCells.length }}</span>
+        <button v-if="elevationCells.length" type="button" :disabled="busy" title="Выровнять всю карту" @click="emit('clearTerrain')">Выровнять всё</button>
+      </template>
+      <template v-else>
+        <span class="muted">Зажмите и протяните прямоугольник клеток; начали с клетки этого вида — снимает его.</span>
+        <span v-if="terrainCounts.difficult + terrainCounts.shallow + terrainCounts.deep" class="muted">Этого вида: {{ terrainCounts[terrainKind] }}, всего: {{ terrainCounts.difficult + terrainCounts.shallow + terrainCounts.deep }}</span>
+        <button v-if="terrainCounts.difficult + terrainCounts.shallow + terrainCounts.deep" type="button" :disabled="busy" title="Убрать с карты всю местность и воду" @click="emit('clearTerrain')">Снять всю</button>
+      </template>
     </template>
     <template v-if="tool === 'template'">
       <select v-model="templateShape" aria-label="Форма области">
@@ -113,7 +153,7 @@ const WALL_MODES = [
     </template>
     <template v-if="drawingTool">
       <span class="draw-modes" role="radiogroup" aria-label="Чем рисовать">
-        <button type="button" role="radio" :aria-checked="tool === 'draw'" title="Кисть (B)" @click="tool = 'draw'"><GameIcon name="quill" :size="16" />Кисть</button>
+        <button type="button" role="radio" :aria-checked="tool === 'draw'" title="Кисть (B)" @click="tool = 'draw'"><GameIcon name="brush" :size="16" />Кисть</button>
         <button type="button" role="radio" :aria-checked="tool === 'text'" title="Подпись на карте (L)" @click="tool = 'text'"><GameIcon name="letter" :size="16" />Подпись</button>
         <button type="button" role="radio" :aria-checked="tool === 'erase'" title="Ластик (E)" @click="tool = 'erase'"><GameIcon name="eraser" :size="16" />Ластик</button>
       </span>

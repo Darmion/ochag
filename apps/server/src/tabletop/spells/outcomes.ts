@@ -1,8 +1,10 @@
-import { ENERGY_TYPES, type SPELL_EFFECTS } from './rules.ts';
+import type { ModSpellEffect } from './rules.ts';
+import type { RestorePreset } from '../../../../../packages/domain/spells/spell-template-engine.ts';
 import { reject } from '../shared.ts';
-import { enchantedWeapon } from '../combat/attack.ts';
-import { addCondition, loadConditionState, removeCondition } from '../../rules/conditions.ts';
-import { CHECK_ABILITY_LABELS_RU, type CheckAbility, initiativeRoll } from '../rolls/modifiers.ts';
+import type { ZonePlan } from '../../../../../packages/domain/spells/spell-template-engine.ts';
+import { addCondition, cureCondition, cureKind, loadConditionState, removeCondition } from '../../rules/conditions.ts';
+import { conditionName } from '../../rules/condition-rules.ts';
+import { initiativeRoll } from '../rolls/modifiers.ts';
 import { findMonster } from '../../../../../packages/domain/world/bestiary.ts';
 import { summonProblem, conjureCount, shapeProblem, type SpellSummon, type SpellShape } from '../../../../../packages/domain/spells/summons.ts';
 import { getScene } from '../scene/board.ts';
@@ -21,6 +23,8 @@ import { spellCylinderFeet } from '../../../../../packages/domain/spells/spell-r
 import type { Queryable } from '../../db.ts';
 import type { CastBody } from './cast.ts';
 import type { CastSetup } from './prepare.ts';
+import type { SpellRun } from './runtime/run.ts';
+import { zoneFiresAt, zoneSpellOf } from './runtime/zones.ts';
 
 export type CastTarget = { id: string; name: string; kind: string; armor_class: number };
 export type CastOutcome = {
@@ -36,42 +40,32 @@ export type CastOutcome = {
   castingAbility: string;
   zoneTemplate: any;
   dc: any;
+  run?: SpellRun | null;
 };
 
-export async function castSpellEffect(q: Queryable, cast: CastOutcome, effect: NonNullable<(typeof SPELL_EFFECTS)[string]>) {
-  const { body, targets, characterId, campaignId, held, castingAbility, results } = cast;
-  const { known, spellName, character, effectiveLevel, lasting } = cast.setup;
-  const index = known.srd_index as string;
-  if (index === 'protection-from-energy' && !(ENERGY_TYPES as readonly string[]).includes(body.element ?? '')) {
-    reject(400, `«${spellName}»: выберите стихию — кислота, холод, огонь, электричество или звук.`);
-  }
-  const aimed = targets.find(target => target.id !== characterId && target.kind !== 'object');
-  if (index === 'true-strike' && !aimed) reject(400, `«${spellName}»: выберите цель — по ней будет преимущество.`);
+export function srdCastChecks(index: string, spellName: string, casterId: string, targets: Array<{ id: string; kind?: string }>) {
+  const others = targets.filter(target => target.id !== casterId && target.kind !== 'object');
+  if (index === 'true-strike' && !others.length) reject(400, `«${spellName}»: выберите цель — по ней будет преимущество.`);
+  if (index === 'warding-bond' && targets.some(target => target.id === casterId)) reject(400, `«${spellName}»: выберите другое существо — связь не на себя.`);
+  if (index === 'warding-bond' && !others.length) reject(400, `«${spellName}»: выберите другое существо — связь не на себя.`);
+}
+
+export async function castSpellEffect(q: Queryable, cast: CastOutcome, effect: ModSpellEffect) {
+  const { targets, characterId, campaignId, held, results } = cast;
+  const { spellName, character, effectiveLevel, lasting } = cast.setup;
   const who = effect.self || !targets.length ? [{ id: characterId, name: character.name as string }] : targets.filter(target => target.kind !== 'object');
-  if (index === 'warding-bond' && who.some(target => target.id === characterId)) reject(400, `«${spellName}»: выберите другое существо — связь не на себя.`);
   for (const target of who) {
-    const weapon = index === 'shillelagh' || index === 'magic-weapon' ? await enchantedWeapon(q, campaignId, target.id, index, spellName) : null;
-    const bonus = index === 'magic-weapon' ? (effectiveLevel >= 6 ? 3 : effectiveLevel >= 4 ? 2 : 1) : 0;
     await addCondition(q, campaignId, target.id, effect.code, {
       source: 'spell', sourceCharacterId: characterId, sourceName: spellName, spellName, spellLevel: effectiveLevel,
       remainingRounds: lasting(effect.rounds), durationRounds: lasting(effect.rounds), ...(effect.parameters ?? {}), ...held,
-      ...(index === 'protection-from-energy' ? { damageType: body.element } : {}),
-      ...(index === 'true-strike' && aimed ? { targetId: aimed.id, targetName: aimed.name } : {}),
-      ...(weapon ? { weaponId: weapon.id, weaponName: weapon.name } : {}),
-      ...(index === 'shillelagh' ? { ability: castingAbility } : {}),
-      ...(bonus ? { bonus } : {}),
     });
     const existing = results.find(entry => entry.characterId === target.id);
     if (existing) existing.condition = true;
     else results.push({ characterId: target.id, name: target.name, condition: true });
-    if (weapon) {
-      const entry = results.find(row => row.characterId === target.id)!;
-      entry.notes = [...((entry.notes as string[] | undefined) ?? []), bonus ? `«${weapon.name}» +${bonus}` : `«${weapon.name}»: к8, ${CHECK_ABILITY_LABELS_RU[castingAbility as CheckAbility] ?? castingAbility}`];
-    }
   }
 }
 
-export async function castAid(q: Queryable, cast: CastOutcome, aid: string) {
+export async function castAid(q: Queryable, cast: CastOutcome, aid: RestorePreset) {
   const { targets, campaignId, results } = cast;
   const { spellName } = cast.setup;
   for (const target of targets.filter(entry => entry.kind !== 'object')) {
@@ -82,19 +76,22 @@ export async function castAid(q: Queryable, cast: CastOutcome, aid: string) {
       if (existing) existing.notes = [...((existing.notes as string[] | undefined) ?? []), text];
       else results.push({ characterId: target.id, name: target.name, notes: [text] });
     };
-    if (aid === 'spare-the-dying') {
+    if (aid === 'stabilize') {
       if (state.codes.has('dead') || Number(row?.hp_current ?? 1) > 0) { note('не при смерти'); continue; }
       await addCondition(q, campaignId, target.id, 'stable', { source: 'spell', sourceName: spellName });
       await q.query('UPDATE characters SET death_successes=0, death_failures=0, revision=revision+1 WHERE campaign_id=$1 AND id=$2', [campaignId, target.id]);
       note('стабилен');
-    } else if (aid === 'revivify' || aid === 'raise-dead') {
+    } else if (aid === 'revive') {
       if (!state.codes.has('dead')) { note('не мёртв'); continue; }
       for (const code of ['dead', 'unconscious', 'stable']) await removeCondition(q, campaignId, target.id, code);
       await q.query('UPDATE characters SET hp_current=GREATEST(hp_current, 1), death_successes=0, death_failures=0, revision=revision+1 WHERE campaign_id=$1 AND id=$2', [campaignId, target.id]);
       note('снова жив: 1 хит');
     } else {
-      if (await removeCondition(q, campaignId, target.id, 'petrified')) note('окаменение снято');
-      else if (await removeCondition(q, campaignId, target.id, 'charmed')) note('очарование снято');
+      const curse = async () => (await cureKind(q, campaignId, target.id, 'curse', 1))[0] ?? null;
+      let cursed: string | null = null;
+      if (await cureCondition(q, campaignId, target.id, 'petrified')) note('окаменение снято');
+      else if (await cureCondition(q, campaignId, target.id, 'charmed')) note('очарование снято');
+      else if ((cursed = await curse())) note(`проклятие снято: ${await conditionName(q, campaignId, cursed)}`);
       else if (state.exhaustion > 0) {
         await q.query(`DELETE FROM character_effects WHERE campaign_id=$1 AND character_id=$2 AND active AND effect_code LIKE 'exhaustion\\_%'`, [campaignId, target.id]);
         if (state.exhaustion > 1) await addCondition(q, campaignId, target.id, `exhaustion_${state.exhaustion - 1}`, { source: 'spell', sourceName: spellName });
@@ -227,26 +224,41 @@ export async function castShape(q: Queryable, cast: CastOutcome, shapeRule: Spel
   }
 }
 
-export async function castZone(q: Queryable, cast: CastOutcome) {
-  const { campaignId, sceneId, zoneTemplate, dc, characterId, userId } = cast;
+export async function zoneAroundCaster(q: Queryable, campaignId: string, sceneId: string, casterId: string, userId: string, zone: ZonePlan, spellName: string) {
+  const at = (await q.query(
+    'SELECT x, z FROM scene_objects WHERE campaign_id=$1 AND scene_id=$2 AND character_id=$3 AND parent_object_id IS NULL LIMIT 1',
+    [campaignId, sceneId, casterId],
+  )).rows[0];
+  if (!at) reject(400, `«${spellName}»: заклинателя нет на этой сцене.`);
+  return (await q.query(
+    `INSERT INTO scene_templates (campaign_id, scene_id, shape, x, z, direction, size_feet, label, created_by, height_feet)
+     VALUES ($1,$2,'circle',$3,$4,0,$5,$6,$7,$8) RETURNING *`,
+    [campaignId, sceneId, at.x, at.z, zone.sizeFeet, spellName.slice(0, 40), userId, zone.shape === 'cylinder' && zone.heightFeet ? zone.heightFeet : null],
+  )).rows[0];
+}
+
+export async function castZone(q: Queryable, cast: CastOutcome): Promise<string> {
+  const { campaignId, sceneId, zoneTemplate, dc, characterId, userId, run } = cast;
   const { mechanics, spellName, castPlan, spellText } = cast.setup;
+  const zone = castPlan?.followUps.zone && run ? zoneSpellOf(run, castPlan.followUps.zone, zoneTemplate.id) : null;
   const formulaOk = !mechanics.damageFormula || (() => {
     const parsed = parseExpression(mechanics.damageFormula!);
     return parsed.ok && !hasTokens(parsed.expression);
   })();
-  await q.query(
+  return (await q.query(
     `INSERT INTO scene_triggers (
              campaign_id, scene_id, kind, shape, x, z, direction, size_feet, name,
              check_kind, check_key, dc, damage_formula, damage_type, half_on_success,
-             once, enabled, secret, on_turn, caster_id, created_by, height_feet
-           ) VALUES ($1,$2,'enter',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,false,true,false,$15,$16,$17,$18)`,
+             once, enabled, secret, on_turn, caster_id, created_by, height_feet, spell
+           ) VALUES ($1,$2,'enter',$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,false,true,false,$15,$16,$17,$18,$19::jsonb) RETURNING id`,
     [
       campaignId, sceneId, zoneTemplate.shape, zoneTemplate.x, zoneTemplate.z, zoneTemplate.direction, zoneTemplate.size_feet,
       spellName.slice(0, 100),
       mechanics.save ? 'save' : null, mechanics.save, mechanics.save ? dc : null,
       formulaOk ? mechanics.damageFormula : null, mechanics.damageType, mechanics.halfOnSave,
-      !mechanics.condition, characterId, userId,
+      zone ? zoneFiresAt(zone, 'start') : !mechanics.condition, characterId, userId,
       zoneTemplate.shape === 'circle' ? (castPlan ? castPlan.cylinderFeet : spellCylinderFeet(spellText.desc)) : null,
+      zone ? JSON.stringify(zone) : null,
     ],
-  );
+  )).rows[0].id as string;
 }

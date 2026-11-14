@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, ref, watch } from 'vue';
 import ItemArt from '../rpg/ItemArt.vue';
+import DamageTag from '../common/DamageTag.vue';
 import { schoolArt } from '../../art/itemArt';
 import type { SrdSpell } from '../../rules/srd';
 import { SCHOOLS, SCHOOL_LABELS, classesRu, componentsRu, spellTextRu } from '../../spells/spellText';
@@ -112,7 +113,7 @@ function rowText(spell: SrdSpell) {
       <span class="picker-count" :class="{ done: modelValue.length === limit }">выбрано {{ modelValue.length }} из {{ limit }}</span>
       <span v-for="spell in chosenSpells" :key="spell.index" class="chosen-chip">
         {{ nameOf(spell) }}
-        <button type="button" :aria-label="`Убрать «${nameOf(spell)}»`" @click="toggle(spell)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button class="icon-only" type="button" :aria-label="`Убрать «${nameOf(spell)}»`" @click="toggle(spell)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </span>
     </div>
     <div class="picker-body">
@@ -161,7 +162,7 @@ function rowText(spell: SrdSpell) {
           </header>
           <div class="tags">
             <span v-for="purpose in traits.get(focused.index)?.purposes ?? []" :key="purpose" class="tag">{{ SPELL_PURPOSES.find(entry => entry.id === purpose)?.label }}</span>
-            <span v-for="type in traits.get(focused.index)?.damageTypes ?? []" :key="type" class="tag">{{ DAMAGE_TYPE_LABELS[type] }}</span>
+            <span v-for="type in traits.get(focused.index)?.damageTypes ?? []" :key="type" class="tag"><DamageTag :type="type" :label="DAMAGE_TYPE_LABELS[type]" /></span>
             <span v-if="focused.concentration" class="tag">концентрация</span>
             <span v-if="focused.ritual" class="tag">ритуал</span>
           </div>

@@ -106,7 +106,6 @@ test('altitude counts in reach, range and areas', async t => {
     const druid = (await request('POST', `${base}/characters`, gm.token, {kind: 'npc', name: 'Друид', disposition: 'neutral', level: 5, wisdom: 16})).json();
     await place(gm.token, druid.id, 4.5, 4.5);
     await pg.query(`INSERT INTO character_spell_slots(campaign_id, character_id, level, current, max) VALUES ($1,$2,2,3,3)`, [campaignId, druid.id]);
-    assert.equal((await request('POST', '/srd/spells/moonbeam/mechanics', gm.token, {createsZone: true})).statusCode, 200);
     const beam = (await request('POST', `${base}/characters/${druid.id}/spells`, gm.token, {source: 'srd', srdIndex: 'moonbeam'})).json().id as string;
     const spot = (await request('POST', `${scenePath}/templates`, gm.token, {shape: 'circle', x: -3, z: -3, sizeFeet: 5, label: 'Луч'})).json().id as string;
     const cast = await request('POST', `${base}/characters/${druid.id}/spells/${beam}/cast`, gm.token, {templateId: spot, sceneId});

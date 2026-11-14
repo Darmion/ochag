@@ -23,7 +23,7 @@ The project is in open beta.
 
 ## Building from source
 
-Requirements: Windows, Node.js 24 or newer, and Docker Desktop for the development database.
+Requirements: Windows, Node.js 24 or newer, Docker Desktop for the development database, and Rust ([rustup.rs](https://rustup.rs)) for the desktop app.
 
 ```powershell
 Copy-Item .env.example .env       # set POSTGRES_PASSWORD and APP_DB_PASSWORD (20+ characters)
@@ -44,7 +44,7 @@ npm --prefix apps/client run dev  # http://127.0.0.1:5173
 The desktop app starts its own embedded PostgreSQL and server and does not need Docker:
 
 ```powershell
-npm run desktop                   # build the client and open it in Electron
+npm run desktop                   # build the client and the Tauri shell and open the app
 npm run desktop:dist              # build the installer into release/
 ```
 
@@ -65,7 +65,7 @@ The same checks run on GitHub for every push and pull request (`.github/workflow
 |---|---|
 | `apps/server` | Fastify API and the `/live` WebSocket; the server is the source of truth and checks every permission |
 | `apps/client` | Vue 3 and TypeScript client; the 3D table is built on Babylon.js |
-| `apps/desktop` | Electron shell: the embedded PostgreSQL and server, a sandboxed window and a limited preload API |
+| `apps/desktop` | Desktop app: a Tauri shell in Rust (windows, dialogs) and a Node.js host for the embedded PostgreSQL and server; a sandboxed window with a limited preload API |
 | `packages/domain` | Game rules without the server or the database, and the SRD 5.1 data |
 | `packages/importer` | The common character sheet format used by import mods |
 | `mods` | Bundled optional mods: the art pack and the Long Story Short sheet import |

@@ -1,10 +1,10 @@
 import type { Queryable } from '../../db.ts';
-import { conditionLabel, loadEffects, addCondition } from '../conditions.ts';
+import { conditionLabel, loadConditionState, addCondition } from '../conditions.ts';
 import { objectSchema, uuid, reject } from '../../tabletop/scene-feature.ts';
 import { characterClassLevels, type ClassLevel, CLASS_LABELS } from '../../../../../packages/domain/character/classes.ts';
 import { type ClassFeature, classFeaturesFor, CLASS_FEATURE_LIST } from '../../../../../packages/domain/character/class-features.ts';
 import { proficiencyBonusForLevel, abilityModifier } from '../../../../../packages/domain/dice/dice.ts';
-import { conditionState } from '../../../../../packages/domain/combat/conditions.ts';
+
 import { findSrdSpell, srdSpellName } from '../srd-data.ts';
 
 import { CHARACTER_COLUMNS, type ClassFeatureContext, classResourceOf, HARMFUL_SPELL_EFFECTS, spendClassResource } from '../class-features.ts';
@@ -95,7 +95,7 @@ export async function openHand(
 ) {
   const target = (await q.query('SELECT id, name FROM characters WHERE campaign_id=$1 AND id=$2', [campaignId, targetId])).rows[0] as any;
   if (!target) return null;
-  const codes = conditionState((await loadEffects(q, campaignId, targetId)).map(effect => effect.effect_code)).codes;
+  const codes = (await loadConditionState(q, campaignId, targetId)).codes;
   const how = technique === 'prone' && codes.has('prone') ? 'no-reactions' : technique;
   const save = async (ability: string, ru: string) => (ctx.rollSaveAgainst
     ? ctx.rollSaveAgainst(q, campaignId, userId, targetId, ability, monk.dc, `Спасбросок ${ru} (СЛ ${monk.dc}) против «Техники открытой ладони» — ${target.name}`.slice(0, 100), false, { condition: ability === 'dexterity' ? 'prone' : null })
@@ -107,8 +107,10 @@ export async function openHand(
   }
   if (how === 'push') {
     const result = await save('strength', 'СИЛ');
-    const moved = result && !result.success && sceneId && ctx.pushAway ? await ctx.pushAway(q, campaignId, sceneId, monk.id, targetId, 15) : 0;
-    return result?.success ? `«${target.name}» устоял` : moved ? `«${target.name}» отброшен на ${moved} фт.` : `«${target.name}» — отбросить некуда`;
+    const moved = result && !result.success && sceneId && ctx.pushAway ? await ctx.pushAway(q, campaignId, sceneId, monk.id, targetId, 15, userId) : { feet: 0, drop: 0 };
+    if (result?.success) return `«${target.name}» устоял`;
+    if (!moved.feet) return `«${target.name}» — отбросить некуда`;
+    return moved.drop ? `«${target.name}» отброшен на ${moved.feet} фт. и падает с уступа (${moved.drop} фт.)` : `«${target.name}» отброшен на ${moved.feet} фт.`;
   }
   await addCondition(q, campaignId, targetId, 'no_reactions', {
     source: 'feature', sourceCharacterId: monk.id, sourceName: 'Техника открытой ладони', expires: { at: 'end', of: monk.id, skip: monk.current ? 1 : 0 },
@@ -133,7 +135,7 @@ export async function preserveCandidates(ctx: ClassFeatureContext, q: Queryable,
     if (!entry || entry.kind === 'object') continue;
     const type = ctx.creatureType ? await ctx.creatureType(q, campaignId, id) : null;
     if (type === 'undead' || type === 'construct') continue;
-    if (conditionState((await loadEffects(q, campaignId, id)).map(effect => effect.effect_code)).codes.has('dead')) continue;
+    if ((await loadConditionState(q, campaignId, id)).codes.has('dead')) continue;
     const room = Math.max(0, Math.floor(Number(entry.hp_max) / 2) - Number(entry.hp_current));
     list.push({ id, name: entry.name, current: Number(entry.hp_current), max: Number(entry.hp_max), room });
   }

@@ -299,17 +299,11 @@ test('spell slots and casting', async t => {
     assert.equal(response.statusCode, 201, response.body);
   });
 
-  await t.test('SRD spell mechanics overlay: any authenticated user can set it (same authorization as translations), form is validated, and it is castable', async () => {
-    const bad = await request('POST', '/srd/spells/fire-bolt/mechanics', player.token, {damageFormula: 'nonsense'});
-    assert.equal(bad.statusCode, 400);
-
-    const set = await request('POST', '/srd/spells/fire-bolt/mechanics', player.token, {damageFormula: '1d1'});
-    assert.equal(set.statusCode, 200, set.body);
-    assert.equal(set.json().damageFormula, '1d1');
-
-    const srdList = (await request('GET', '/srd/spells', player.token)).json().spells;
-    const fireBolt = srdList.find((s: any) => s.index === 'fire-bolt');
-    assert.equal(fireBolt.damageFormula, '1d1');
+  await t.test('the old global SRD mechanics overlay is gone: no route for anyone, a cantrip is cast by its table', async () => {
+    const gone = await request('POST', '/srd/spells/fire-bolt/mechanics', player.token, {damageFormula: '1d1'});
+    assert.equal(gone.statusCode, 404);
+    const fireBolt = (await request('GET', '/srd/spells', player.token)).json().spells.find((s: any) => s.index === 'fire-bolt');
+    assert.equal(fireBolt.damageFormula, null);
     assert.equal(fireBolt.level, 0, 'fire-bolt is a cantrip — sanity check for the no-slot-consumption assertion below');
 
     const addFireBolt = await request('POST', charSpellsPath, player.token, {source: 'srd', srdIndex: 'fire-bolt'});
@@ -318,7 +312,8 @@ test('spell slots and casting', async t => {
     const cast = await request('POST', castPath(addFireBolt.json().id), player.token, {});
     assert.equal(cast.statusCode, 201, cast.body);
     assert.equal(cast.json().slot, null);
-    assert.equal(cast.json().damageRoll.total, 2);
+    assert.equal(cast.json().template?.spellId, 'fire-bolt');
+    assert.ok(cast.json().damageRoll.total >= 1);
   });
 
   await t.test('a formula using @prof with no level and no legacy proficiency is a clear 400 on cast, not a silent 0', async () => {

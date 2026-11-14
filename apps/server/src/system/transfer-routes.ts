@@ -6,10 +6,10 @@ import type {
 import { randomUUID } from 'node:crypto';
 import { readFile, unlink, writeFile } from 'node:fs/promises';
 import path from 'node:path';
-import { gunzipSync, gzipSync } from 'node:zlib';
 
 import type { Database, Queryable } from '../db.ts';
 import { ASSETS_DIR, detectAudio, detectGlb, detectImage } from './asset-routes.ts';
+import { packContainer, unpackContainer } from './gzip-container.ts';
 
 type Options = {
   db: Database;
@@ -44,18 +44,22 @@ const TABLES = [
   'assets',
   'characters', 'factions', 'faction_members', 'faction_relations', 'character_effects', 'character_resources', 'character_skills', 'character_saves',
   'campaign_spells', 'campaign_spell_refs', 'campaign_spell_revisions', 'campaign_srd_templates', 'character_spells', 'character_spell_slots', 'character_weapons',
-  'character_field_visibility', 'character_field_visibility_grants', 'character_access_grants', 'object_states', 'magic_items',
+  'character_field_visibility', 'character_field_visibility_grants', 'character_access_grants', 'object_states', 'magic_items', 'character_examine',
   'scenes', 'scene_objects', 'scene_walls', 'scene_fog_state', 'scene_drawings', 'scene_counters', 'scene_templates', 'scene_triggers',
   'initiative_entries', 'roll_log',
   'campaign_notes', 'campaign_note_grants', 'scene_pins',
-  'campaign_rules', 'campaign_audio', 'campaign_encounters', 'campaign_quests', 'campaign_quest_objectives',
-  'handouts', 'handout_recipients', 'dialogues', 'chat_messages', 'combat_records', 'chronicle_entries', 'roll_tables',
+  'campaign_rules', 'campaign_conditions', 'campaign_audio', 'campaign_encounters', 'campaign_quests', 'campaign_quest_objectives',
+  'handouts', 'handout_recipients', 'dialogues', 'chat_messages', 'combat_records', 'chronicle_entries', 'roll_tables', 'roll_macros',
   'campaign_art',
 ] as const;
 
 export const NOT_TRANSFERRED = [
   'character_vision_overrides', 'import_drafts', 'campaign_invites',
-  'dialogue_sessions', 'scene_opportunities', 'roll_applications', 'combat_events',
+  'dialogue_sessions', 'scene_opportunities', 'roll_applications', 'combat_events', 'scene_backups',
+  // A mini-game under way belongs to one evening at the table, not to the campaign carried elsewhere.
+  'campaign_minigames',
+  // Who examined what is a record of rolls at one table; the GM's examine settings travel with the campaign.
+  'character_examinations',
 ] as const;
 export { TABLES as TRANSFER_TABLES };
 
@@ -70,44 +74,19 @@ function reject(statusCode: number, message: string): never {
   throw Object.assign(new Error(message), { statusCode });
 }
 
-function packContainer(json: PackageJson, blobs: Buffer[]): Buffer {
-  const header = Buffer.from(JSON.stringify(json), 'utf8');
-  const length = Buffer.alloc(4);
-  length.writeUInt32BE(header.length);
-  return gzipSync(Buffer.concat([MAGIC, length, header, ...blobs]));
-}
-
-function unpackContainer(compressed: Buffer): { json: PackageJson; body: Buffer } {
-  let raw: Buffer;
-
-  try {
-    raw = gunzipSync(compressed, { maxOutputLength: MAX_UNPACKED_BYTES });
-  } catch {
-    return reject(400, 'Файл не похож на сохранённую кампанию (или повреждён).');
-  }
-
-  if (raw.length < MAGIC.length + 4 || !raw.subarray(0, MAGIC.length).equals(MAGIC)) {
-    reject(400, 'Файл не похож на сохранённую кампанию.');
-  }
-
-  const jsonLength = raw.readUInt32BE(MAGIC.length);
-  const jsonStart = MAGIC.length + 4;
-
-  if (jsonStart + jsonLength > raw.length) reject(400, 'Файл кампании обрезан или повреждён.');
-
-  let json: PackageJson;
-
-  try {
-    json = JSON.parse(raw.subarray(jsonStart, jsonStart + jsonLength).toString('utf8'));
-  } catch {
-    return reject(400, 'Файл кампании повреждён.');
-  }
+function unpackCampaign(compressed: Buffer): { json: PackageJson; body: Buffer } {
+  const unpacked = unpackContainer<PackageJson>(MAGIC, compressed, MAX_UNPACKED_BYTES);
+  if (unpacked === 'not-gzip') reject(400, 'Файл не похож на сохранённую кампанию (или повреждён).');
+  if (unpacked === 'wrong-signature') reject(400, 'Файл не похож на сохранённую кампанию.');
+  if (unpacked === 'truncated') reject(400, 'Файл кампании обрезан или повреждён.');
+  if (unpacked === 'bad-header') reject(400, 'Файл кампании повреждён.');
+  const json = unpacked.header;
 
   if (json?.format !== 'ttrpg-campaign' || json.formatVersion !== 1) {
     reject(400, 'Неизвестный формат файла кампании — обновите приложение.');
   }
 
-  return { json, body: raw.subarray(jsonStart + jsonLength) };
+  return { json, body: unpacked.body };
 }
 
 async function schemaVersion(db: Queryable): Promise<number> {
@@ -186,7 +165,7 @@ export const transferRoutes: FastifyPluginAsync<Options> = async (app, options) 
         files,
       };
 
-      const packed = packContainer(json, blobs);
+      const packed = packContainer(MAGIC, json, blobs);
       const fileName = encodeURIComponent(`${String(campaign.name).slice(0, 80)}.ochag-campaign`);
 
       reply
@@ -215,7 +194,7 @@ export const transferRoutes: FastifyPluginAsync<Options> = async (app, options) 
         throw error;
       }
 
-      const { json, body } = unpackContainer(compressed);
+      const { json, body } = unpackCampaign(compressed);
       const currentSchema = await schemaVersion(db);
 
       if (json.schemaVersion !== currentSchema) {

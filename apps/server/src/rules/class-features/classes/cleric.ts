@@ -1,9 +1,9 @@
-import { addCondition, loadEffects } from '../../conditions.ts';
+import { addCondition, loadConditionState } from '../../conditions.ts';
 import { reject } from '../../../tabletop/scene-feature.ts';
 import { sceneOfCreature } from '../../class-features.ts';
 import { spendResource, entryOf, preserveCandidates, clericDc } from '../helpers.ts';
 import { classLevelOf, preserveLifeProblem, destroyUndeadCr, divineInterventionBlock, divineStrikeDice } from '../../../../../../packages/domain/character/class-features.ts';
-import { conditionState } from '../../../../../../packages/domain/combat/conditions.ts';
+
 import type { FeatureAction, FeatureResult, FeatureUse } from './types.ts';
 import type { FeatureLook, FeatureView, FeatureViewFn } from './types.ts';
 
@@ -47,7 +47,7 @@ async function turnUndead(use: FeatureUse): Promise<FeatureResult> {
   const parts: string[] = [];
   for (const near of await ctx.creaturesNear(q, campaignId, where, characterId, 30)) {
     if (!(await ctx.isUndead(q, campaignId, near.id))) continue;
-    const state = conditionState((await loadEffects(q, campaignId, near.id)).map(effect => effect.effect_code));
+    const state = (await loadConditionState(q, campaignId, near.id));
     if (state.codes.has('dead')) continue;
     const save = await ctx.rollSaveAgainst(q, campaignId, userId, near.id, 'wisdom', dc, `Спасбросок МДР (СЛ ${dc}) против «Изгнания нежити» — ${near.name}`, false, { condition: 'turned', magic: true });
     if (save.success) {

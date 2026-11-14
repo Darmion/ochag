@@ -1,3 +1,5 @@
+import { linkedCodes, ruleClauses, ruleOf, type Clause, type ConditionRule, type RuleSet } from './condition-rules.ts';
+
 export const CONDITION_CODES = [
   'blinded', 'charmed', 'deafened', 'frightened', 'grappled', 'incapacitated', 'invisible',
   'paralyzed', 'petrified', 'poisoned', 'prone', 'restrained', 'stunned', 'unconscious',
@@ -70,6 +72,9 @@ export const CONDITION_LABELS: Record<string, string> = {
   multiattack_defense: 'защита от мультиатаки',
   spell_light: 'светится',
   spell_darkness: 'окутан тьмой',
+  spell_action: 'действие заклинания',
+  climbing: 'на стене',
+  spider_climb: '«Паук»',
 };
 
 export type Ability = 'strength' | 'dexterity' | 'constitution' | 'intelligence' | 'wisdom' | 'charisma';
@@ -79,9 +84,20 @@ export type D20Kind = 'attack' | 'save' | 'ability' | 'skill';
 export type ConditionState = {
   codes: Set<string>;
   exhaustion: number;
+  // The campaign's own condition rules (missing — the SRD) and who put each condition on the creature.
+  rules?: RuleSet;
+  sources?: ReadonlyMap<string, ReadonlySet<string>>;
+  // Conditions whose source the creature cannot see right now: their «while the source is in sight» clauses rest.
+  outOfSight?: ReadonlySet<string>;
+  // The stage of each staged condition (a disease that worsens); missing — the first one.
+  stages?: ReadonlyMap<string, number>;
+  // Conditions held only because another one brings them along («вместе с состоянием»), with the code that brought them.
+  linked?: ReadonlyMap<string, string>;
 };
 
-export function conditionState(effectCodes: Iterable<string>): ConditionState {
+export function conditionState(
+  effectCodes: Iterable<string>, rules?: RuleSet, sources?: ReadonlyMap<string, ReadonlySet<string>>, stages?: ReadonlyMap<string, number>,
+): ConditionState {
   const codes = new Set<string>();
   let exhaustion = 0;
   for (const code of effectCodes) {
@@ -89,21 +105,60 @@ export function conditionState(effectCodes: Iterable<string>): ConditionState {
     if (level) exhaustion = Math.max(exhaustion, Number(level[1]));
     else codes.add(code);
   }
-  return { codes, exhaustion };
+  const linked = new Map<string, string>();
+  let allSources = sources;
+  const queue = [...codes];
+  while (queue.length) {
+    const code = queue.shift()!;
+    for (const other of linkedCodes(ruleOf(rules, code), stages?.get(code))) {
+      if (codes.has(other)) continue;
+      codes.add(other);
+      linked.set(other, code);
+      queue.push(other);
+      const from = allSources?.get(code);
+      if (from?.size) allSources = new Map([...(allSources ?? []), [other, new Set([...(allSources?.get(other) ?? []), ...from])]]);
+    }
+  }
+  return {
+    codes, exhaustion, ...(rules ? { rules } : {}), ...(allSources ? { sources: allSources } : {}),
+    ...(stages?.size ? { stages } : {}), ...(linked.size ? { linked } : {}),
+  };
+}
+
+export function withoutCodes(state: ConditionState, drop: readonly string[]): ConditionState {
+  return { ...state, codes: new Set([...state.codes].filter(code => !drop.includes(code))) };
 }
 
 const has = (state: ConditionState, code: string) => state.codes.has(code);
 
+type Held = { code: string; rule: ConditionRule; clause: Clause };
+
+function heldClauses(state: ConditionState, kind: Clause['kind']): Held[] {
+  const found: Held[] = [];
+  for (const code of [...state.codes].sort()) {
+    const rule = ruleOf(state.rules, code);
+    for (const clause of ruleClauses(rule, state.stages?.get(code))) if (clause.kind === kind) found.push({ code, rule: rule!, clause });
+  }
+  return found;
+}
+
+const nameOf = (state: ConditionState, code: string) => ruleOf(state.rules, code)?.name ?? CONDITION_LABELS[code] ?? code;
+const capital = (text: string) => text.charAt(0).toUpperCase() + text.slice(1);
+const INCAPACITATED_ORDER = ['unconscious', 'paralyzed', 'petrified', 'stunned', 'incapacitated'];
+
+function helplessCodes(state: ConditionState): string[] {
+  const codes = heldClauses(state, 'cannot-act').filter(held => held.clause.values.what === 'all').map(held => held.code);
+  return [...new Set(codes)].sort((a, b) => (INCAPACITATED_ORDER.indexOf(a) + 1 || 99) - (INCAPACITATED_ORDER.indexOf(b) + 1 || 99));
+}
+
 export function isIncapacitated(state: ConditionState): boolean {
-  return ['incapacitated', 'paralyzed', 'petrified', 'stunned', 'unconscious', 'dead'].some(code => has(state, code)) || state.exhaustion >= 6;
+  return has(state, 'dead') || state.exhaustion >= 6 || helplessCodes(state).length > 0;
 }
 
 export function incapacitatedReason(state: ConditionState): string | null {
   if (has(state, 'dead') || state.exhaustion >= 6) return 'мёртв';
-  for (const code of ['unconscious', 'paralyzed', 'petrified', 'stunned', 'incapacitated']) {
-    if (has(state, code)) return CONDITION_LABELS[code]!;
-  }
-  return null;
+  const code = helplessCodes(state)[0];
+  return code ? nameOf(state, code) : null;
 }
 
 export function reactionBlocked(state: ConditionState): string | null {
@@ -111,14 +166,16 @@ export function reactionBlocked(state: ConditionState): string | null {
   if (unable) return unable;
   if (has(state, 'no_reactions')) return 'без реакций до начала своего хода';
   if (has(state, 'turned')) return 'изгнан';
-  return null;
+  const banned = heldClauses(state, 'cannot-act').find(held => held.clause.values.what === 'reactions');
+  return banned ? banned.rule.name : null;
 }
 
 export type SpeedRuling = { feet: number; reasons: string[]; crawling: boolean };
 
 export function effectiveSpeed(baseFeet: number, state: ConditionState): SpeedRuling {
-  const stopped = ['grappled', 'restrained', 'paralyzed', 'petrified', 'stunned', 'unconscious', 'dead'].filter(code => has(state, code));
-  if (stopped.length) return { feet: 0, reasons: stopped.map(code => `скорость 0: ${CONDITION_LABELS[code]}`), crawling: false };
+  const speeds = heldClauses(state, 'speed');
+  const stopped = [...new Set(speeds.filter(held => held.clause.values.mode === 'zero').map(held => held.code)), ...(has(state, 'dead') ? ['dead'] : [])];
+  if (stopped.length) return { feet: 0, reasons: stopped.map(code => `скорость 0: ${nameOf(state, code)}`), crawling: false };
   if (state.exhaustion >= 5) return { feet: 0, reasons: ['скорость 0: истощение 5'], crawling: false };
 
   const reasons: string[] = [];
@@ -127,7 +184,11 @@ export function effectiveSpeed(baseFeet: number, state: ConditionState): SpeedRu
     feet = Math.floor(feet / 2);
     reasons.push(`скорость вдвое меньше: истощение ${state.exhaustion}`);
   }
-  const crawling = has(state, 'prone');
+  for (const held of speeds.filter(entry => entry.clause.values.mode === 'half')) {
+    feet = Math.floor(feet / 2);
+    reasons.push(`скорость вдвое меньше: ${held.rule.name}`);
+  }
+  const crawling = speeds.some(held => held.clause.values.mode === 'crawl');
   if (crawling) reasons.push('ползком: каждый фут стоит два');
   return { feet, reasons, crawling };
 }
@@ -137,6 +198,7 @@ export type RollContext = {
   ability: Ability;
   own: ConditionState;
   target?: ConditionState | null;
+  targetId?: string | null;
   targetWithin5ft?: boolean | null;
   requested?: Advantage;
   inspiration?: boolean;
@@ -157,6 +219,15 @@ export type RollRuling = {
   notes: string[];
 };
 
+function rollMatches(values: Record<string, unknown>, kind: D20Kind, ability: Ability): boolean {
+  const rolls = values.rolls;
+  const check = kind === 'ability' || kind === 'skill';
+  if ((rolls === 'attacks' && kind !== 'attack') || (rolls === 'saves' && kind !== 'save') || (rolls === 'checks' && !check)) return false;
+  const pick = values.ability ?? 'any';
+  if (kind === 'attack' || pick === 'any') return true;
+  return pick === 'str-dex' ? ability === 'strength' || ability === 'dexterity' : pick === ability;
+}
+
 export function d20Ruling(context: RollContext): RollRuling {
   const { own } = context;
   const advantages: string[] = [];
@@ -165,6 +236,7 @@ export function d20Ruling(context: RollContext): RollRuling {
   let autoFail = false;
   let autoCritOnHit = false;
   const autoFailReasons: string[] = [];
+  const effectWords: Record<string, string> = { advantage: 'преимущество', disadvantage: 'помеха', fail: 'автопровал' };
 
   if (context.requested === 'adv') advantages.push('выбрано преимущество');
   if (context.requested === 'disadv') disadvantages.push('выбрана помеха');
@@ -172,38 +244,59 @@ export function d20Ruling(context: RollContext): RollRuling {
   for (const reason of context.extraDisadvantages ?? []) disadvantages.push(reason);
   for (const reason of context.extraAdvantages ?? []) advantages.push(reason);
 
-  if (context.kind === 'attack') {
-    for (const code of ['blinded', 'frightened', 'poisoned', 'prone', 'restrained']) {
-      if (code === 'blinded' && context.ignoreUnseen) continue;
-      if (has(own, code)) disadvantages.push(CONDITION_LABELS[code]!);
+  let sightFailed = false;
+  for (const { code, rule, clause } of heldClauses(own, 'own-rolls')) {
+    const v = clause.values;
+    if (!rollMatches(v, context.kind, context.ability)) continue;
+    if (v.whileSourceSeen && own.outOfSight?.has(code)) continue;
+    if (context.kind === 'attack' && v.against === 'source' && !(context.targetId && own.sources?.get(code)?.has(context.targetId))) continue;
+    if (context.kind === 'attack' && v.bySight) {
+      if (v.effect === 'disadvantage' && context.ignoreUnseen) continue;
+      if (v.effect === 'advantage' && context.unseenNoAdvantage) continue;
     }
-    if (own.exhaustion >= 3) disadvantages.push(`истощение ${own.exhaustion}`);
-    if (has(own, 'invisible') && !context.unseenNoAdvantage) advantages.push('невидим');
-    if (has(own, 'frightened')) notes.push('Испуган: помеха, пока источник страха в поле зрения.');
+    const sense = v.sense ?? 'any';
+    if (context.kind !== 'attack' && context.kind !== 'save' && sense !== 'any') {
+      const by = sense === 'sight' ? 'зрением' : 'слухом';
+      if (context.sense !== sense) {
+        if (!context.sense) {
+          notes.push(v.effect === 'fail'
+            ? `${capital(rule.name)}: проверка, требующая ${sense === 'sight' ? 'зрения' : 'слуха'}, проваливается автоматически.`
+            : `${capital(rule.name)}: проверка, требующая ${sense === 'sight' ? 'зрения' : 'слуха'}, — ${effectWords[String(v.effect)]}.`);
+        }
+        continue;
+      }
+      if (v.effect === 'fail') {
+        autoFail = true;
+        if (sense === 'sight') sightFailed = true;
+        autoFailReasons.push(`автопровал: ${rule.name} — проверка ${by}`);
+        continue;
+      }
+    }
+    if (v.effect === 'fail') {
+      autoFail = true;
+      autoFailReasons.push(`автопровал: ${rule.name}`);
+    } else (v.effect === 'advantage' ? advantages : disadvantages).push(rule.name);
+    if (v.whileSourceSeen && context.kind === 'attack') notes.push(`${capital(rule.name)}: ${effectWords[String(v.effect)]}, пока источник в поле зрения.`);
+  }
 
+  if (context.kind === 'attack') {
+    if (own.exhaustion >= 3) disadvantages.push(`истощение ${own.exhaustion}`);
     const target = context.target;
     if (target && dodges(target)) disadvantages.push('цель уклоняется');
     if (target) {
-      for (const code of ['blinded', 'paralyzed', 'petrified', 'restrained', 'stunned', 'unconscious']) {
-        if (has(target, code)) advantages.push(`цель ${CONDITION_LABELS[code]}`);
+      for (const { code, rule, clause } of heldClauses(target, 'rolls-against')) {
+        const v = clause.values;
+        if (v.bySight && context.ignoreUnseen) continue;
+        if (v.range === 'near' && context.targetWithin5ft === false) continue;
+        if (v.range === 'far' && context.targetWithin5ft !== false) continue;
+        const text = v.range === 'near' ? `цель ${rule.name}, вы в 5 фут.` : v.range === 'far' ? `цель ${rule.name}, вы дальше 5 фут.` : rule.asTarget ?? `цель ${nameOf(target, code)}`;
+        (v.effect === 'advantage' ? advantages : disadvantages).push(text);
       }
-      if (has(target, 'invisible') && !context.ignoreUnseen) disadvantages.push('цель невидима');
-      if (has(target, 'prone')) {
-        if (context.targetWithin5ft === false) disadvantages.push('цель лежит ничком, вы дальше 5 фут.');
-        else advantages.push('цель лежит ничком, вы в 5 фут.');
+      for (const { clause } of heldClauses(target, 'crit-against')) {
+        if (clause.values.range !== 'near' || context.targetWithin5ft !== false) autoCritOnHit = true;
       }
-      if ((has(target, 'paralyzed') || has(target, 'unconscious')) && context.targetWithin5ft !== false) autoCritOnHit = true;
     }
   } else if (context.kind === 'save') {
-    if (context.ability === 'strength' || context.ability === 'dexterity') {
-      for (const code of ['paralyzed', 'petrified', 'stunned', 'unconscious']) {
-        if (has(own, code)) {
-          autoFail = true;
-          autoFailReasons.push(`автопровал: ${CONDITION_LABELS[code]}`);
-        }
-      }
-    }
-    if (context.ability === 'dexterity' && has(own, 'restrained')) disadvantages.push('опутан');
     if (context.ability === 'dexterity' && dodges(own)) advantages.push('уклонение');
     if (context.ability === 'dexterity' && has(own, 'hasted')) advantages.push('ускорение');
     if (context.ability === 'wisdom' && has(own, 'beacon_of_hope')) advantages.push('маяк надежды');
@@ -211,18 +304,11 @@ export function d20Ruling(context: RollContext): RollRuling {
     if (own.exhaustion >= 3) disadvantages.push(`истощение ${own.exhaustion}`);
   } else {
     if (context.ability === 'strength' && has(own, 'raging')) advantages.push('ярость');
-    for (const code of ['frightened', 'poisoned']) {
-      if (has(own, code)) disadvantages.push(CONDITION_LABELS[code]!);
-    }
     if (own.exhaustion >= 1) disadvantages.push(`истощение ${own.exhaustion}`);
-    if (context.sense === 'sight' && (has(own, 'blinded') || context.sightBlocked)) {
+    if (context.sense === 'sight' && !sightFailed && context.sightBlocked) {
       autoFail = true;
-      autoFailReasons.push(`автопровал: ${has(own, 'blinded') ? 'ослеплён' : context.sightBlocked} — проверка зрением`);
-    } else if (!context.sense && has(own, 'blinded')) notes.push('Ослеплён: проверка, требующая зрения, проваливается автоматически.');
-    if (context.sense === 'hearing' && has(own, 'deafened')) {
-      autoFail = true;
-      autoFailReasons.push('автопровал: оглох — проверка слухом');
-    } else if (!context.sense && has(own, 'deafened')) notes.push('Оглох: проверка, требующая слуха, проваливается автоматически.');
+      autoFailReasons.push(`автопровал: ${context.sightBlocked} — проверка зрением`);
+    }
   }
 
   const blocked = context.kind === 'attack' && context.noAdvantage && advantages.length ? context.noAdvantage : null;
@@ -243,6 +329,41 @@ export function d20Ruling(context: RollContext): RollRuling {
   if (advantages.length && disadvantages.length) reasons.push('преимущество и помеха гасят друг друга');
 
   return { advantage, autoFail, autoCritOnHit, reasons, notes };
+}
+
+// Who the condition holder may not attack: the source of the condition, anyone, or anyone but the source.
+export function attackBan(state: ConditionState, targetId: string): { code: string; name: string } | null {
+  for (const { code, rule, clause } of heldClauses(state, 'cannot-attack')) {
+    const fromTarget = Boolean(state.sources?.get(code)?.has(targetId));
+    const whom = clause.values.whom;
+    if (whom === 'anyone' || (whom === 'source' && fromTarget) || (whom === 'others' && !fromTarget)) return { code, name: rule.name };
+  }
+  return null;
+}
+
+export function approachBans(state: ConditionState): Array<{ code: string; name: string; whileSeen: boolean }> {
+  return heldClauses(state, 'cannot-approach').map(({ code, rule, clause }) => ({ code, name: rule.name, whileSeen: clause.values.whileSeen !== false }));
+}
+
+export function resistsAll(state: ConditionState): string | null {
+  return heldClauses(state, 'resistance')[0]?.rule.name ?? null;
+}
+
+// Plain numbers the conditions add to the creature's own d20 rolls (a disease's −2 to attacks).
+export function conditionRollBonus(state: ConditionState, kind: D20Kind, ability: Ability | null, sense: 'sight' | 'hearing' | null = null) {
+  let value = 0;
+  const reasons: string[] = [];
+  for (const { rule, clause } of heldClauses(state, 'roll-bonus')) {
+    const v = clause.values;
+    if (!rollMatches(v, kind, ability ?? 'strength') || (ability === null && (v.ability ?? 'any') !== 'any' && kind !== 'attack')) continue;
+    const wanted = v.sense ?? 'any';
+    if (kind !== 'attack' && kind !== 'save' && wanted !== 'any' && wanted !== sense) continue;
+    const amount = Number(v.value) || 0;
+    if (!amount) continue;
+    value += amount;
+    if (!reasons.includes(rule.name)) reasons.push(rule.name);
+  }
+  return { value, reasons };
 }
 
 function dodges(state: ConditionState) {

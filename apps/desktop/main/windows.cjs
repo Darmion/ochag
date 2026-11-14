@@ -1,15 +1,8 @@
-const { BrowserWindow, ipcMain, screen, shell } = require('electron');
+// The window channels: the windows themselves live in the Tauri shell (src-tauri/src/main.rs), the host keeps their state
+// and the checks of senders.cjs.
+const { ipcMain } = require('../bridge/runtime.cjs');
 const { senderKind, validateSender } = require('./senders.cjs');
 const { nativeText } = require('./native-texts.cjs');
-
-const EXTERNAL_LINKS = new Set([
-  'https://github.com/Darmion/ochag/issues',
-  'https://aka.ms/vs/17/release/vc_redist.x64.exe',
-  'https://helloiamsinan.itch.io/rpg-essentials-ultimate-fantasy-icons-gui-pack',
-  'https://tommusic.itch.io/',
-  'https://dnd.wizards.com/resources/systems-reference-document',
-  'https://creativecommons.org/licenses/by/4.0/legalcode',
-]);
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -39,109 +32,44 @@ function publicPlayerView(ctx) {
   return ctx.playerViewState ? { ...ctx.playerViewState } : null;
 }
 
-async function createPlayerViewWindow(ctx) {
-  const primary = screen.getPrimaryDisplay();
-  const external = screen.getAllDisplays().find(display => display.id !== primary.id);
-  const area = external?.workArea;
-  const width = area ? Math.min(1280, area.width) : 1280;
-  const height = area ? Math.min(800, area.height) : 800;
-
-  ctx.playerViewWindow = new BrowserWindow({
-    ...(area
-      ? { x: Math.round(area.x + (area.width - width) / 2), y: Math.round(area.y + (area.height - height) / 2), width, height }
-      : { width, height }),
-    minWidth: 480,
-    minHeight: 360,
-    title: nativeText('Очаг — вид игроков'),
-    ...ctx.windowIcon,
-    backgroundColor: '#0b0704',
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: ctx.preloadPath,
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
+// What the handlers and senders.cjs know of a window: its label, webContents and main frame.
+function shellWindow(label, url, protocol) {
+  const window = { label, alive: true };
+  const mainFrame = { url };
+  window.webContents = {
+    mainFrame,
+    send: (channel, ...payload) => {
+      if (window.alive) protocol.emitTo(label, channel, payload);
     },
-  });
-
-  ctx.playerViewWindow.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
-  ctx.playerViewWindow.webContents.on('will-navigate', event => event.preventDefault());
-
-  ctx.playerViewWindow.on('closed', () => {
-    ctx.playerViewWindow = null;
-    ctx.playerViewState = null;
-    ctx.mainWindow?.webContents.send('player-view:closed');
-  });
-
-  ctx.playerViewWindow.webContents.on('before-input-event', (event, input) => {
-    if (input.type !== 'keyDown' || input.key !== 'F11' || !ctx.playerViewWindow) return;
-    event.preventDefault();
-    ctx.playerViewWindow.setFullScreen(!ctx.playerViewWindow.isFullScreen());
-  });
-
-  await ctx.playerViewWindow.loadFile(ctx.entryPath, { query: { view: 'player' } });
-  if (external) ctx.playerViewWindow.maximize();
+    isDestroyed: () => !window.alive,
+  };
+  return window;
 }
 
-async function createWindow(ctx) {
-  ctx.mainWindow = new BrowserWindow({
-    width: 1280,
-    height: 900,
-    minWidth: 850,
-    minHeight: 620,
-    title: 'Очаг',
-    ...ctx.windowIcon,
-    backgroundColor: '#0b0704',
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: ctx.preloadPath,
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      autoplayPolicy: 'no-user-gesture-required',
-    },
-  });
-
-  ctx.mainWindow.webContents.setWindowOpenHandler(({ url }) => {
-    if (EXTERNAL_LINKS.has(url)) {
-      void shell.openExternal(url);
-    }
-
-    return { action: 'deny' };
-  });
-
-  ctx.mainWindow.webContents.on('will-navigate', event => {
-    event.preventDefault();
-  });
-
-  ctx.mainWindow.on('focus', () => ctx.mainWindow?.flashFrame(false));
-
-  ctx.mainWindow.on('closed', () => {
-    ctx.mainWindow = null;
-    ctx.playerViewWindow?.close();
-  });
-
-  await ctx.mainWindow.loadFile(ctx.entryPath);
-}
-
-function registerWindowHandlers(ctx) {
+function registerWindowHandlers(ctx, protocol) {
   ipcMain.handle('window:attention', event => {
     validateSender(ctx, event);
-    if (ctx.mainWindow && !ctx.mainWindow.isFocused()) ctx.mainWindow.flashFrame(true);
+    protocol.notify('window.attention', { label: 'main' });
   });
 
   ipcMain.handle('player-view:open', async (event, input) => {
     validateSender(ctx, event);
-    const next = parsePlayerView(input, true);
-    ctx.playerViewState = next;
+    ctx.playerViewState = parsePlayerView(input, true);
 
     if (ctx.playerViewWindow) {
       ctx.playerViewWindow.webContents.send('player-view:changed', publicPlayerView(ctx));
-      ctx.playerViewWindow.focus();
+      await protocol.call('window.focus', { label: 'player-view' });
       return true;
     }
 
-    await createPlayerViewWindow(ctx);
+    ctx.playerViewWindow = shellWindow('player-view', ctx.playerViewUrl, protocol);
+    try {
+      await protocol.call('window.openPlayerView', { title: nativeText('Очаг — вид игроков') });
+    } catch (error) {
+      ctx.playerViewWindow = null;
+      ctx.playerViewState = null;
+      throw error;
+    }
     return true;
   });
 
@@ -153,9 +81,9 @@ function registerWindowHandlers(ctx) {
     return true;
   });
 
-  ipcMain.handle('player-view:close', event => {
+  ipcMain.handle('player-view:close', async event => {
     validateSender(ctx, event);
-    ctx.playerViewWindow?.close();
+    if (ctx.playerViewWindow) await protocol.call('window.close', { label: 'player-view' });
     return true;
   });
 
@@ -168,6 +96,14 @@ function registerWindowHandlers(ctx) {
     if (senderKind(ctx, event) !== 'player-view') throw new Error('Недопустимый источник команды.');
     return publicPlayerView(ctx);
   });
+
+  protocol.onEvent(message => {
+    if (message.name !== 'window-closed' || message.label !== 'player-view' || !ctx.playerViewWindow) return;
+    ctx.playerViewWindow.alive = false;
+    ctx.playerViewWindow = null;
+    ctx.playerViewState = null;
+    ctx.mainWindow?.webContents.send('player-view:closed');
+  });
 }
 
-module.exports = { createWindow, registerWindowHandlers };
+module.exports = { shellWindow, registerWindowHandlers };

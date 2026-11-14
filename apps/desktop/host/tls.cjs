@@ -1,6 +1,6 @@
 // Players pin the GM's self-signed certificate by fingerprint on first connect; Chromium (net.fetch, the window's WebSocket) accepts it only when pinned.
 // Chromium caches certificate checks, so an unpinned certificate is inspected via node:tls first.
-const {app, session} = require('electron');
+const {app, session} = require('../bridge/runtime.cjs');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const os = require('node:os');

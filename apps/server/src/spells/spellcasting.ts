@@ -1,7 +1,7 @@
 import { pendingSpellRefs } from '../characters/spell-refs.ts';
 import { abilityModifier, proficiencyOf } from '../../../../packages/domain/dice/dice.ts';
 import { characterClassLevels } from '../../../../packages/domain/character/classes.ts';
-import { spellAttackBonus, spellSaveDc } from '../../../../packages/domain/spells/spell-mechanics.ts';
+import { itemSpellBonus, spellAttackBonus, spellSaveDc } from '../../../../packages/domain/spells/spell-mechanics.ts';
 
 import { characterAccessLevel, requireCharacterAccess } from '../characters/sheet/access.ts';
 import { characterParams, type CharacterParams } from '../characters/sheet/shared.ts';
@@ -35,8 +35,8 @@ export function registerSpellcastingRoutes(ctx: RouteContext) {
         const proficiency = proficiencyOf(character) ?? 0;
         return {
           ability, abilityFromSheet: character.spellcasting_ability !== null, modifier, proficiency,
-          dc: character.spell_save_dc_override ?? spellSaveDc(proficiency, modifier),
-          attack: character.spell_attack_override ?? spellAttackBonus(proficiency, modifier),
+          dc: character.spell_save_dc_override ?? spellSaveDc(proficiency, modifier) + itemSpellBonus(character.sheet_extra).dc,
+          attack: character.spell_attack_override ?? spellAttackBonus(proficiency, modifier) + itemSpellBonus(character.sheet_extra).attack,
           dcOverride: character.spell_save_dc_override, attackOverride: character.spell_attack_override,
           classes: characterClassLevels(character).classes.map(entry => entry.id),
           autoReactions: character.auto_reactions ?? [],

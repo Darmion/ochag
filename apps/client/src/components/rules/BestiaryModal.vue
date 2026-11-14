@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import DamageTag from '../common/DamageTag.vue';
 import { useEscapeClose } from '../../ui/escapeStack';
 import { locale } from '../../i18n/i18n';
 import { computed, onMounted, ref, watch } from 'vue';
@@ -35,7 +36,8 @@ const attribution = ref('');
 const error = ref('');
 const working = ref(false);
 const search = ref('');
-const band = ref<'all' | 'low' | 'mid' | 'high' | 'top'>('all');
+const band = ref<'all' | 'low' | 'mid' | 'high' | 'strong' | 'deadly' | 'top'>('all');
+const source = ref<'all' | 'srd' | 'mods'>('all');
 const selectedIndex = ref('');
 const count = ref(1);
 const basket = ref<BestiaryPick[]>([]);
@@ -49,7 +51,9 @@ const BANDS: Record<typeof band.value, { label: string; test: (cr: number) => bo
   low: { label: 'опасность 0–1/2', test: cr => cr <= 0.5 },
   mid: { label: 'опасность 1–3', test: cr => cr >= 1 && cr <= 3 },
   high: { label: 'опасность 4–6', test: cr => cr >= 4 && cr <= 6 },
-  top: { label: 'опасность 7+', test: cr => cr >= 7 },
+  strong: { label: 'опасность 7–10', test: cr => cr >= 7 && cr <= 10 },
+  deadly: { label: 'опасность 11–16', test: cr => cr >= 11 && cr <= 16 },
+  top: { label: 'опасность 17+', test: cr => cr >= 17 },
 };
 
 const ABILITIES = ['СИЛ', 'ЛОВ', 'ТЕЛ', 'ИНТ', 'МДР', 'ХАР'];
@@ -63,16 +67,11 @@ const SKILL_LABELS: Record<string, string> = {
   performance: 'Выступление', persuasion: 'Убеждение', religion: 'Религия', 'sleight-of-hand': 'Ловкость рук',
   stealth: 'Скрытность', survival: 'Выживание',
 };
-const DAMAGE_LABELS: Record<string, string> = {
-  acid: 'кислота', bludgeoning: 'дробящий', cold: 'холод', fire: 'огонь', force: 'силовое поле', lightning: 'электричество',
-  necrotic: 'некротическая энергия', piercing: 'колющий', poison: 'яд', psychic: 'психическая энергия', radiant: 'излучение',
-  slashing: 'рубящий', thunder: 'звук',
-};
 
 onMounted(async () => {
   try {
     const data = await ensureSrdMonsters(props.request);
-    monsters.value = data.monsters;
+    monsters.value = [...data.monsters].sort((a, b) => a.cr - b.cr || a.nameRu.localeCompare(b.nameRu, 'ru'));
     attribution.value = data.attribution;
     selectedIndex.value = data.monsters[0]?.index ?? '';
   } catch (cause) {
@@ -80,10 +79,12 @@ onMounted(async () => {
   }
 });
 
+const hasMods = computed(() => monsters.value.some(monster => monster.modName));
 const filtered = computed(() => {
   const needle = search.value.trim().toLowerCase();
   return monsters.value.filter(monster =>
     BANDS[band.value].test(monster.cr)
+    && (source.value === 'all' || (source.value === 'mods') === Boolean(monster.modName))
     && (!needle || monster.nameRu.toLowerCase().includes(needle) || monster.name.toLowerCase().includes(needle) || monster.type.toLowerCase().includes(needle)));
 });
 
@@ -103,7 +104,6 @@ const modifier = (score: number) => {
 const signed = (value: number) => (value >= 0 ? `+${value}` : String(value));
 const listOf = (entries: Record<string, number> | undefined, labels: Record<string, string>) =>
   Object.entries(entries ?? {}).map(([key, value]) => `${labels[key] ?? key} ${signed(value)}`).join(', ');
-const damageList = (types: string[] | undefined) => (types ?? []).map(type => DAMAGE_LABELS[type] ?? type).join(', ');
 const paragraphs = (text: string) => text.split('\n\n').filter(Boolean).map(entry => {
   const dot = entry.indexOf('. ');
   return dot > 0 ? { title: entry.slice(0, dot), body: entry.slice(dot + 2) } : { title: '', body: entry };
@@ -123,7 +123,7 @@ const DAMAGE_PHRASE: Record<string, string> = {
 type AttackView = SrdMonster['attacks'][number] & { note?: string; versatile?: string; extra?: { damage: string; average: number; type: string } };
 const attackKind = (attack: AttackView) => (attack.kind === 'ranged' ? ATTACK_KIND.ranged : attack.range ? ATTACK_KIND.both : ATTACK_KIND.melee)!;
 const attackReach = (attack: AttackView) => (attack.kind === 'ranged'
-  ? `дистанция ${attack.range![0]}/${attack.range![1]} фт.`
+  ? (attack.range![0] === attack.range![1] ? `дистанция ${attack.range![0]} фт.` : `дистанция ${attack.range![0]}/${attack.range![1]} фт.`)
   : `досягаемость ${attack.reach ?? 5} фт.${attack.range ? ` или дистанция ${attack.range[0]}/${attack.range[1]} фт.` : ''}`);
 const dice = (formula: string) => (formula === '1d1' ? '' : ` (${formula.replace(/([+-])/g, ' $1 ')})`);
 const otherActions = computed(() => {
@@ -208,7 +208,7 @@ async function saveEncounter() {
     <section :class="embedded ? 'bestiary plain' : 'modal-card bestiary'">
       <header v-if="!embedded" class="bestiary-head">
         <h2>Бестиарий</h2>
-        <button type="button" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button class="icon-only" type="button" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
       <p v-if="error" class="error" role="alert">{{ error }}</p>
 
@@ -218,6 +218,11 @@ async function saveEncounter() {
           <select v-model="band" aria-label="Опасность">
             <option v-for="(entry, key) in BANDS" :key="key" :value="key">{{ entry.label }}</option>
           </select>
+          <select v-if="hasMods" v-model="source" aria-label="Источник">
+            <option value="all">все источники</option>
+            <option value="srd">только SRD 5.1</option>
+            <option value="mods">только из модов</option>
+          </select>
           <ul class="monster-list" role="listbox" aria-label="Монстры">
             <li v-for="monster in filtered" :key="monster.index">
               <button
@@ -225,7 +230,7 @@ async function saveEncounter() {
                 :class="{ active: monster.index === selectedIndex }" @click="selectedIndex = monster.index"
               >
                 <span class="monster-name" :translate="english ? 'no' : undefined"><img v-if="bestiaryPortrait(monster.index)" :src="bestiaryPortrait(monster.index)!" alt="" loading="lazy" />{{ monsterName(monster) }}</span>
-                <small>{{ monster.crText }}</small>
+                <small><span v-if="monster.modName" class="mod-mark" :title="`мод «${monster.modName}»`">мод</span> {{ monster.crText }}</small>
               </button>
             </li>
             <li v-if="!filtered.length" class="muted">Ничего не нашлось.</li>
@@ -237,6 +242,7 @@ async function saveEncounter() {
           <h3 v-if="english" translate="no">{{ selected.name }}</h3>
           <h3 v-else>{{ selected.nameRu }} <small class="muted" translate="no">{{ selected.name }}</small></h3>
           <p class="subtitle"><span>{{ SIZE_LABELS[selected.size as CreatureSize] ?? selected.size }}</span> <span>{{ selected.type }}</span>, <span>{{ selected.alignment }}</span></p>
+          <p v-if="selected.modName" class="mod-source">{{ `мод «${selected.modName}»` }}</p>
           <hr />
           <p><strong>Класс доспеха</strong> {{ selected.ac }}<template v-if="selected.acNote"> ({{ selected.acNote }})</template></p>
           <p><strong>Хиты</strong> {{ selected.hp }} ({{ selected.hitDice }})</p>
@@ -251,10 +257,11 @@ async function saveEncounter() {
           <hr />
           <p v-if="selected.saves"><strong>Спасброски</strong> {{ listOf(selected.saves, SAVE_LABELS) }}</p>
           <p v-if="selected.skills"><strong>Навыки</strong> {{ listOf(selected.skills, SKILL_LABELS) }}</p>
-          <p v-if="selected.vulnerable?.length"><strong>Уязвимость</strong> {{ damageList(selected.vulnerable) }}</p>
-          <p v-if="selected.resistant?.length"><strong>Сопротивление</strong> {{ damageList(selected.resistant) }}</p>
-          <p v-if="selected.immune?.length"><strong>Иммунитет к урону</strong> {{ damageList(selected.immune) }}</p>
+          <p v-if="selected.vulnerable?.length" class="damage-line"><strong>Уязвимость</strong> <DamageTag v-for="type in selected.vulnerable" :key="type" :type="type" /></p>
+          <p v-if="selected.resistant?.length" class="damage-line"><strong>Сопротивление</strong> <DamageTag v-for="type in selected.resistant" :key="type" :type="type" /></p>
+          <p v-if="selected.immune?.length" class="damage-line"><strong>Иммунитет к урону</strong> <DamageTag v-for="type in selected.immune" :key="type" :type="type" /></p>
           <p v-if="selected.conditionImmunities"><strong>Иммунитет к состояниям</strong> {{ selected.conditionImmunities }}</p>
+          <p v-if="selected.defenseNote" class="muted">{{ selected.defenseNote }}</p>
           <p><strong>Чувства</strong> {{ senses }}</p>
           <p><strong>Языки</strong> {{ selected.languages }}</p>
           <p><strong>Опасность</strong> {{ selected.crText }} ({{ selected.xp }} опыта) · <strong>бонус мастерства</strong> {{ signed(selected.proficiency) }}</p>
@@ -264,13 +271,18 @@ async function saveEncounter() {
           <p v-for="(entry, index) in otherActions.filter(item => /^Мультиатака/.test(item.title))" :key="`m${index}`" class="entry"><strong><em>{{ entry.title }}.</em></strong> {{ entry.body }}</p>
           <p v-for="(attack, index) in (selected.attacks as AttackView[])" :key="`a${index}`" class="entry">
             <strong><em>{{ attack.name }}.</em></strong> <span>{{ attackKind(attack) }}</span>: <span>{{ attack.toHit >= 0 ? `+${attack.toHit}` : attack.toHit }} к попаданию</span>, <span>{{ attackReach(attack) }}</span>, <span>одна цель</span>.
-            <template v-if="attack.damage && attack.type"><span>Попадание:</span> {{ attack.average }}{{ dice(attack.damage) }} <span>{{ DAMAGE_PHRASE[attack.type] }}</span><template v-if="attack.extra"> <span>плюс</span> {{ attack.extra.average }}{{ dice(attack.extra.damage) }} <span>{{ DAMAGE_PHRASE[attack.extra.type] }}</span></template>.</template>
+            <template v-if="attack.damage && attack.type"><span>Попадание:</span> {{ attack.average }}{{ dice(attack.damage) }} <span>{{ DAMAGE_PHRASE[attack.type] }}</span><template v-if="attack.extra">{{ ' ' }}<span>плюс</span> {{ attack.extra.average }}{{ dice(attack.extra.damage) }} <span>{{ DAMAGE_PHRASE[attack.extra.type] }}</span></template>.</template>
             <template v-if="attack.note">{{ ' ' }}<span>{{ attack.note }}</span></template>
           </p>
           <p v-for="(entry, index) in otherActions.filter(item => !/^Мультиатака/.test(item.title))" :key="`o${index}`" class="entry"><strong><em>{{ entry.title }}.</em></strong> {{ entry.body }}</p>
           <template v-if="selected.texts.reactions">
             <h4>Реакции</h4>
             <p v-for="(entry, index) in paragraphs(selected.texts.reactions)" :key="index" class="entry"><strong><em>{{ entry.title }}.</em></strong> {{ entry.body }}</p>
+          </template>
+          <template v-if="selected.texts.legendary">
+            <h4>Легендарные действия</h4>
+            <p class="entry">{{ selected.texts.legendary.split('\n\n')[0] }}</p>
+            <p v-for="(entry, index) in paragraphs(selected.texts.legendary).slice(1)" :key="index" class="entry"><strong><em>{{ entry.title }}.</em></strong> {{ entry.body }}</p>
           </template>
           <div v-if="canSpawn" class="add-row">
             <label>Сколько <input v-model.number="count" type="number" min="1" max="20" /></label>
@@ -285,7 +297,7 @@ async function saveEncounter() {
           <li v-for="pick in basket" :key="pick.index">
             <span>{{ byIndex.get(pick.index)?.nameRu }}</span>
             <input v-model.number="pick.count" type="number" min="1" max="20" :aria-label="`Сколько: ${byIndex.get(pick.index)?.nameRu}`" />
-            <button type="button" :aria-label="`Убрать: ${byIndex.get(pick.index)?.nameRu}`" @click="remove(pick.index)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+            <button class="icon-only" type="button" :aria-label="`Убрать: ${byIndex.get(pick.index)?.nameRu}`" @click="remove(pick.index)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
           </li>
         </ul>
         <p v-else class="muted">Выберите монстра слева и нажмите «+ В состав».</p>
@@ -332,6 +344,9 @@ async function saveEncounter() {
 .monster-list button.active{background:var(--burgundy,#7a2e2e);color:var(--ivory,#fff)}
 .monster-list li.muted{padding:6px 8px}
 .monster-name{display:flex;align-items:center;gap:7px;min-width:0}
+.monster-list button small{flex:none;white-space:nowrap}
+.mod-mark{font-style:italic;opacity:.75}
+.mod-source{margin:2px 0 0;font-size:12px;font-style:italic;opacity:.8}
 .monster-name img{flex:none;width:26px;height:26px;border-radius:3px;object-fit:cover;object-position:top;image-rendering:pixelated;background:#0002}
 .monster-portrait{float:right;width:112px;height:112px;margin:2px 0 6px 12px;border:1px solid var(--brass,#a68148);border-radius:4px;object-fit:cover;image-rendering:pixelated;background:#0002}
 .stat-block{max-height:60vh;overflow-y:auto;padding:4px 12px 10px;border-left:2px solid var(--burgundy,#7a2e2e);font-size:13px;line-height:1.45}
@@ -360,4 +375,5 @@ async function saveEncounter() {
 .attribution{font-size:11px;opacity:.7;line-height:1.3}
 .error{color:#c0392b;margin:0}
 @media(max-width:720px){.bestiary-body{grid-template-columns:1fr}.monster-list{max-height:28vh}.stat-block{max-height:none;border-left:0}}
+.damage-line{display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
 </style>

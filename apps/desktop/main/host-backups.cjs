@@ -1,4 +1,4 @@
-const { ipcMain } = require('electron');
+const { ipcMain } = require('../bridge/runtime.cjs');
 const { saveHostConfig } = require('../host/config.cjs');
 const { ensureDatabaseRunning, isDatabaseRunning, stopDatabase } = require('../host/database.cjs');
 const { startServer, stopServer, getStatus } = require('../host/server.cjs');

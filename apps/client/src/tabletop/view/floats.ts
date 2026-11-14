@@ -11,29 +11,33 @@ export type FloatsDeps = {
   table: () => Tabletop | undefined;
   pushToast: (toast: Omit<TableToast, "id">, durationMs?: number) => void;
   run: (action: () => Promise<void>) => Promise<void>;
+  canControl: (characterId: string) => boolean;
 };
 
-export function useFloats({ props, objects, table, pushToast, run }: FloatsDeps) {
+export function useFloats({ props, objects, table, pushToast, run, canControl }: FloatsDeps) {
   const questsRevision = ref(0);
 
   function showExperience(event: LiveExperience) {
     for (const award of event.awards) {
       for (const placement of objects.value.filter(object => object.character_id === award.characterId)) {
-        table()?.showFloatingText(placement.id, `+${award.amount} опыта`, 'xp');
+        table()?.showFloatingText(placement.id, award.amount < 0 ? `−${-award.amount} опыта` : `+${award.amount} опыта`, award.amount < 0 ? 'info' : 'xp');
         if (award.leveledUp) setTimeout(() => table()?.showFloatingText(placement.id, `Уровень ${award.level}!`, 'level'), 650);
       }
     }
-    const shares = [...new Set(event.awards.map(award => award.amount))];
+    const shares = [...new Set(event.awards.map(award => Math.abs(award.amount)))];
+    const taken = event.awards.some(award => award.amount < 0);
     pushToast({
       tone: 'info', title: 'Опыт',
-      detail: `${event.reason}: ${event.awards.map(award => award.name).join(', ')} — по ${shares.join('/')}.`,
+      detail: taken
+        ? `${event.reason}: ${event.awards.map(award => award.name).join(', ')} — минус ${shares.join('/')}.`
+        : `${event.reason}: ${event.awards.map(award => award.name).join(', ')} — по ${shares.join('/')}.`,
     }, 7000);
     for (const award of event.awards) {
       if (award.leveledUp) {
         pushToast({ tone: 'crit', title: 'Новый уровень!', value: award.name, detail: `${award.level}-й уровень${award.hpGain ? ` · хиты +${award.hpGain}` : ''}` }, 10000);
         playSfx('level');
-      } else if (award.readyLevel) {
-        pushToast({ tone: 'mine', title: 'Новый уровень!', value: award.name, detail: `Опыта хватает на ${award.readyLevel}-й уровень — откройте лист и нажмите «Новый уровень!»: хиты, улучшения, заклинания.` }, 12000);
+      } else if (award.readyLevel && canControl(award.characterId)) {
+        pushToast({ tone: 'mine', title: 'Новый уровень!', value: award.name, detail: `Опыта хватает на ${award.readyLevel}-й уровень — щёлкните стрелку в углу портрета: хиты, улучшения, заклинания.` }, 12000);
       }
     }
   }

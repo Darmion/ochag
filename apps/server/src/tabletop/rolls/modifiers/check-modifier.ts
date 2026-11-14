@@ -1,5 +1,6 @@
 import type { Queryable } from '../../../db.ts';
-import { hasFeat } from '../../../../../../packages/domain/character/feats.ts';
+import { characterTraitEffects } from '../../../../../../packages/domain/character/hero-traits.ts';
+import { traitSaveProficiency } from '../../../../../../packages/domain/character/traits.ts';
 import { featureSaveProficiency, halfProficiency } from '../../../../../../packages/domain/character/class-features.ts';
 import { characterClassLevels } from '../../../../../../packages/domain/character/classes.ts';
 import { d20Ruling } from '../../../../../../packages/domain/combat/conditions.ts';
@@ -106,7 +107,7 @@ export async function checkModifier(q: Queryable, campaignId: string, character:
   const notes: string[] = [...enchantNotes];
   const classes = characterClassLevels(character).classes;
   if (kind === 'save' && !proficient && proficiencyBonus !== null) {
-    const by = featureSaveProficiency(classes, ability) ?? (hasFeat(character.sheet_extra, `resilient-${ability}`) ? 'устойчивый' : null);
+    const by = featureSaveProficiency(classes, ability) ?? traitSaveProficiency(characterTraitEffects(character), ability);
     if (by) {
       proficient = true;
       notes.push(`владение: ${by}`);

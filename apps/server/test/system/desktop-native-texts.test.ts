@@ -10,16 +10,19 @@ const desktop = fileURLToPath(new URL('../../../desktop/', import.meta.url));
 function desktopFiles(dir: string): string[] {
   return readdirSync(dir).flatMap(name => {
     const path = join(dir, name);
-    if (name === 'node_modules') return [];
+    if (name === 'node_modules' || name === 'target' || name === 'gen') return [];
     if (statSync(path).isDirectory()) return desktopFiles(path);
-    return name.endsWith('.cjs') ? [path] : [];
+    return /\.(cjs|rs)$/.test(name) ? [path] : [];
   });
 }
 
 const sources = desktopFiles(desktop).map(file => readFileSync(file, 'utf8'));
 
 test('every text of a Windows dialog or window title is in the page’s list to translate', () => {
-  const used = new Set(sources.flatMap(text => [...text.matchAll(/nativeText\('([^']+)'\)/g)].map(match => match[1]!)));
+  const used = new Set(sources.flatMap(text => [
+    ...[...text.matchAll(/nativeText\('([^']+)'\)/g)].map(match => match[1]!),
+    ...[...text.matchAll(/native\(&?\w+, "([^"]+)"\)/g)].map(match => match[1]!),
+  ]));
   assert.ok(used.size >= 10, [...used].join(', '));
   assert.deepEqual([...used].filter(text => !NATIVE_TEXTS.includes(text)), [], 'texts the page would never translate');
   assert.deepEqual(NATIVE_TEXTS.filter(text => !used.has(text)), [], 'texts nothing shows any more');

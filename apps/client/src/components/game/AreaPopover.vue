@@ -2,12 +2,13 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { cssZoom } from '../../settings/uiScale';
+import GameIcon from './GameIcon.vue';
 
 export type AreaPopoverTemplate = {
   id: string; label: string; affected: string[];
-  shape: 'circle' | 'cone' | 'square' | 'line'; sizeFeet: number; widthFeet: number | null; direction: number; color: string; customLabel: string;
+  shape: 'circle' | 'cone' | 'square' | 'line'; sizeFeet: number; widthFeet: number | null; heightFeet: number | null; direction: number; color: string; customLabel: string;
 };
-export type AreaEditPayload = { shape?: string; sizeFeet?: number; widthFeet?: number; direction?: number; color?: string; label?: string | null };
+export type AreaEditPayload = { shape?: string; sizeFeet?: number; widthFeet?: number; heightFeet?: number | null; direction?: number; color?: string; label?: string | null };
 export type AreaSavePayload = { ability: string; dc: number; damage: string; damageType: string; halfOnSave: boolean };
 
 const props = defineProps<{ at: { x: number; y: number }; template: AreaPopoverTemplate; canManage: boolean; canRemove: boolean; busy: boolean }>();
@@ -78,7 +79,7 @@ function submit() {
   <div ref="root" class="area-popover g-frame" :style="position" role="dialog" :aria-label="`Область: ${template.label}`" @contextmenu.prevent>
     <div class="head">
       <b>{{ template.label }}</b>
-      <button type="button" class="close" aria-label="Закрыть" @click="emit('close')">×</button>
+      <button type="button" class="close icon-only" aria-label="Закрыть" @click="emit('close')"><GameIcon name="close" :size="16" /></button>
     </div>
     <div v-if="canRemove" class="tabs" role="tablist">
       <button type="button" role="tab" :aria-selected="tab === 'saves'" @click="tab = 'saves'">Спасброски</button>
@@ -103,6 +104,13 @@ function submit() {
         <button type="button" :disabled="busy" title="На 15° против часовой" @click="rotate(-15)">−15°</button>
         <button type="button" :disabled="busy" title="На 15° по часовой" @click="rotate(15)">+15°</button>
         <button type="button" :disabled="busy" title="На 45° по часовой" @click="rotate(45)">45° ⟳</button>
+      </div>
+      <div v-if="template.shape === 'circle'" class="row">
+        <span class="row-label">Высота</span>
+        <select :value="template.heightFeet ?? ''" aria-label="Высота круга" :disabled="busy" title="Цилиндр: летящие выше не задеты. Сфера: задевает по расстоянию и вверх" @change="emit('edit', { heightFeet: ($event.target as HTMLSelectElement).value ? Number(($event.target as HTMLSelectElement).value) : null })">
+          <option value="">сфера</option>
+          <option v-for="height in [5, 10, 20, 30, 40, 60, 100]" :key="height" :value="height">цилиндр {{ height }} фут.</option>
+        </select>
       </div>
       <div v-if="template.shape === 'line'" class="row">
         <span class="row-label">Ширина</span>
@@ -155,7 +163,7 @@ function submit() {
 .area-popover{position:fixed;z-index:2600;width:360px;display:flex;flex-direction:column;gap:8px;padding:12px 14px}
 .head{display:flex;align-items:center;gap:8px}
 .head b{flex:1;font:600 16px var(--g-title-font);color:var(--g-gold-hi)}
-.close{width:28px;min-height:28px;height:28px;padding:0;border-radius:50%}
+.close{display:grid;place-items:center;place-content:center;width:28px;min-height:28px;height:28px;padding:0;border-radius:50%}
 .affected{display:flex;flex-wrap:wrap;gap:5px}
 .who{padding:2px 9px;border-radius:12px;font-size:12px;background:#0006;box-shadow:inset 0 0 0 1px var(--g-gold-lo)}
 .row{display:flex;gap:8px;align-items:center}

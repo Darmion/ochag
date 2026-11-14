@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "default",
+  "description": "The game window and the players' window: events from the host and the app's own commands.",
+  "windows": ["main", "player-view"],
+  "permissions": ["core:default"]
+}

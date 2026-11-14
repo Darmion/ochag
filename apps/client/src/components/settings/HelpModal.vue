@@ -27,7 +27,7 @@ const title = computed(() => (tab.value === 'credits' ? 'Авторы и бла�
     <div class="modal-card help-card">
       <header class="modal-header">
         <h3 id="help-title">{{ title }}</h3>
-        <button type="button" class="modal-close" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="modal-close icon-only" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
 
       <nav class="help-tabs" aria-label="Разделы справки">
@@ -188,7 +188,7 @@ const title = computed(() => (tab.value === 'credits' ? 'Авторы и бла�
           <a href="https://creativecommons.org/licenses/by/4.0/legalcode" target="_blank" rel="noreferrer">https://creativecommons.org/licenses/by/4.0/legalcode</a>.
         </p>
         <h4>Сделано на</h4>
-        <p>Vue, Babylon.js, Fastify, PostgreSQL, Electron — спасибо их авторам и сообществам.</p>
+        <p>Vue, Babylon.js, Fastify, PostgreSQL, Tauri — спасибо их авторам и сообществам.</p>
       </section>
 
       <section v-else class="help-body">

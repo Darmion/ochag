@@ -43,7 +43,7 @@ function addParam() {
     <label v-if="param.kind === 'choice' || param.kind === 'damage-type'" class="wide">Варианты через запятую <small class="muted">(пусто — все)</small>
       <input :value="param.options.join(', ')" :disabled="locked" @change="param.options = ($event.target as HTMLInputElement).value.split(',').map(entry => entry.trim()).filter(Boolean)" />
     </label>
-    <button type="button" class="link-button danger-link icon-button" :disabled="locked" aria-label="Убрать параметр" @click="template.options.params.splice(index, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+    <button type="button" class="link-button danger-link icon-button icon-only" :disabled="locked" aria-label="Убрать параметр" @click="template.options.params.splice(index, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
   </div>
   <button type="button" class="add-button" :disabled="locked" @click="addParam">＋ параметр</button>
 </template>

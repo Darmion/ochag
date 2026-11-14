@@ -1,3 +1,4 @@
+import type { AttackMotion } from '../../../../packages/domain/character/held';
 import { liveLatencyMs } from '../connection/latency';
 type Options = {
   campaignId: string;
@@ -8,6 +9,7 @@ type Options = {
   onRollsChanged?: () => void;
   onInitiativeChanged?: (sceneId: string | null) => void;
   onNotes?: () => void;
+  onMinigame?: (kind: string) => void;
   onCharacter?: (characterId: string) => void;
   onCharacters?: () => void;
   onPose?: (pose: LivePose) => void;
@@ -24,6 +26,8 @@ type Options = {
   onChat?: (message: any) => void;
   onChatRemoved?: (messageId: string) => void;
   onPassage?: (passage: { fromSceneId: string; sceneId: string; sceneName: string; characterIds: string[] }) => void;
+  onSceneRemoved?: (removed: { sceneId: string; name: string }) => void;
+  onConditions?: () => void;
   onNotice?: (notice: { title: string; detail?: string; tone?: 'info' | 'good' }) => void;
   onSpellSpecial?: (special: { spellId: string; spellName: string; casterName: string; items: string[] }) => void;
   onHp?: (event: LiveHp) => void;
@@ -45,6 +49,7 @@ export type LiveAttack = {
   source: 'weapon' | 'spell';
   effect: 'hit' | 'miss' | 'crit' | 'heal';
   ranged: boolean;
+  motion?: AttackMotion;
   damageType?: string | null;
   area?: 'circle' | 'cone' | 'square' | 'line' | null;
 };
@@ -210,6 +215,7 @@ export function connectLive(options: Options): LiveConnection {
           }
 
           if (message.type === 'notes') options.onNotes?.();
+          if (message.type === 'minigame' && typeof message.kind === 'string') options.onMinigame?.(message.kind);
           if (message.type === 'character' && typeof message.characterId === 'string') options.onCharacter?.(message.characterId);
           if (message.type === 'characters') options.onCharacters?.();
 
@@ -274,6 +280,12 @@ export function connectLive(options: Options): LiveConnection {
               fromSceneId: String(message.fromSceneId ?? ''), sceneId: message.sceneId,
               sceneName: String(message.sceneName ?? ''), characterIds: Array.isArray(message.characterIds) ? message.characterIds : [],
             });
+          }
+
+          if (message.type === 'conditions') options.onConditions?.();
+
+          if (message.type === 'scene-removed' && typeof message.sceneId === 'string') {
+            options.onSceneRemoved?.({ sceneId: message.sceneId, name: String(message.name ?? '') });
           }
 
           if (message.type === 'hp' && typeof message.characterId === 'string') {

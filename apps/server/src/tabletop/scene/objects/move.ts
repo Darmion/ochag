@@ -6,8 +6,10 @@ import type { TableContext } from '../../context.ts';
 import { notify } from '../../live/notify.ts';
 import { breakCamouflage } from '../../rolls/modifiers.ts';
 import { assertCellsClear, assertOnBoard, assertOnCells, getScene, sceneWalls } from '../board.ts';
-import { assertFreeCell, assertNotTowardFear, assertPassable, dragAlong, gmFreeMove, releaseDistantGrapples, spendMovement } from '../movement.ts';
+import { armorSwimNotice } from '../movement/water.ts';
+import { assertFreeCell, assertNotTowardFear, assertPassable, dragAlong, gmFreeMove, recordWalk, releaseDistantGrapples, rememberWalk, spendMovement } from '../movement.ts';
 import { assertValidParent, controls, rightsOf, wouldCreateCycle } from '../placements.ts';
+import { besideWall } from './climbing.ts';
 import { objectParams, type ObjectParams, reject, uuid } from '../../shared.ts';
 
 export function registerMoveObjectRoute(ctx: TableContext) {
@@ -133,6 +135,13 @@ export function registerMoveObjectRoute(ctx: TableContext) {
           await assertFreeCell(q, campaignId, scene, sceneObject.id, { x: sceneObject.x, z: sceneObject.z }, { x, z }, sceneObject.size, formation);
         }
         const willing = sceneObject.kind !== 'object' && !sceneObject.parent_object_id && !parentObjectId && (!rights.sceneManager || !(await gmFreeMove(q, campaignId)));
+        if (sceneObject.kind !== 'object' && (x !== sceneObject.x || z !== sceneObject.z)) {
+          const hanging = (await q.query(`SELECT id FROM character_effects WHERE campaign_id=$1 AND character_id=$2 AND active AND effect_code='climbing'`, [campaignId, sceneObject.character_id])).rows[0];
+          if (hanging && !(await besideWall(q, campaignId, scene, sceneObject.character_id, { x, z }, sceneObject.size))) {
+            if (willing) reject(400, `${sceneObject.name} на стене: двигайтесь вдоль неё или сначала спуститесь.`);
+            await q.query('DELETE FROM character_effects WHERE id=$1', [hanging.id]);
+          }
+        }
         if (willing) {
           await assertNotTowardFear(q, campaignId, scene, { ...(sceneObject as any), world_x: sceneObject.x, world_z: sceneObject.z }, { x, z });
           await spendMovement(ctx, q, campaignId, scene, sceneObject.character_id, { x: sceneObject.x, z: sceneObject.z }, { x, z });
@@ -167,12 +176,18 @@ export function registerMoveObjectRoute(ctx: TableContext) {
           [sceneId],
         );
 
+        const walked = sceneObject.kind !== 'object' && !sceneObject.parent_object_id && !parentObjectId && (x !== sceneObject.x || z !== sceneObject.z);
+        if (walked) await recordWalk(ctx, q, campaignId, scene, { id: objectId, size: sceneObject.size }, { x: sceneObject.x, z: sceneObject.z }, { x, z }, updated.rows[0].revision, !rights.sceneManager);
+        else rememberWalk(ctx, objectId, updated.rows[0].revision, { x, z }, null);
+
         if (sceneObject.kind !== 'object' && !sceneObject.parent_object_id && !parentObjectId) {
           notices = await triggers.fireEnter(
             q, campaignId, scene, userId,
             { characterId: sceneObject.character_id, name: sceneObject.name, size: sceneObject.size },
             { x: sceneObject.x, z: sceneObject.z }, { x, z },
           );
+          const swim = await armorSwimNotice(q, campaignId, scene, { characterId: sceneObject.character_id, name: sceneObject.name, size: sceneObject.size }, { x: sceneObject.x, z: sceneObject.z }, { x, z });
+          if (swim) notices.push(swim);
           provoked = await detectOpportunities(q, campaignId, scene, sceneObject.character_id, { x: sceneObject.x, z: sceneObject.z }, { x, z });
           sceneObjectName = sceneObject.name;
           if (willing) notices.push(...await dragAlong(q, campaignId, scene, sceneObject as any, { x: sceneObject.x, z: sceneObject.z }, { x, z }));

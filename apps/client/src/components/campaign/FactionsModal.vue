@@ -141,7 +141,7 @@ const restrictionLabel = (id: string) => data.value?.restrictions.find(item => i
     <div class="factions-card">
       <header class="factions-header">
         <h3 id="factions-title">Фракции и союзы</h3>
-        <button type="button" class="factions-close" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="factions-close icon-only" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
       <p class="hint">
         Существо бывает в нескольких фракциях. Общая фракция — союзники; иначе решают отношения фракций ниже.
@@ -173,7 +173,7 @@ const restrictionLabel = (id: string) => data.value?.restrictions.find(item => i
                 </span>
                 Участники: {{ faction.members.length }} ▾
               </button>
-              <button v-if="!faction.system" type="button" class="danger" :disabled="busy" title="Удалить фракцию" @click="remove(faction)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+              <button v-if="!faction.system" type="button" class="danger icon-only" :disabled="busy" title="Удалить фракцию" @click="remove(faction)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
             </div>
 
             <div v-if="openMembers === faction.id" class="members-popup">

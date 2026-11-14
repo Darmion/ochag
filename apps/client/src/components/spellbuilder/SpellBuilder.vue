@@ -271,7 +271,7 @@ const strengthWidth = computed(() => `${Math.min(100, Math.round((strength.value
             <p class="muted">Шкала только подсказывает: ограничений нет, решает мастер.</p>
           </div>
         </div>
-        <button type="button" class="close" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="close icon-only" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
 
       <nav class="steps" role="tablist" aria-label="Шаги">
@@ -302,7 +302,7 @@ const strengthWidth = computed(() => `${Math.min(100, Math.round((strength.value
 
           <article v-for="[id, title] in SECTIONS" :key="id" class="table-section" :class="{ open: open.has(id) }" :data-section="id">
             <button type="button" class="section-toggle" :aria-expanded="open.has(id)" @click="toggleSection(id)">
-              <span class="chevron" aria-hidden="true">▸</span>
+              <span class="chevron" aria-hidden="true"><GameIcon name="chevronRight" :size="12" /></span>
               <span class="section-title" translate="no"><span class="chapter-letter">{{ splitTitle(title)[0] }}</span><span>{{ splitTitle(title)[1] }}</span></span>
               <span v-if="sectionBadges[id]?.errors" class="badge bad" title="Ошибок">{{ sectionBadges[id]!.errors }}</span>
               <span v-if="sectionBadges[id]?.pending" class="badge pending" title="Непринятых подсказок">{{ sectionBadges[id]!.pending }}</span>

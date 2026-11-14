@@ -19,8 +19,18 @@ export const MONSTER_ATTRIBUTION =
   + 'available at https://dnd.wizards.com/resources/systems-reference-document. The SRD 5.1 is licensed under the '
   + 'Creative Commons Attribution 4.0 International License (https://creativecommons.org/licenses/by/4.0/legalcode).';
 
+const MOD_MONSTERS = new Map<string, SrdMonster>();
+
+export function defineModMonster(monster: SrdMonster) {
+  MOD_MONSTERS.set(monster.index, monster);
+}
+
+export function bestiaryMonsters(): SrdMonster[] {
+  return [...SRD_MONSTERS, ...MOD_MONSTERS.values()];
+}
+
 export function findMonster(index: string): SrdMonster | undefined {
-  return SRD_MONSTERS.find(monster => monster.index === index);
+  return MOD_MONSTERS.get(index) ?? SRD_MONSTERS.find(monster => monster.index === index);
 }
 
 export function scoreOf(monster: SrdMonster, ability: MonsterAbility): number {
@@ -52,8 +62,19 @@ export function averageOf(formula: string): number | null {
   return Math.floor(parsed.count * (parsed.sides + 1) / 2) + parsed.modifier;
 }
 
+// Monster hit dice go past the limits parseFormula puts on typed formulas (the tarrasque has 33d20+330).
+export function parseHitDice(hitDice: string): { count: number; sides: number; modifier: number } | null {
+  const match = /^(\d+)d(\d+)([+-]\d+)?$/.exec(hitDice.trim());
+  return match ? { count: Number(match[1]), sides: Number(match[2]), modifier: Number(match[3] ?? 0) } : null;
+}
+
+export function averageHitPoints(hitDice: string): number | null {
+  const parsed = parseHitDice(hitDice);
+  return parsed ? Math.floor(parsed.count * (parsed.sides + 1) / 2) + parsed.modifier : null;
+}
+
 export function rollHitPoints(hitDice: string, rollDie: (sides: number) => number): number {
-  const parsed = parseFormula(hitDice);
+  const parsed = parseHitDice(hitDice);
   if (!parsed) return 1;
   let total = parsed.modifier;
   for (let i = 0; i < parsed.count; i += 1) total += rollDie(parsed.sides);
@@ -85,7 +106,7 @@ export function attackText(attack: MonsterAttack): string {
     ? 'Дальнобойная атака оружием'
     : attack.range ? 'Рукопашная или дальнобойная атака оружием' : 'Рукопашная атака оружием';
   const reach = attack.kind === 'ranged'
-    ? `дистанция ${attack.range![0]}/${attack.range![1]} фт.`
+    ? (attack.range![0] === attack.range![1] ? `дистанция ${attack.range![0]} фт.` : `дистанция ${attack.range![0]}/${attack.range![1]} фт.`)
     : `досягаемость ${attack.reach ?? 5} фт.${attack.range ? ` или дистанция ${attack.range[0]}/${attack.range[1]} фт.` : ''}`;
   let hit = '';
   if (attack.damage && attack.type) {
@@ -112,6 +133,7 @@ export function monsterTexts(monster: SrdMonster) {
     `Чувства: ${senses}.`,
     `Языки: ${monster.languages}.`,
     monster.conditionImmunities ? `Иммунитет к состояниям: ${monster.conditionImmunities}.` : '',
+    monster.defenseNote ?? '',
     `Опасность ${challengeText(monster.cr)} (${challengeExperience(monster.cr)} опыта), бонус мастерства ${signed(monsterProficiency(monster))}.`,
   ].filter(Boolean).join('\n');
   const traits = [...pairs(monster.traits), ...(monster.spellcasting ? [`Использование заклинаний. ${monster.spellcasting.text}`] : [])];
@@ -120,13 +142,32 @@ export function monsterTexts(monster: SrdMonster) {
     ...monster.attacks.map(attackText),
     ...pairs(monster.actions),
   ];
+  const legendary = monster.legendary ? [
+    `Легендарных действий за раунд: ${monster.legendary.actions}. Совершает их по одному, только в конце хода другого существа; потраченные восстанавливаются в начале своего хода.`,
+    ...monster.legendary.options.map(option => `${option.name}${option.cost > 1 ? ` (стоит ${option.cost} действия)` : ''}. ${option.text}`),
+  ] : [];
   return {
     about,
     traits: traits.join('\n\n'),
     actions: actions.join('\n\n'),
     reactions: pairs(monster.reactions).join('\n\n'),
+    legendary: legendary.join('\n\n'),
   };
 }
+
+const CONDITION_WORDS: Array<[RegExp, string]> = [
+  [/ослеплени/, 'blinded'], [/очаровани/, 'charmed'], [/глухот/, 'deafened'], [/испуг/, 'frightened'], [/захват/, 'grappled'],
+  [/недееспособн/, 'incapacitated'], [/паралич/, 'paralyzed'], [/окаменени/, 'petrified'], [/отравлени/, 'poisoned'], [/сбит с ног/, 'prone'],
+  [/опутанн/, 'restrained'], [/ошеломлени/, 'stunned'], [/бессознательн/, 'unconscious'], [/истощени/, 'exhaustion'],
+];
+
+export function conditionImmunityCodes(text: string | null | undefined): string[] {
+  const value = (text ?? '').toLowerCase();
+  return CONDITION_WORDS.filter(([pattern]) => pattern.test(value)).map(([, code]) => code);
+}
+
+const MAGIC_WEAPON_TRAITS = ['Магическое оружие', 'Ангельское оружие', 'Адское оружие'];
+export const hasMagicWeapons = (monster: SrdMonster) => (monster.traits ?? []).some(([name]) => MAGIC_WEAPON_TRAITS.includes(name));
 
 export function monsterSheet(monster: SrdMonster, hpMax: number) {
   const proficiency = monsterProficiency(monster);
@@ -136,7 +177,8 @@ export function monsterSheet(monster: SrdMonster, hpMax: number) {
     ...(texts.traits ? { features: { name: 'Умения', value: texts.traits } } : {}),
     actions: { name: 'Действия', value: texts.actions },
     ...(texts.reactions ? { reactions: { name: 'Реакции', value: texts.reactions } } : {}),
-    source: { name: 'Источник', value: 'System Reference Document 5.1, Wizards of the Coast, CC-BY-4.0' },
+    ...(texts.legendary ? { legendary: { name: 'Легендарные действия', value: texts.legendary } } : {}),
+    source: { name: 'Источник', value: monster.modName ? `мод «${monster.modName}»` : 'System Reference Document 5.1, Wizards of the Coast, CC-BY-4.0' },
   };
 
   const character = {
@@ -159,6 +201,7 @@ export function monsterSheet(monster: SrdMonster, hpMax: number) {
       srdMonster: monster.index,
       hitDice: monster.hitDice,
       ...(monster.darkvision ? { darkvisionFeet: monster.darkvision } : {}),
+      ...(hasMagicWeapons(monster) ? { magicWeapons: true } : {}),
       text,
     },
     damage_threshold: null,
@@ -171,6 +214,9 @@ export function monsterSheet(monster: SrdMonster, hpMax: number) {
     xp_award: null,
     class_name: null,
     attacks_per_action: monster.multiattack?.count ?? null,
+    legendary_actions: monster.legendary?.actions ?? 0,
+    legendary_options: monster.legendary?.options ?? [],
+    legendary_resistances: monster.legendary?.resistances ?? 0,
     cp: 0, sp: 0, ep: 0, gp: 0, pp: 0, price_cp: null, weight_lb: null, merchant: false,
   };
 
@@ -178,7 +224,9 @@ export function monsterSheet(monster: SrdMonster, hpMax: number) {
     const level = proficiencyLevel(modifierOf(monster, SKILL_ABILITY[skill]!), total, proficiency);
     return { skill_index: skill, proficient: level !== null, expertise: level === 'expertise' };
   });
-  const saves = Object.keys(monster.saves ?? {}).map(ability => ({ ability, proficient: true, custom_bonus: 0 }));
+  const saves = Object.entries(monster.saves ?? {}).map(([ability, total]) => ({
+    ability, proficient: true, custom_bonus: total - modifierOf(monster, ability as MonsterAbility) - proficiency,
+  }));
 
   const weapons = monster.attacks.map(attack => ({
     name: attack.name,
@@ -203,7 +251,10 @@ export function monsterSheet(monster: SrdMonster, hpMax: number) {
     extra_damage_type: attack.extra?.type ?? null,
   }));
 
-  const spells = (monster.spellcasting?.spells ?? []).map(index => ({ source: 'srd' as const, srd_index: index, custom_spell_id: null, prepared: true }));
+  const slotless = new Set(monster.spellcasting?.slotless ?? []);
+  const spells = (monster.spellcasting?.spells ?? []).map(index => ({
+    source: 'srd' as const, srd_index: index, custom_spell_id: null, prepared: true, slotless: slotless.has(index),
+  }));
   const spellSlots = (monster.spellcasting?.slots ?? []).map((max, index) => ({ level: index + 1, max }));
 
   return { character, skills, saves, weapons, spells, spellSlots };

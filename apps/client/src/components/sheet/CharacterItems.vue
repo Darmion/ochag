@@ -7,7 +7,7 @@ import GameIcon from '../game/GameIcon.vue';
 
 type Magic = {
   rarity: string; rarityLabel: string; description: string; requiresAttunement: boolean; attuned: boolean; equipped: boolean;
-  active: boolean; destroyed: boolean; bonusText: string; srdIndex: string | null;
+  active: boolean; destroyed: boolean; bonusText: string; srdIndex: string | null; useLabel: string | null;
   bonuses: { armorClass?: number; saves?: number; speed?: number; abilities?: Record<string, number>; resistances?: string[] };
   charges: { current: number; max: number; recharge: 'dawn' | 'short' | 'long' | null; rechargeLabel: string | null; formula: string | null; destroyOnEmpty: boolean } | null;
 };
@@ -16,7 +16,9 @@ type Data = {
   items: Item[]; attunedCount: number; attunementLimit: number; fromItems: string[]; gm: boolean;
   recharged: Array<{ name: string; gained: number; current: number; max: number }>;
 };
-type Preset = { index: string; nameRu: string; rarity: string; attunement: boolean };
+type Preset = { index: string; nameRu: string; rarity: string; attunement: boolean; kind: string; kindText: string; use?: { kind: string; level?: number } };
+type SrdSpellChoice = { index: string; name: string; nameRu: string | null; level: number };
+type Base = { ref: string; name: string };
 
 const props = defineProps<{
   campaignId: string;
@@ -41,6 +43,36 @@ const notice = ref('');
 const working = ref(false);
 const presets = ref<Preset[]>([]);
 const presetIndex = ref('');
+const presetKind = ref('');
+const presetBase = ref('');
+const presetSpell = ref('');
+const srdSpells = ref<SrdSpellChoice[]>([]);
+const bases = ref<{ weapon: Base[]; armor: Base[]; shield: Base[] }>({ weapon: [], armor: [], shield: [] });
+const KINDS = [
+  ['', 'все виды'], ['armor', 'доспехи и щиты'], ['weapon', 'оружие'], ['ammunition', 'боеприпасы'], ['potion', 'зелья и масла'], ['ring', 'кольца'],
+  ['rod', 'жезлы'], ['staff', 'посохи'], ['wand', 'палочки'], ['scroll', 'свитки'], ['wondrous', 'чудесные предметы'],
+] as const;
+const shownPresets = computed(() => presets.value
+  .filter(preset => !presetKind.value || preset.kind === presetKind.value)
+  .sort((a, b) => a.nameRu.localeCompare(b.nameRu, 'ru')));
+const chosenPreset = computed(() => presets.value.find(entry => entry.index === presetIndex.value) ?? null);
+const baseOptions = computed(() => {
+  const preset = chosenPreset.value;
+  if (preset?.kind === 'weapon') return bases.value.weapon;
+  if (preset?.kind === 'armor') return /щит/i.test(preset.kindText) ? bases.value.shield : bases.value.armor;
+  return [];
+});
+watch(presetKind, () => { presetIndex.value = ''; });
+watch(presetIndex, async () => {
+  presetBase.value = '';
+  presetSpell.value = '';
+  if (chosenPreset.value?.use?.kind === 'scroll' && !srdSpells.value.length) srdSpells.value = (await props.request('/srd/spells')).spells ?? [];
+});
+const scrollLevel = computed(() => (chosenPreset.value?.use?.kind === 'scroll' ? chosenPreset.value.use.level ?? 0 : null));
+const scrollSpells = computed(() => (scrollLevel.value === null ? [] : srdSpells.value
+  .filter(spell => spell.level === scrollLevel.value)
+  .map(spell => ({ index: spell.index, name: spell.nameRu ?? spell.name }))
+  .sort((a, b) => a.name.localeCompare(b.name, 'ru'))));
 
 const path = (itemId: string, tail: string) => `/campaigns/${props.campaignId}/characters/${itemId}/${tail}`;
 
@@ -52,7 +84,9 @@ async function load() {
       notice.value = `На рассвете: ${data.value.recharged.map(entry => `«${entry.name}» +${entry.gained} (${entry.current}/${entry.max})`).join(', ')}.`;
     }
     if (data.value?.gm && !presets.value.length) {
-      presets.value = (await props.request('/srd/magic-items')).items ?? [];
+      const srd = await props.request('/srd/magic-items');
+      presets.value = srd.items ?? [];
+      if (srd.bases) bases.value = srd.bases;
     }
   } catch {
     hidden.value = true;
@@ -79,12 +113,15 @@ async function act(action: () => Promise<any>, sheetChanged = true) {
 const equip = (item: Item) => act(() => props.request(path(item.id, 'equip'), 'POST', { equipped: !item.magic!.equipped }));
 const attune = (item: Item) => act(() => props.request(path(item.id, 'attune'), 'POST', { attuned: !item.magic!.attuned }));
 const spend = (item: Item) => act(() => props.request(path(item.id, 'charges'), 'POST', { spend: 1 }), false);
+const useUp = (item: Item) => act(async () => ({ message: (await props.request(path(item.id, 'use-magic'), 'POST', {})).summary }));
 const setCharges = (item: Item, value: number) => act(() => props.request(path(item.id, 'charges'), 'POST', { set: value }), false);
 const gift = () => act(async () => {
-  const preset = presets.value.find(entry => entry.index === presetIndex.value);
-  await props.request(`/campaigns/${props.campaignId}/characters/${props.characterId}/items`, 'POST', { srdIndex: presetIndex.value });
+  const preset = chosenPreset.value;
+  const created = await props.request(`/campaigns/${props.campaignId}/characters/${props.characterId}/items`, 'POST', {
+    srdIndex: presetIndex.value, base: presetBase.value || null, spell: presetSpell.value || null,
+  });
   presetIndex.value = '';
-  return { message: `Подарено: «${preset?.nameRu ?? 'предмет'}».` };
+  return { message: `Подарено: «${created?.item?.name ?? preset?.nameRu ?? 'предмет'}».` };
 });
 
 const editing = ref<string | null>(null);
@@ -110,7 +147,8 @@ const number = (value: number | '') => (value === '' || !Number.isFinite(value) 
 
 function saveMagic(item: Item) {
   const value = form.value;
-  const bonuses: Record<string, unknown> = {};
+  const { armorClass: _ac, saves: _saves, speed: _speed, abilities: _abilities, resistances: _resistances, ...kept } = item.magic?.bonuses ?? {};
+  const bonuses: Record<string, unknown> = { ...kept };
   if (number(value.armorClass)) bonuses.armorClass = number(value.armorClass);
   if (number(value.saves)) bonuses.saves = number(value.saves);
   if (number(value.speed)) bonuses.speed = number(value.speed);
@@ -167,6 +205,7 @@ function chooseItem() {
           <p v-if="item.magic.destroyed" class="muted">Уничтожен.</p>
           <p v-else-if="item.magic.bonusText" class="bonus">{{ item.magic.bonusText }}<b v-if="item.magic.active"> — действует</b></p>
           <div v-if="!item.magic.destroyed" class="item-actions">
+            <button v-if="item.magic.useLabel" type="button" class="primary" :disabled="working" title="В бою — действием; предмет расходуется" @click="useUp(item)">{{ item.magic.useLabel }}</button>
             <button
               v-if="item.magic.bonusText || item.magic.equipped" type="button" :disabled="working" :aria-pressed="item.magic.equipped" @click="equip(item)"
             >{{ item.magic.equipped ? 'Снять' : 'Надеть' }}</button>
@@ -200,7 +239,7 @@ function chooseItem() {
             </label>
             <label class="checkbox-label"><input v-model="form.requiresAttunement" type="checkbox" :disabled="working" /> нужна настройка</label>
           </div>
-          <textarea v-model="form.description" rows="3" maxlength="2000" placeholder="Что делает" :disabled="working" aria-label="Описание" />
+          <textarea v-model="form.description" rows="3" maxlength="8000" placeholder="Что делает" :disabled="working" aria-label="Описание" />
           <div class="editor-row">
             <label>КД <input v-model.number="form.armorClass" type="number" min="-5" max="10" :disabled="working" /></label>
             <label>Спасброски <input v-model.number="form.saves" type="number" min="-5" max="10" :disabled="working" /></label>
@@ -254,11 +293,23 @@ function chooseItem() {
       <button type="button" :disabled="working || !plainChoice" @click="chooseItem"><GameIcon class="inline-icon" name="sparkle" :size="16" /> Свойства…</button>
     </div>
     <div v-if="data.gm && presets.length" class="gift-row">
+      <select v-model="presetKind" class="gift-kind" :disabled="working" aria-label="Вид магического предмета">
+        <option v-for="[id, label] in KINDS" :key="id" :value="id">{{ label }}</option>
+      </select>
       <select v-model="presetIndex" :disabled="working" aria-label="Готовый магический предмет">
         <option value="">— готовый магический предмет (SRD 5.1) —</option>
-        <option v-for="preset in presets" :key="preset.index" :value="preset.index">{{ preset.nameRu }}</option>
+        <option v-for="preset in shownPresets" :key="preset.index" :value="preset.index">{{ preset.nameRu }}</option>
       </select>
-      <button type="button" :disabled="working || !presetIndex" @click="gift"><GameIcon class="inline-icon" name="sparkle" :size="16" /> Подарить</button>
+      <select v-if="baseOptions.length" v-model="presetBase" :disabled="working" aria-label="Из чего сделан">
+        <option value="">— основа не выбрана —</option>
+        <option v-for="base in baseOptions" :key="base.ref" :value="base.ref">{{ base.name }}</option>
+      </select>
+      <select v-if="scrollLevel !== null" v-model="presetSpell" :disabled="working" aria-label="Заклинание на свитке">
+        <option value="">— какое заклинание записано —</option>
+        <option v-for="spell in scrollSpells" :key="spell.index" :value="spell.index">{{ spell.name }}</option>
+      </select>
+      <button type="button" :disabled="working || !presetIndex || (scrollLevel !== null && !presetSpell)" @click="gift"><GameIcon class="inline-icon" name="sparkle" :size="16" /> Подарить</button>
+      <small v-if="baseOptions.length && !presetBase" class="muted gift-hint">Без основы предмет не станет атакой или доспехом в листе — только бонусы.</small>
     </div>
   </section>
 </template>
@@ -291,4 +342,6 @@ function chooseItem() {
 .resistances .checkbox-label{margin:0}
 .gift-row{display:flex;flex-wrap:wrap;gap:6px;padding:9px 10px;border:1px dashed var(--brass-light);border-radius:6px}
 .gift-row select{flex:1 1 220px;min-width:0}
+.gift-row .gift-kind{flex:0 1 170px}
+.gift-hint{flex-basis:100%}
 </style>

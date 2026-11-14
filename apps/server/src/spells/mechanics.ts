@@ -30,7 +30,7 @@ export function shapeView(index: string | null | undefined) {
   return rule ? { kind: rule.kind, maxCr: rule.maxCr, forms: shapeForms(rule).map(formView) } : null;
 }
 
-export const MECHANICS_COLUMNS = ['attack_kind', 'save_ability', 'half_on_save', 'damage_type', 'condition_code', 'condition_rounds', 'condition_repeat', 'creates_zone'] as const;
+const MECHANICS_COLUMNS = ['attack_kind', 'save_ability', 'half_on_save', 'damage_type', 'condition_code', 'condition_rounds', 'condition_repeat', 'creates_zone'] as const;
 export const mechanicsBody = {
   attackKind: { oneOf: [{ type: 'string', enum: ['none', 'melee', 'ranged'] }, { type: 'null' }] },
   saveAbility: { oneOf: [{ type: 'string', enum: ['none', ...SPELL_ABILITIES] }, { type: 'null' }] },
@@ -56,16 +56,6 @@ export function mechanicsAssignments(body: Record<string, unknown>, firstParam: 
     sets.push(`${column} = $${firstParam + values.length - 1}`);
   }
   return { sets, values };
-}
-
-export function overridesView(row: any) {
-  if (!row) return null;
-  return {
-    attackKind: row.attack_kind ?? null, saveAbility: row.save_ability ?? null, halfOnSave: row.half_on_save ?? null,
-    damageType: row.damage_type ?? null, conditionCode: row.condition_code ?? null,
-    conditionRounds: row.condition_rounds ?? null, conditionRepeat: row.condition_repeat ?? null,
-    createsZone: row.creates_zone === true,
-  };
 }
 
 export function srdEffective(spell: any, row: any) {

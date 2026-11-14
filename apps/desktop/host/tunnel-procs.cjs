@@ -1,4 +1,4 @@
-// cloudflared processes must die with the app. No Electron here, so apps/server/test/system/tunnel-procs.test.ts can load it.
+// cloudflared processes must die with the app. No bridge/runtime.cjs here, so apps/server/test/system/tunnel-procs.test.ts can load it.
 const fs = require('node:fs');
 const {execFileSync} = require('node:child_process');
 

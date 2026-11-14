@@ -5,6 +5,8 @@ import type { FeatureView, Popover } from '../../../actionBar/types';
 import { ABILITIES } from '../../../actionBar/constants';
 import { checkView, peerlessNote, type CheckKind, type Sense } from '../../../actionBar/checkView';
 import SenseSelect from './SenseSelect.vue';
+import GameIcon from '../GameIcon.vue';
+import { abilityIcon, skillIcon } from '../../../rules/skillIcons';
 
 const props = defineProps<{
   popover: Popover;
@@ -47,11 +49,11 @@ const showLuck = computed(() => view.value.tabs && (props.lucky || (isCheck.valu
   <div class="popover-grid">
     <template v-if="view.kind === 'skill'">
       <button v-for="skill in skills" :key="skill.index" type="button" :disabled="working" @click="emit('check', 'skill', skill.index)">
-        {{ skill.nameRu }} <small class="muted">{{ skill.abilityRu }}</small>
+        <GameIcon v-if="skillIcon(skill.index)" :name="skillIcon(skill.index)!" :size="17" />{{ skill.nameRu }} <small class="muted">{{ skill.abilityRu }}</small>
       </button>
     </template>
     <template v-else>
-      <button v-for="[key, label] in ABILITIES" :key="key" type="button" :disabled="working" @click="emit('check', view.kind, key)">{{ label }}</button>
+      <button v-for="[key, label] in ABILITIES" :key="key" type="button" :disabled="working" @click="emit('check', view.kind, key)"><GameIcon v-if="abilityIcon(key)" :name="abilityIcon(key)!" :size="17" />{{ label }}</button>
     </template>
   </div>
 </template>

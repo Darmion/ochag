@@ -1,3 +1,5 @@
+import { indexWalls } from './wall-index.ts';
+
 export type Point = { x: number; z: number };
 export type WallSegment = { x1: number; z1: number; x2: number; z2: number };
 export type Dimensions = { widthCells: number; heightCells: number };
@@ -39,6 +41,8 @@ export function isLatticePoint(value: number, cells: number): boolean {
   return Number.isInteger(value + cells / 2);
 }
 
+export const VISION_INDEX_FROM = 100;
+
 export function visibleCells(
   origin: Point,
   radiusFeet: number | null,
@@ -64,6 +68,9 @@ export function visibleCells(
   }
 
   const result: Point[] = [];
+  // From about a hundred walls a ray reads only the walls along it (wall-index.ts); fewer are cheaper to scan, since an
+  // open board's long rays cross many buckets.
+  const index = walls.length >= VISION_INDEX_FROM ? indexWalls(walls) : null;
 
   for (let row = rowStart; row <= rowEnd; row++) {
     const z = cellCenter(row, heightCells);
@@ -77,7 +84,10 @@ export function visibleCells(
 
       const target = { x, z };
 
-      if (!walls.some(wall => blockedBy(origin, target, wall))) {
+      const blocked = index
+        ? index.anyAlong(origin.x, origin.z, x, z, wall => blockedBy(origin, target, wall))
+        : walls.some(wall => blockedBy(origin, target, wall));
+      if (!blocked) {
         result.push(target);
       }
     }

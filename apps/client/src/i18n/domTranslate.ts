@@ -3,7 +3,7 @@ import { ref, watch } from 'vue';
 import { buildIndex, condense, createTranslator, englishQuotes, type Translator } from './domTranslateCore';
 import { locale, translationEntries } from './i18n';
 import { SOURCE_LOCALE } from './i18nCore';
-import { NATIVE_TEXTS } from './nativeTexts';
+import { NATIVE_LOCALE_KEY, NATIVE_TEXTS } from './nativeTexts';
 
 const ATTRIBUTES = ['title', 'placeholder', 'aria-label', 'alt', 'label'] as const;
 const SKIP = 'script, style, textarea, code, pre, [contenteditable=""], [contenteditable="true"], [translate="no"], .notranslate';
@@ -152,10 +152,11 @@ function stop() {
   sendNativeTexts();
 }
 
+// Only the main window keeps the native texts; the host refuses them from the players' window.
 function sendNativeTexts() {
   const send = window.desktop?.locales?.nativeTexts;
-  if (!send) return;
-  void send(Object.fromEntries(NATIVE_TEXTS.map(text => [text, translator?.translate(text) ?? text]))).catch(() => undefined);
+  if (!send || new URLSearchParams(location.search).get('view') === 'player') return;
+  void send({ ...Object.fromEntries(NATIVE_TEXTS.map(text => [text, translator?.translate(text) ?? text])), [NATIVE_LOCALE_KEY]: locale.value }).catch(() => undefined);
 }
 
 export function installDomTranslation() {

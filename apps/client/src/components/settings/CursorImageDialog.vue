@@ -165,7 +165,7 @@ const markStyle = computed(() => ({ left: `${spot.value.x * 100}%`, top: `${spot
     <div class="modal-card">
       <header class="modal-header">
         <h3>{{ title }}</h3>
-        <button type="button" class="modal-close" :aria-label="t('Закрыть')" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="modal-close icon-only" :aria-label="t('Закрыть')" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
 
       <p v-if="full" class="problem">{{ t('Своих курсоров уже {limit} — удалите один, чтобы добавить новый.', { limit: MAX_CUSTOM_CURSORS }) }}</p>

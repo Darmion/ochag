@@ -21,8 +21,8 @@ defineProps<{
     <div class="pane-head">
       <h4>Заклинания <small class="muted">{{ browser.filtered.length }}</small></h4>
       <div class="view-toggle" role="group" aria-label="Вид списка">
-        <button type="button" :aria-pressed="browser.viewMode === 'grid'" title="Плиткой" @click="browser.viewMode = 'grid'"><GameIcon class="inline-icon" name="grid" :size="16" /></button>
-        <button type="button" :aria-pressed="browser.viewMode === 'list'" title="Строками" @click="browser.viewMode = 'list'"><GameIcon class="inline-icon" name="list" :size="16" /></button>
+        <button class="icon-only" type="button" :aria-pressed="browser.viewMode === 'grid'" title="Плиткой" @click="browser.viewMode = 'grid'"><GameIcon class="inline-icon" name="grid" :size="16" /></button>
+        <button class="icon-only" type="button" :aria-pressed="browser.viewMode === 'list'" title="Строками" @click="browser.viewMode = 'list'"><GameIcon class="inline-icon" name="list" :size="16" /></button>
       </div>
     </div>
     <div class="spell-scroll" tabindex="0" aria-label="Заклинания по кругам — стрелки вверх и вниз выбирают" @keydown="browser.onListKey">
@@ -33,7 +33,7 @@ defineProps<{
       </p>
       <section v-for="group in browser.groups" :key="group.level" class="spell-group">
         <button type="button" class="group-head" :aria-expanded="!browser.collapsed.includes(group.level)" @click="browser.toggleGroup(group.level)">
-          <span class="chevron" aria-hidden="true">▸</span>
+          <span class="chevron" aria-hidden="true"><GameIcon name="chevronRight" :size="12" /></span>
           <b>{{ group.level === 0 ? 'Заговоры' : `${group.level} круг` }}</b>
           <span v-if="group.level > 0 && slotFor(group.level).max" class="slot-pips group-pips" :title="`Ячейки ${group.level} круга: ${slotFor(group.level).current} из ${slotFor(group.level).max}`">
             <i v-for="index in Math.min(slotFor(group.level).max, 6)" :key="index" :class="{ spent: index > slotFor(group.level).current }" />
@@ -73,7 +73,7 @@ defineProps<{
 .spell-scroll:focus-visible{box-shadow:0 0 0 2px var(--focus-ring)}
 .spell-group{display:flex;flex-direction:column;gap:4px}
 .group-head{display:flex;align-items:center;gap:8px;width:100%;min-height:34px;padding:4px 10px;text-align:left;font-size:14px;border-radius:6px}
-.group-head .chevron{display:inline-block;transition:transform .15s;font-size:11px}
+.group-head .chevron{display:inline-grid;place-items:center;transition:transform .15s}
 .group-head[aria-expanded="true"] .chevron{transform:rotate(90deg)}
 .group-pips{margin-left:4px}
 .group-count{margin-left:auto;font-size:12px;color:var(--muted-ink);font-variant-numeric:tabular-nums}

@@ -47,7 +47,10 @@ export function useSpellCast({ props, emit, pactSlots, usePact, useRacial, useRi
       if (templateId || castArea.value) body.templateId = templateId || castArea.value;
       if (props.sceneId) body.sceneId = props.sceneId;
     }
-    if (useRitual.value && entry.spell?.ritual && !props.inCombat) body.ritual = true;
+    if (entry.item) {
+      const chosen = castSlot.value || slotChoices(entry)[0]?.level || 0;
+      if (chosen > (entry.spell?.level ?? 0)) body.slotLevel = chosen;
+    } else if (useRitual.value && entry.spell?.ritual && !props.inCombat) body.ritual = true;
     else if (useRacial.value && legacyOf(entry)) body.racial = true;
     else if (useFree.value && freeOf(entry)) body.free = freeOf(entry)!.kind;
     else if (usePact.value && pactCastable(entry)) body.pact = true;
@@ -59,8 +62,8 @@ export function useSpellCast({ props, emit, pactSlots, usePact, useRacial, useRi
     if (castingEntry.value?.id === entry.id && entry.spell?.projectiles && castTargets.value.length > 1) {
       body.shots = castTargets.value.flatMap(id => Array.from({ length: shotsPer.value[id] ?? 0 }, () => id));
     }
-    if (castingEntry.value?.id === entry.id && castMetamagic.value) body.metamagic = castMetamagic.value;
-    if (castingEntry.value?.id === entry.id && castEmpowered.value) body.empowered = true;
+    if (castingEntry.value?.id === entry.id && castMetamagic.value && !entry.item) body.metamagic = castMetamagic.value;
+    if (castingEntry.value?.id === entry.id && castEmpowered.value && !entry.item) body.empowered = true;
     if (castingEntry.value?.id === entry.id && castOverchannel.value && overchannelReady(entry)) body.overchannel = true;
     if (castingEntry.value?.id === entry.id && castMetamagic.value === 'heightened' && castHeightened.value) body.heightenedTargetId = castHeightened.value;
     const spend = useInspiration.value && actor.inspired && Boolean(entry.spell?.mechanics?.attack);
@@ -95,7 +98,11 @@ export function useSpellCast({ props, emit, pactSlots, usePact, useRacial, useRi
         if (target.willing && !effects.length) return `${target.name}: согласен`;
         return `${target.name}: ${what}${shots}${cover}${amount}${target.condition ? ', состояние' : ''}${effects.length ? `, ${effects.join(', ')}` : ''}`;
       });
-      if (lines.length) emit('acted', `${spellName(entry)}: ${lines.join('; ')}`.replace(/\.?$/, '.'));
+      const spent = result.item
+        ? result.item.used ? `«${result.item.item}» рассыпался` : result.item.destroyed ? `«${result.item.item}» потратил последний заряд и рассыпался`
+          : result.item.cost ? `«${result.item.item}»: −${result.item.cost} зар., осталось ${result.item.left}` : ''
+        : '';
+      if (lines.length || spent) emit('acted', `${spellName(entry)}: ${[...lines, ...(spent ? [spent] : [])].join('; ')}`.replace(/\.?$/, '.'));
     }).then(() => outcome);
   }
 

@@ -41,7 +41,8 @@ test('plan: the main action becomes mechanics, short effects become riders, the 
   assert.equal(plan.mechanics.damageType, 'cold');
   assert.deepEqual(plan.riders, [{ kind: 'slowed', feet: 10, expires: 'caster-start' }]);
   assert.deepEqual(plan.mods.map(mod => [mod.kind, mod.values.mode, mod.values.value]), [['ac', 'floor', 15]]);
-  assert.ok(plan.manual.some(line => /промах: стена/.test(line)), JSON.stringify(plan.manual));
+  assert.deepEqual(plan.followUps.outcomes.miss?.map(effect => effect.kind), ['wall'], 'another outcome goes to the runtime, not straight to the GM');
+  assert.ok(!plan.manual.some(line => /промах/.test(line)), JSON.stringify(plan.manual));
   assert.equal(plan.single, true);
 });
 
@@ -116,4 +117,22 @@ test('spell mods: AC floor, speed, rolls, defense and condition immunity', () =>
   assert.equal(damageDefense(mods, 'slashing', false).resisted, true);
   assert.equal(damageDefense(mods, 'slashing', true).resisted, false, 'magical blows pass');
   assert.equal(conditionGuard(mods, 'frightened'), 'Отвага');
+});
+
+test('plan: how many targets — exactly, up to, any number, chosen inside an area; shots are never one target', () => {
+  const t = emptyTemplate();
+  t.passport = { ...t.passport, name: 'Проба', level: 1 };
+  const hit = emptyAction('Удар');
+  t.actions = [hit];
+  const plan = (patch: Partial<SpellTemplate['targeting']>) => templateCastPlan({ ...t, targeting: { ...t.targeting, ...patch } }, { slotLevel: 1, characterLevel: 1, mode: null });
+  assert.deepEqual([plan({}).single, plan({}).targetLimit], [true, null], 'exactly one');
+  assert.deepEqual([plan({ countMode: 'up-to', count: 3 }).single, plan({ countMode: 'up-to', count: 3 }).targetLimit], [false, 3]);
+  assert.deepEqual([plan({ countMode: 'any' }).single, plan({ countMode: 'any' }).targetLimit], [false, null], 'any number');
+  assert.equal(plan({ kind: 'area', affects: 'chosen', chosenMax: 6 }).targetLimit, 6, 'up to six chosen inside the area');
+  assert.equal(plan({ kind: 'area', affects: 'all', chosenMax: 6 }).targetLimit, null);
+
+  const beams = { ...t, actions: [{ ...hit, check: { ...hit.check, kind: 'attack' as const, attackRange: 'ranged' as const, attackCount: 1 } }], scaling: [{ id: 's1', what: 'projectiles' as const, per: 'cantrip' as const, ref: '', amount: '1', steps: [] }] };
+  const shots = templateCastPlan(beams, { slotLevel: 0, characterLevel: 11, mode: null });
+  assert.deepEqual(shots.projectiles?.byLevel, [[5, 2], [11, 3], [17, 4]], 'one beam that grows with the hero level');
+  assert.equal(shots.single, false);
 });

@@ -7,6 +7,7 @@ import type { createAudioPlayer } from '../audio';
 import type { CombatSummaryData } from '../../components/tabletop/CombatSummary.vue';
 import type { TabletopProps, SceneObjectDTO } from './types';
 import type { TableToast } from '../toasts';
+import { loadCampaignConditions } from '../../rules/campaignConditions';
 
 export type SceneLiveDeps = {
   props: TabletopProps;
@@ -42,9 +43,11 @@ export type SceneLiveDeps = {
   showHpFloat: (event: LiveHp) => void;
   showExperience: (event: LiveExperience) => void;
   questsRevision: Ref<number>;
+  onSceneRemoved: (removed: { sceneId: string; name: string }) => void;
+  onCharacterChanged: (characterId: string | null) => void;
 };
 
-export function useSceneLive({ props, viewOnly, sceneId, spellSpecials, objects, chatMessages, status, table, disposed, factionsOpen, factionsRevision, pushToast, loadAudio, audioPlayer, loadRolls, loadInitiative, loadNotes, refresh, reloadCharacters, onLivePose, onLiveGrabDenied, speak, factionList, loadFactionList, showAttackFx, combatSummary, addOpportunity, addCounterspell, closeCounterspell, addReactionOffer, showHpFloat, showExperience, questsRevision }: SceneLiveDeps) {
+export function useSceneLive({ props, viewOnly, sceneId, spellSpecials, objects, chatMessages, status, table, disposed, factionsOpen, factionsRevision, pushToast, loadAudio, audioPlayer, loadRolls, loadInitiative, loadNotes, refresh, reloadCharacters, onLivePose, onLiveGrabDenied, speak, factionList, loadFactionList, showAttackFx, combatSummary, addOpportunity, addCounterspell, closeCounterspell, addReactionOffer, showHpFloat, showExperience, questsRevision, onSceneRemoved, onCharacterChanged }: SceneLiveDeps) {
   function connectScene(id: string) {
     return connectLive({
       campaignId: props.campaignId,
@@ -84,10 +87,12 @@ export function useSceneLive({ props, viewOnly, sceneId, spellSpecials, objects,
       onCharacters: () => {
         void reloadCharacters();
         void refresh();
+        onCharacterChanged(null);
       },
       onCharacter: characterId => {
         void reloadCharacters();
         if (objects.value.some(object => object.character_id === characterId)) void refresh();
+        onCharacterChanged(characterId);
       },
       onPose: pose => onLivePose(pose),
       onGrabDenied: denied => onLiveGrabDenied(denied.kind, denied.id, denied.message),
@@ -111,6 +116,8 @@ export function useSceneLive({ props, viewOnly, sceneId, spellSpecials, objects,
         sceneId.value = passage.sceneId;
         pushToast({ tone: 'info', title: `Переход: ${passage.sceneName}` });
       },
+      onSceneRemoved: removed => onSceneRemoved(removed),
+      onConditions: () => { void loadCampaignConditions(props.request, props.campaignId).catch(() => {}); },
       onSpellSpecial: special => { spellSpecials.value = [...spellSpecials.value, special]; },
       onNotice: notice => pushToast({
         tone: notice.tone === 'good' ? 'crit' : notice.tone === 'info' ? 'info' : 'fumble', title: notice.title, detail: notice.detail,

@@ -22,7 +22,7 @@ export function registerChronicleRoutes(ctx: SceneFeatureContext) {
   async function factsSince(q: Queryable, campaignId: string, from: Date, startMinutes: number | null): Promise<ChronicleFacts> {
     const fights = (
       await q.query(
-        `SELECT r.summary, s.name AS scene_name FROM combat_records r JOIN scenes s ON s.campaign_id=r.campaign_id AND s.id=r.scene_id
+        `SELECT r.summary, COALESCE(s.name, r.scene_name, '') AS scene_name FROM combat_records r LEFT JOIN scenes s ON s.campaign_id=r.campaign_id AND s.id=r.scene_id
          WHERE r.campaign_id=$1 AND r.ended_at >= $2 ORDER BY r.ended_at`,
         [campaignId, from],
       )

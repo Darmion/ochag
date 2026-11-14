@@ -1,8 +1,9 @@
-import { removeCondition, addCondition, loadEffects } from '../../conditions.ts';
+import { removeCondition, addCondition, loadConditionState, cureCondition, cureKind } from '../../conditions.ts';
+import { conditionName } from '../../condition-rules.ts';
 import { reject } from '../../../tabletop/scene-feature.ts';
 import { spendResource, entryOf, paladinDc, resourceOf, cleansable } from '../helpers.ts';
 import { HOLY_NIMBUS_ROUNDS, HOLY_NIMBUS_FEET, HOLY_NIMBUS_DAMAGE, auraOfProtection, auraOfDevotion, auraOfCourage } from '../../../../../../packages/domain/character/class-features.ts';
-import { conditionState } from '../../../../../../packages/domain/combat/conditions.ts';
+
 import { abilityModifier } from '../../../../../../packages/domain/dice/dice.ts';
 import type { FeatureAction, FeatureResult, FeatureUse } from './types.ts';
 import type { FeatureLook, FeatureView, FeatureViewFn } from './types.ts';
@@ -21,7 +22,7 @@ async function turnTheUnholy(use: FeatureUse): Promise<FeatureResult> {
   for (const near of await ctx.creaturesNear(q, campaignId, where, characterId, 30)) {
     const type = await ctx.creatureType(q, campaignId, near.id);
     if (type !== 'undead' && type !== 'fiend') continue;
-    if (conditionState((await loadEffects(q, campaignId, near.id)).map(effect => effect.effect_code)).codes.has('dead')) continue;
+    if ((await loadConditionState(q, campaignId, near.id)).codes.has('dead')) continue;
     const save = await ctx.rollSaveAgainst(q, campaignId, userId, near.id, 'wisdom', dc, `Спасбросок МДР (СЛ ${dc}) против «Изгнания нечестивых» — ${near.name}`, false, { condition: 'turned', magic: true });
     if (save.success) {
       parts.push(`${near.name} устоял (${save.total})`);
@@ -80,7 +81,12 @@ async function layOnHands(use: FeatureUse): Promise<FeatureResult> {
     healed.push({ characterId: target.id, change });
     parts.push(`+${change.applied} хит.`);
   }
-  if (cure) parts.push((await removeCondition(q, campaignId, target.id, 'poisoned')) ? 'яд снят' : 'яда не было');
+  if (cure) {
+    const lifted = (await cureKind(q, campaignId, target.id, 'disease', 1))[0]
+      ?? (await cureKind(q, campaignId, target.id, 'poison', 1))[0]
+      ?? await cureCondition(q, campaignId, target.id, 'poisoned');
+    parts.push(lifted ? `снято: ${await conditionName(q, campaignId, lifted)}` : 'болезни и яда не было');
+  }
   after.floatOn = target.id;
   return { message: `${row.name}: «Наложение рук» — «${target.name}»: ${parts.join(', ')}.`, float: 'наложение рук', economyScene: spent?.sceneId ?? null, heal: null };
 }

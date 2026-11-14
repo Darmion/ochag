@@ -74,5 +74,18 @@ export function useSheetRolls({ props, character, busy, error, load }: SheetRoll
     }
   }
 
-  return { rollAdvantage, spendInspiration, setInspiration, rollBusy, lastRoll, rollCheck, dyingNow, rollDeathSave };
+  async function setAutoDeathSaves(auto: boolean) {
+    busy.value = true;
+    error.value = '';
+    try {
+      await props.request(`/campaigns/${props.campaignId}/characters/${props.characterId}/death-saves`, 'PUT', { auto });
+      await load();
+    } catch (cause) {
+      error.value = cause instanceof Error ? cause.message : 'Не удалось сохранить. Попробуйте ещё раз.';
+    } finally {
+      busy.value = false;
+    }
+  }
+
+  return { rollAdvantage, spendInspiration, setInspiration, rollBusy, lastRoll, rollCheck, dyingNow, rollDeathSave, setAutoDeathSaves };
 }

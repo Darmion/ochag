@@ -101,7 +101,7 @@ function duplicateNested(effect: Effect, index: number) {
       <input v-model="action.name" class="action-name" maxlength="100" :disabled="disabled" aria-label="Название действия" />
       <span class="action-tools">
         <button type="button" class="link-button icon-button" :disabled="disabled" title="Копия этого действия" aria-label="Копия этого действия" @click="emit('duplicate')">⧉</button>
-        <button type="button" class="link-button danger-link icon-button" :disabled="disabled" title="Убрать действие" aria-label="Убрать действие" @click="emit('remove')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="link-button danger-link icon-button icon-only" :disabled="disabled" title="Убрать действие" aria-label="Убрать действие" @click="emit('remove')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </span>
     </header>
 
@@ -210,7 +210,7 @@ function duplicateNested(effect: Effect, index: number) {
           <header>
             <strong>{{ EFFECT_CATALOG[effect.kind].label }}</strong>
             <span class="support" :class="EFFECT_CATALOG[effect.kind].support" :title="SUPPORT_TITLE[EFFECT_CATALOG[effect.kind].support]" :aria-label="SUPPORT_TITLE[EFFECT_CATALOG[effect.kind].support]">{{ SUPPORT_MARK[EFFECT_CATALOG[effect.kind].support] }}</span>
-            <button type="button" class="link-button danger-link icon-button" :disabled="disabled" aria-label="Убрать последствие" title="Убрать последствие" @click="removeEffect(outcome, effect.id)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+            <button type="button" class="link-button danger-link icon-button icon-only" :disabled="disabled" aria-label="Убрать последствие" title="Убрать последствие" @click="removeEffect(outcome, effect.id)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
           </header>
           <div class="effect-fields">
             <template v-for="field in [...fields(effect), ...(moreShown(effect) ? fields(effect, true) : [])]" :key="field.key">

@@ -1,6 +1,7 @@
 import type { Queryable } from '../db.ts';
 import { objectSchema, reject, uuid, type SceneFeatureContext } from '../tabletop/scene-feature.ts';
 import { syncItem } from './magic-items.ts';
+import { itemLeftHolder } from './inventory-state.ts';
 import { addToWallet, COINS, payFromWallet, priceText, walletTotal, type Wallet } from '../../../../packages/domain/character/coins.ts';
 import { SRD_GEAR, SRD_GEAR_BY_INDEX } from '../../../../packages/domain/srd/gear.ts';
 import { MAGIC_ITEM_PRICE_GP, magicItemPriceCp } from '../../../../packages/domain/character/magic-items.ts';
@@ -180,9 +181,10 @@ export function registerShopRoutes(ctx: ShopContext) {
         if (!paid) reject(400, `Не хватает денег: «${item.name}» стоит ${priceText(item.price_cp)}, у ${buyer.name} — ${priceText(walletTotal(pick(buyer)))}.`);
         await saveWallet(q, campaignId, buyer.id, paid);
         await q.query(
-          'UPDATE characters SET container_id=$3, owner_user_id=$4, revision=revision+1 WHERE campaign_id=$1 AND id=$2',
+          'UPDATE characters SET equipped_slot=NULL, container_id=$3, owner_user_id=$4, revision=revision+1 WHERE campaign_id=$1 AND id=$2',
           [campaignId, item.id, buyer.id, buyer.owner_user_id],
         );
+        await itemLeftHolder(q, campaignId, itemId, merchantId);
         await syncItem(q, campaignId, item.id);
         return { buyer: buyer.name, merchant: merchant.name, item: item.name, price: item.price_cp as number };
       });
@@ -217,9 +219,10 @@ export function registerShopRoutes(ctx: ShopContext) {
         await saveWallet(q, campaignId, seller.id, addToWallet(pick(seller), income));
         const owner = (await q.query('SELECT owner_user_id FROM characters WHERE campaign_id=$1 AND id=$2', [campaignId, merchantId])).rows[0]?.owner_user_id ?? null;
         await q.query(
-          'UPDATE characters SET container_id=$3, owner_user_id=$4, revision=revision+1 WHERE campaign_id=$1 AND id=$2',
+          'UPDATE characters SET equipped_slot=NULL, container_id=$3, owner_user_id=$4, revision=revision+1 WHERE campaign_id=$1 AND id=$2',
           [campaignId, item.id, merchantId, owner],
         );
+        await itemLeftHolder(q, campaignId, itemId, sellerId);
         await syncItem(q, campaignId, item.id);
         return { seller: seller.name, merchant: merchant.name, item: item.name, income };
       });

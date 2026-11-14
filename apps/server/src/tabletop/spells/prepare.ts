@@ -1,3 +1,4 @@
+import { withinFeet } from '../scene/movement.ts';
 import { reject, canManage, type CastSpellParams } from '../shared.ts';
 import { canManageCharacter } from '../scene/placements.ts';
 import { loadConditionState } from '../../rules/conditions.ts';
@@ -6,9 +7,10 @@ import { classFeaturesFor, knownInvocations, METAMAGIC, knownMetamagic, metamagi
 import { characterClassLevels } from '../../../../../packages/domain/character/classes.ts';
 import { breakCamouflage, canRitualCast, inCombat, spendCharge, freeCastRule } from '../rolls/modifiers.ts';
 import { hiddenStealth, revealHidden } from '../combat/stealth.ts';
-import { type EffectiveSpellMechanics, mergeSpellMechanics, deriveSpellMechanics, durationRounds, type SpellDamageType } from '../../../../../packages/domain/spells/spell-mechanics.ts';
+import { type EffectiveSpellMechanics, mergeSpellMechanics, durationRounds, type SpellDamageType } from '../../../../../packages/domain/spells/spell-mechanics.ts';
 import { type SpellTemplate, normalizeTemplate } from '../../../../../packages/domain/spells/spell-template.ts';
 import { type CastPlan, templateCastPlan } from '../../../../../packages/domain/spells/spell-template-engine.ts';
+import { srdTemplateOf } from '../../../../../packages/domain/spells/srd-spell-templates.ts';
 import { findSrdSpell, srdSpellName } from '../../rules/srd-data.ts';
 import { assertTemplateTargets, assertSpellTargets } from './rules.ts';
 import { campaignFlag } from '../rolls/dice.ts';
@@ -19,11 +21,19 @@ import { breakInvisibility } from '../combat/sight.ts';
 import type { TableContext } from '../context.ts';
 import type { Queryable } from '../../db.ts';
 import type { CastBody } from './cast.ts';
+import { itemCastPlan, spendItemCast } from '../../spells/item-spells.ts';
+import { rollDie } from '../rolls/dice.ts';
 
 export async function prepareCast(ctx: TableContext, q: Queryable, member: any, userId: string, params: CastSpellParams, body: CastBody) {
   const { actionEconomy } = ctx;
   const { campaignId, characterId, characterSpellId } = params;
-  const { slotLevel, targetIds, templateId, sceneId, pact } = body;
+  const { targetIds, templateId, sceneId, pact } = body;
+  // A spell from a wand, staff, ring or scroll: no slot — the item's charges pay, its save DC and attack may be fixed.
+  const itemCast = await itemCastPlan(q, campaignId, characterId, characterSpellId, body.slotLevel);
+  if (itemCast && (pact || body.racial || body.ritual || body.free || body.metamagic || body.empowered)) {
+    reject(400, `«${itemCast.itemName}»: заклинание из предмета сотворяется как есть — без ячеек, ритуала и метамагии.`);
+  }
+  const slotLevel = itemCast ? undefined : body.slotLevel;
   let casterRevealed = false;
   let becameVisible: string | null = null;
   let castEconomyScene: string | null = null;
@@ -38,6 +48,8 @@ export async function prepareCast(ctx: TableContext, q: Queryable, member: any, 
     )
   ).rows[0];
   if (!character) reject(404, 'Персонаж не найден.');
+  if (itemCast?.dc != null) character.spell_save_dc_override = itemCast.dc;
+  if (itemCast?.attack != null) character.spell_attack_override = itemCast.attack;
 
   if (!(await canManageCharacter(q, member, userId, character.owner_user_id, character.id))) {
     reject(403, 'Сотворить заклинание может только владелец персонажа или мастер.');
@@ -55,13 +67,15 @@ export async function prepareCast(ctx: TableContext, q: Queryable, member: any, 
   const casterStealth = (await hiddenStealth(q, campaignId, [characterId])).get(characterId);
   if (casterStealth !== undefined) casterRevealed = await revealHidden(q, campaignId, characterId);
 
-  const known = (
-    await q.query(
-      `SELECT source, srd_index, custom_spell_id, slotless FROM character_spells
-           WHERE campaign_id=$1 AND character_id=$2 AND id=$3`,
-      [campaignId, characterId, characterSpellId],
-    )
-  ).rows[0];
+  const known = itemCast
+    ? { source: 'srd', srd_index: itemCast.spell, custom_spell_id: null, slotless: true }
+    : (
+      await q.query(
+        `SELECT source, srd_index, custom_spell_id, slotless FROM character_spells
+             WHERE campaign_id=$1 AND character_id=$2 AND id=$3`,
+        [campaignId, characterId, characterSpellId],
+      )
+    ).rows[0];
   if (!known) reject(404, 'Заклинание не найдено у этого персонажа.');
 
   let spellName: string;
@@ -78,6 +92,7 @@ export async function prepareCast(ctx: TableContext, q: Queryable, member: any, 
   let spellTemplate: SpellTemplate | null = null;
   let castPlan: CastPlan | null = null;
   let templateSpell: { id: string; notify: boolean } | null = null;
+  let srdTable = false;
 
   if (known.source === 'srd') {
     const srdSpell = findSrdSpell(known.srd_index);
@@ -91,25 +106,19 @@ export async function prepareCast(ctx: TableContext, q: Queryable, member: any, 
 
     spellName = srdSpellName(known.srd_index);
 
-    const overlay = (
-      await q.query('SELECT * FROM srd_spell_mechanics WHERE srd_index=$1', [known.srd_index])
-    ).rows[0] as any;
-    mechanics = mergeSpellMechanics(deriveSpellMechanics(srdSpell), overlay ?? null);
-    damageFormula = mechanics.damageFormula;
-    healingFormula = mechanics.healingFormula;
-    upcastFormula = mechanics.upcastFormula;
     const override = (
       await q.query('SELECT template, special_notify FROM campaign_srd_templates WHERE campaign_id=$1 AND srd_index=$2', [campaignId, known.srd_index])
     ).rows[0] as { template: unknown; special_notify: boolean } | undefined;
-    if (override) {
-      spellTemplate = normalizeTemplate(override.template);
-      templateSpell = { id: known.srd_index as string, notify: override.special_notify !== false };
-      castPlan = templateCastPlan(spellTemplate, { slotLevel: slotLevel ?? level, characterLevel: Number(character.level ?? 1), mode: body.mode ?? null });
-      mechanics = { ...castPlan.mechanics };
-      damageFormula = mechanics.damageFormula;
-      healingFormula = mechanics.healingFormula;
-      upcastFormula = null;
-    }
+    const table = override ? normalizeTemplate(override.template) : srdTemplateOf(known.srd_index);
+    if (!table) reject(404, 'Таблица механики заклинания не найдена.');
+    spellTemplate = table;
+    templateSpell = { id: known.srd_index as string, notify: override ? override.special_notify !== false : false };
+    srdTable = !override;
+    castPlan = templateCastPlan(table!, { slotLevel: slotLevel ?? level, characterLevel: Number(character.level ?? 1), mode: body.mode ?? null });
+    mechanics = { ...castPlan.mechanics };
+    damageFormula = mechanics.damageFormula;
+    healingFormula = mechanics.healingFormula;
+    upcastFormula = null;
   } else {
     const custom = (
       await q.query(
@@ -145,17 +154,24 @@ export async function prepareCast(ctx: TableContext, q: Queryable, member: any, 
     ? { desc: findSrdSpell(known.srd_index)?.desc ?? '', higherLevel: findSrdSpell(known.srd_index)?.higherLevel ?? null }
     : { desc: (await q.query('SELECT description FROM campaign_spells WHERE campaign_id=$1 AND id=$2', [campaignId, known.custom_spell_id])).rows[0]?.description ?? '', higherLevel: null };
   if (castPlan) await assertTemplateTargets(q, campaignId, characterId, sceneId ?? null, targetIds ?? [], spellName, castPlan.rules);
-  else await assertSpellTargets(q, campaignId, characterId, sceneId ?? null, targetIds ?? [], spellName, spellText.desc);
-  const textEffects = (await campaignFlag(q, campaignId, 'spell_effects')) !== false;
-  const riders: SpellRider[] = castPlan ? [...castPlan.riders] : textEffects ? spellRiders(spellText.desc) : [];
-  const projectiles = castPlan ? castPlan.projectiles : textEffects ? projectileRule(spellText) : null;
-  const pool = castPlan ? castPlan.pool : textEffects ? hitPointPool(spellText) : null;
-  if (pool) mechanics = { ...mechanics, condition: null };
-  if (known.source === 'srd' && !castPlan && known.srd_index === 'eldritch-blast') {
-    const invocations = knownInvocations(character.sheet_extra);
-    if (invocations.includes('agonizing-blast') && damageFormula) damageFormula = `${damageFormula}+@cha`;
-    if (invocations.includes('repelling-blast')) riders.push({ kind: 'push', feet: 10 });
+  if (spellTemplate?.targeting.kind === 'chain' && sceneId && (targetIds ?? []).length > 1) {
+    const chain = targetIds!;
+    const hop = Math.max(5, spellTemplate.targeting.hopFeet);
+    for (let index = 1; index < chain.length; index += 1) {
+      if ((await withinFeet(q, campaignId, sceneId, chain[index - 1]!, chain[index]!, hop)) === false) {
+        const names = (await q.query('SELECT id, name FROM characters WHERE campaign_id=$1 AND id = ANY($2::uuid[])', [campaignId, [chain[index - 1], chain[index]]])).rows;
+        const nameOf = (id: string) => names.find(row => row.id === id)?.name ?? 'цель';
+        reject(400, `«${spellName}»: от «${nameOf(chain[index - 1]!)}» до «${nameOf(chain[index]!)}» дальше ${hop} фт. — цепочка рвётся. Цели — по порядку перескоков.`);
+      }
+    }
   }
+  else if (!castPlan) await assertSpellTargets(q, campaignId, characterId, sceneId ?? null, targetIds ?? [], spellName, spellText.desc);
+  const textEffects = (await campaignFlag(q, campaignId, 'spell_effects')) !== false;
+  const planEffects = !srdTable || textEffects;
+  const riders: SpellRider[] = castPlan ? (planEffects ? [...castPlan.riders] : []) : textEffects ? spellRiders(spellText.desc) : [];
+  const projectiles = castPlan ? (planEffects ? castPlan.projectiles : null) : textEffects ? projectileRule(spellText) : null;
+  const pool = castPlan ? (planEffects ? castPlan.pool : null) : textEffects ? hitPointPool(spellText) : null;
+  if (pool) mechanics = { ...mechanics, condition: null };
   if (riders.some(rider => rider.kind === 'sanctuary')) mechanics = { ...mechanics, save: null };
   if (riders.some(rider => rider.kind === 'light') && /target an object held or worn by a hostile creature/i.test(spellText.desc)) mechanics = { ...mechanics, save: null };
   if (body.shots?.length && !projectiles) reject(400, `У «${spellName}» нет снарядов — назначать нечего.`);
@@ -217,22 +233,29 @@ export async function prepareCast(ctx: TableContext, q: Queryable, member: any, 
     await q.query('UPDATE characters SET pact_slots_current=pact_slots_current-1 WHERE campaign_id=$1 AND id=$2', [campaignId, characterId]);
     pactSlot = { level: own.pact_slot_level, current: own.pact_slots_current - 1, max: own.pact_slots_max, pact: true };
   }
-  const effectiveLevel = legacy && legacy.castAt > level ? legacy.castAt : pactSlot?.level ?? slotLevel ?? level;
+  const effectiveLevel = itemCast ? itemCast.level : legacy && legacy.castAt > level ? legacy.castAt : pactSlot?.level ?? slotLevel ?? level;
   const extraLevels = effectiveLevel - level;
   if (castPlan && spellTemplate) {
     castPlan = templateCastPlan(spellTemplate, { slotLevel: effectiveLevel, characterLevel: Number(character.level ?? 1), mode: body.mode ?? null });
     mechanics = { ...castPlan.mechanics, ...(pool ? { condition: null } : {}) };
     damageFormula = mechanics.damageFormula;
     healingFormula = mechanics.healingFormula;
-    riders.splice(0, riders.length, ...castPlan.riders);
+    riders.splice(0, riders.length, ...(planEffects ? castPlan.riders : []));
     if (riders.some(rider => rider.kind === 'sanctuary')) mechanics = { ...mechanics, save: null };
-    if (spellTemplate.options.params.some(param => param.kind === 'damage-type')) {
+    const element = spellTemplate.options.params.find(param => param.kind === 'damage-type');
+    if (element) {
       if (!body.element) reject(400, `«${spellName}»: выберите вид урона.`);
+      if (element.options.length && !element.options.includes(body.element!)) reject(400, `«${spellName}»: этого вида урона в списке заклинания нет.`);
       if (!mechanics.damageType && mechanics.damageFormula) mechanics = { ...mechanics, damageType: body.element as SpellDamageType };
       for (const mod of castPlan.mods) if (mod.kind === 'defense') mod.values = { ...mod.values, paramValue: body.element };
     }
   }
-  const limit = castPlan ? castPlan.targetLimit : textEffects ? targetLimit(spellText, effectiveLevel) : null;
+  if (srdTable && known.srd_index === 'eldritch-blast') {
+    const invocations = knownInvocations(character.sheet_extra);
+    if (invocations.includes('agonizing-blast') && damageFormula) damageFormula = `${damageFormula}+@cha`;
+    if (invocations.includes('repelling-blast')) riders.push({ kind: 'push', feet: 10 });
+  }
+  const limit = castPlan ? (planEffects ? castPlan.targetLimit : null) : textEffects ? targetLimit(spellText, effectiveLevel) : null;
   if (limit !== null && (targetIds ?? []).length > limit) reject(400, `«${spellName}»: целей не больше ${limit}.`);
   const chosenTargets = [...new Set(targetIds ?? [])];
   const oneCreature = (await campaignFlag(q, campaignId, 'spell_targets')) !== false && (castPlan ? castPlan.single : singleTarget({ ...spellText, range: spellRange }, level, effectiveLevel));
@@ -278,13 +301,14 @@ export async function prepareCast(ctx: TableContext, q: Queryable, member: any, 
   }
 
   if (await breakInvisibility(q, campaignId, characterId)) becameVisible = character.name;
+  const itemSpent = itemCast ? { ...(await spendItemCast(q, campaignId, itemCast, rollDie)), cost: itemCast.cost, level: itemCast.level } : null;
 
   return {
     casterRevealed, becameVisible, castEconomyScene, character, casterStealth, known, spellName, level,
     spellRange, damageFormula, healingFormula, upcastFormula, concentration, spellDuration, spellSchool,
     mechanics, spellTemplate, castPlan, templateSpell, spellText, riders, projectiles, pool, metamagic,
     empowered, ritual, legacy, freeCast, freeLeft, effectiveLevel, extraLevels, metamagicSpent, lasting,
-    slot,
+    slot, itemSpent,
   };
 }
 

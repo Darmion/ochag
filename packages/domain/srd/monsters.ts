@@ -1,77 +1,20 @@
-export type MonsterSize = 'tiny' | 'small' | 'medium' | 'large' | 'huge' | 'gargantuan';
-export type MonsterAbility = 'strength' | 'dexterity' | 'constitution' | 'intelligence' | 'wisdom' | 'charisma';
-export type MonsterDamageType =
-  | 'acid' | 'bludgeoning' | 'cold' | 'fire' | 'force' | 'lightning' | 'necrotic'
-  | 'piercing' | 'poison' | 'psychic' | 'radiant' | 'slashing' | 'thunder';
+import {
+  PACK_TACTICS, KEEN_SMELL, KEEN_HEARING_SMELL, NIMBLE_ESCAPE, SUNLIGHT_SENSITIVITY, DARK_DEVOTION, PARRY, UNDEAD_SPEECH, PRONE_BITE, KEEN_HEARING, KEEN_SIGHT, KEEN_HEARING_SIGHT, AMPHIBIOUS, WATER_BREATHING, CHARGE,
+  type SrdMonster,
+} from './monsters/shared.ts';
+import { MONSTERS_CHALLENGE_0 } from './monsters/challenge-0.ts';
+import { MONSTERS_CHALLENGE_1 } from './monsters/challenge-1.ts';
+import { MONSTERS_CHALLENGE_2 } from './monsters/challenge-2.ts';
+import { MONSTERS_CHALLENGE_3 } from './monsters/challenge-3.ts';
+import { MONSTERS_CHALLENGE_5 } from './monsters/challenge-5.ts';
+import { MONSTERS_CHALLENGE_6 } from './monsters/challenge-6.ts';
+import { MONSTERS_CHALLENGE_9 } from './monsters/challenge-9.ts';
+import { MONSTERS_CHALLENGE_13 } from './monsters/challenge-13.ts';
+import { MONSTERS_DRAGONS } from './monsters/dragons.ts';
 
-export type MonsterAttack = {
-  name: string;
-  kind: 'melee' | 'ranged';
-  ability: 'strength' | 'dexterity';
-  toHit: number;
-  reach?: number;
-  range?: [number, number];
-  damage: string | null;
-  average?: number;
-  type?: MonsterDamageType;
-  versatile?: string;
-  extra?: { damage: string; average: number; type: MonsterDamageType };
-  quirk?: true;
-  note?: string;
-};
+export type { MonsterSize, MonsterAbility, MonsterDamageType, MonsterDefense, MonsterAttack, SrdMonster } from './monsters/shared.ts';
 
-export type SrdMonster = {
-  index: string;
-  name: string;
-  nameRu: string;
-  size: MonsterSize;
-  type: string;
-  alignment: string;
-  ac: number;
-  acNote?: string;
-  hp: number;
-  hitDice: string;
-  speed: number;
-  speedNote?: string;
-  abilities: [number, number, number, number, number, number];
-  saves?: Partial<Record<MonsterAbility, number>>;
-  skills?: Record<string, number>;
-  vulnerable?: MonsterDamageType[];
-  resistant?: MonsterDamageType[];
-  immune?: MonsterDamageType[];
-  conditionImmunities?: string;
-  darkvision?: number;
-  senses?: string;
-  passive: number;
-  languages: string;
-  cr: number;
-  multiattack?: { count: number; text: string };
-  attacks: MonsterAttack[];
-  traits?: Array<[string, string]>;
-  actions?: Array<[string, string]>;
-  reactions?: Array<[string, string]>;
-  spellcasting?: { ability: MonsterAbility; slots: number[]; spells: string[]; text: string };
-};
-
-const PACK_TACTICS: [string, string] = ['Тактика стаи', 'Совершает с преимуществом броски атаки по существу, если в пределах 5 фт. от этого существа находится хотя бы один дееспособный союзник.'];
-const KEEN_SMELL: [string, string] = ['Тонкий нюх', 'Совершает с преимуществом проверки Мудрости (Восприятие), полагающиеся на обоняние.'];
-const KEEN_HEARING_SMELL: [string, string] = ['Тонкий слух и нюх', 'Совершает с преимуществом проверки Мудрости (Восприятие), полагающиеся на слух или обоняние.'];
-const NIMBLE_ESCAPE: [string, string] = ['Ловкий побег', 'Может в каждый свой ход совершать бонусным действием Отход или Засаду (спрятаться).'];
-const SUNLIGHT_SENSITIVITY: [string, string] = ['Чувствительность к солнцу', 'На солнечном свету совершает с помехой броски атаки и проверки Мудрости (Восприятие), полагающиеся на зрение.'];
-const DARK_DEVOTION: [string, string] = ['Тёмная преданность', 'Совершает с преимуществом спасброски от очарования и испуга.'];
-const PARRY = (bonus: number): [string, string] => ['Парирование', `Добавляет +${bonus} к КД против одной рукопашной атаки, которая попала бы по нему. Для этого он должен видеть атакующего и держать рукопашное оружие.`];
-const UNDEAD_SPEECH = 'понимает языки, которые знал при жизни, но не говорит';
-const PRONE_BITE = (dc: number) => `Если цель — существо, она должна преуспеть в спасброске Силы со СЛ ${dc}, иначе сбита с ног.`;
-const KEEN_HEARING: [string, string] = ['Тонкий слух', 'Совершает с преимуществом проверки Мудрости (Восприятие), полагающиеся на слух.'];
-const KEEN_SIGHT: [string, string] = ['Острое зрение', 'Совершает с преимуществом проверки Мудрости (Восприятие), полагающиеся на зрение.'];
-const KEEN_HEARING_SIGHT: [string, string] = ['Тонкий слух и острое зрение', 'Совершает с преимуществом проверки Мудрости (Восприятие), полагающиеся на слух или зрение.'];
-const AMPHIBIOUS: [string, string] = ['Амфибия', 'Может дышать и воздухом, и под водой.'];
-const WATER_BREATHING: [string, string] = ['Подводное дыхание', 'Может дышать только под водой.'];
-const CHARGE = (what: string, distance: number, extra: string, average: number, dc: number): [string, string] => [
-  'Натиск', `Если ${what} переместился по прямой хотя бы на ${distance} фт. к цели и в тот же ход попал по ней тараном, цель получает дополнительно ${average} (${extra}) дробящего урона. Если цель — существо, она должна преуспеть в спасброске Силы со СЛ ${dc}, иначе сбита с ног.`,
-];
-
-export const SRD_MONSTERS: SrdMonster[] = [
+const BASE_MONSTERS: SrdMonster[] = [
   {
     index: 'commoner', name: 'Commoner', nameRu: 'Простолюдин', size: 'medium', type: 'гуманоид (любая раса)', alignment: 'любое мировоззрение',
     ac: 10, hp: 4, hitDice: '1d8', speed: 30, abilities: [10, 10, 10, 10, 10, 10],
@@ -875,4 +818,9 @@ export const SRD_MONSTERS: SrdMonster[] = [
     ],
     actions: [['Огненное дыхание (перезарядка 5–6)', 'Дракон выдыхает огонь 30-футовым конусом. Каждое существо в нём совершает спасбросок Ловкости со СЛ 17, получая 56 (16d6) урона огнём при провале или половину при успехе.']],
   },
+];
+
+export const SRD_MONSTERS: SrdMonster[] = [
+  ...BASE_MONSTERS, ...MONSTERS_CHALLENGE_0, ...MONSTERS_CHALLENGE_1, ...MONSTERS_CHALLENGE_2, ...MONSTERS_CHALLENGE_3,
+  ...MONSTERS_CHALLENGE_5, ...MONSTERS_CHALLENGE_6, ...MONSTERS_CHALLENGE_9, ...MONSTERS_CHALLENGE_13, ...MONSTERS_DRAGONS,
 ];

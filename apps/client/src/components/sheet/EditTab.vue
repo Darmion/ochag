@@ -6,7 +6,7 @@ import ProficiencyEditor from './ProficiencyEditor.vue';
 import AppearanceSection from './AppearanceSection.vue';
 import type { CampaignMember } from '../../campaign/members';
 import { DISPOSITION_LABELS, KIND_LABELS, OBJECT_KINDS, SIZE_LABELS } from '../../campaign/objects';
-import { DAMAGE_TYPES, MATERIALS } from '../../rules/objectRules';
+import { DEFENSE_TYPES, MATERIALS } from '../../rules/objectRules';
 import { ABILITIES, ABILITY_LABELS, modifier } from '../../characterSheet/abilities';
 import { CHALLENGES, CREATURE_TYPE_OPTIONS, DEFENSE_LABELS, challengeLabel, type SheetEditForm } from '../../characterSheet/editForm';
 import type { Appearance } from '../../characterSheet/appearance';
@@ -246,15 +246,15 @@ const onVisibilityChange = (fieldKey: string, setting: VisibilitySetting) => emi
     <div v-if="!readOnly" class="defenses">
       <ChipMultiSelect
         v-for="(label, kind) in DEFENSE_LABELS" :key="kind"
-        :label="label" :options="DAMAGE_TYPES" :model-value="form.defenses[kind]" :disabled="busy"
+        :label="label" :options="DEFENSE_TYPES" :model-value="form.defenses[kind]" :disabled="busy"
         @update:model-value="value => { form.defenses[kind] = value; emit('dirty'); }"
       />
       <small class="muted">Урон этого типа: сопротивление — вдвое меньше, иммунитет — не проходит, уязвимость — вдвое больше. Сохраните лист.</small>
     </div>
     <p v-else-if="(character.damage_resistances?.length || character.damage_immunities?.length || character.damage_vulnerabilities?.length)" class="muted">
-      <template v-if="character.damage_resistances?.length">Сопротивление: {{ character.damage_resistances.map(id => DAMAGE_TYPES.find(type => type.id === id)?.label ?? id).join(', ') }}. </template>
-      <template v-if="character.damage_immunities?.length">Иммунитет: {{ character.damage_immunities.map(id => DAMAGE_TYPES.find(type => type.id === id)?.label ?? id).join(', ') }}. </template>
-      <template v-if="character.damage_vulnerabilities?.length">Уязвимость: {{ character.damage_vulnerabilities.map(id => DAMAGE_TYPES.find(type => type.id === id)?.label ?? id).join(', ') }}.</template>
+      <template v-if="character.damage_resistances?.length">Сопротивление: {{ character.damage_resistances.map(id => DEFENSE_TYPES.find(type => type.id === id)?.label ?? id).join(', ') }}. </template>
+      <template v-if="character.damage_immunities?.length">Иммунитет: {{ character.damage_immunities.map(id => DEFENSE_TYPES.find(type => type.id === id)?.label ?? id).join(', ') }}. </template>
+      <template v-if="character.damage_vulnerabilities?.length">Уязвимость: {{ character.damage_vulnerabilities.map(id => DEFENSE_TYPES.find(type => type.id === id)?.label ?? id).join(', ') }}.</template>
     </p>
 
     <label v-if="!readOnly">
@@ -270,6 +270,16 @@ const onVisibilityChange = (fieldKey: string, setting: VisibilitySetting) => emi
         <input type="number" min="0" max="1000" step="5" v-model.number="form.flySpeed" :disabled="busy" placeholder="нет" />
       </label>
       <p v-else-if="form.flySpeed">Полёт: {{ form.flySpeed }} фут.</p>
+      <label v-if="!readOnly" title="Глубокая вода стоит как обычный шаг; без скорости плавания — вдвое">
+        Скорость плавания, фут. (пусто — плывёт за двойную цену)
+        <input type="number" min="0" max="1000" step="5" v-model.number="form.swimSpeed" :disabled="busy" placeholder="нет" />
+      </label>
+      <p v-else-if="form.swimSpeed">Плавание: {{ form.swimSpeed }} фут.</p>
+      <label v-if="!readOnly" title="«Залезть на стену» в меню фигуры: со скоростью лазания подъём стоит как обычный шаг">
+        Скорость лазания, фут. (пусто — лазает за двойную цену)
+        <input type="number" min="0" max="1000" step="5" v-model.number="form.climbSpeed" :disabled="busy" placeholder="нет" />
+      </label>
+      <p v-else-if="form.climbSpeed">Лазание: {{ form.climbSpeed }} фут.</p>
       <label v-if="!readOnly">
         Тёмное зрение, фут. (пусто — нет)
         <input type="number" min="0" max="1000" step="5" v-model.number="form.darkvision" :disabled="busy" placeholder="нет" />

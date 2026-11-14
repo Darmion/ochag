@@ -5,6 +5,8 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref, toRefs, watch } fr
 import { protectNames } from '../../i18n/domTranslate';
 
 import { type Tabletop, type WallSegment, type WallStyle, type WallKind, type MultiSelection, type FogState, type FogCell, type GizmoMode, type TableTool, type Drawing, type MapPin } from '../../tabletop/scene';
+import type { AlternateMode } from '../../../../../packages/domain/map/wall-alternate';
+import { terrainCounts, type TerrainKind } from '../../../../../packages/domain/map/terrain';
 import { type DiagonalRule, type Position } from '../../tabletop/grid';
 
 import { type LiveConnection } from '../../tabletop/live';
@@ -19,6 +21,7 @@ import { tableViewPrefs } from '../../settings/tablePrefs';
 import HotkeysModal from '../settings/HotkeysModal.vue';
 import FactionsModal from '../campaign/FactionsModal.vue';
 import GridSettingsDialog from '../settings/GridSettingsDialog.vue';
+import ModFormDialog from '../campaign/ModFormDialog.vue';
 import SoundSettingsDialog from '../settings/SoundSettingsDialog.vue';
 import SoundPopover from '../game/SoundPopover.vue';
 import GroupMenu from '../game/GroupMenu.vue';
@@ -32,6 +35,7 @@ import TableToasts from './TableToasts.vue';
 import AudioPanel from './AudioPanel.vue';
 import VisionPanel from './VisionPanel.vue';
 import ShopModal from './ShopModal.vue';
+import ExamineModal from '../game/ExamineModal.vue';
 import type { ChatMessage } from '../../campaign/chat';
 import LightSourceControl from '../objects/LightSourceControl.vue';
 import EncountersPanel from '../campaign/EncountersPanel.vue';
@@ -72,9 +76,13 @@ import GamePortraits from '../game/GamePortraits.vue';
 import GameInitiative from '../game/GameInitiative.vue';
 import { closeAllGameWindows, isGameWindowOpen, toggleGameWindow } from '../../tabletop/layout/gameHud';
 import type { TabletopProps, SceneInfo, SceneDetail, Character, SceneObjectDTO, LibraryAsset, RollEntry, InitiativeEntry, NoteSummary, TemplateDTO, WallTool, SoundTab } from '../../tabletop/view/types';
+import type { BrushDetail } from '../../../../../packages/domain/map/wall-brush';
+import { useScatter, type ScatterOptions, type ScatterPlan, type SpreadOptions } from '../../tabletop/view/scatter';
 import { useObjectSaves } from '../../tabletop/view/objectSaves';
 import { useMeasureShare } from '../../tabletop/view/measureShare';
 import { usePlayerView } from '../../tabletop/view/playerView';
+import { useModForms } from '../../tabletop/view/modForms';
+import { modFormIcon } from '../../campaign/modForms';
 import { useMapHistory } from '../../tabletop/view/mapHistory';
 import { useDrawings } from '../../tabletop/view/drawings';
 import { useAreaTemplates } from '../../tabletop/view/areaTemplates';
@@ -111,6 +119,7 @@ import { useAreaPopover } from '../../tabletop/view/areaPopover';
 import { useCombatFx } from '../../tabletop/view/combatFx';
 import { useReactions } from '../../tabletop/view/reactions';
 import { useLegendaryActions } from '../../tabletop/view/legendaryActions';
+import { useInitiativeEvents } from '../../tabletop/view/initiativeEvents';
 import { useFloats } from '../../tabletop/view/floats';
 import { useVision } from '../../tabletop/view/vision';
 import { usePaletteItems } from '../../tabletop/view/paletteItems';
@@ -141,6 +150,8 @@ const hudHidden = ref(false);
 
 const emit = defineEmits<{
   'open-character-sheet': [characterId: string];
+  'open-level-up': [characterId: string];
+  'open-level-down': [characterId: string];
 }>();
 
 const canvas = ref<HTMLCanvasElement | null>(null);
@@ -206,11 +217,14 @@ const eyesTarget = ref<{ characterId: string; name: string } | null>(null);
 const chatMessages = ref<ChatMessage[]>([]);
 const chatMembers = ref<Array<{ userId: string; displayName: string }>>([]);
 const shopFor = ref<{ characterId: string; name: string } | null>(null);
+const examineFor = ref<{ characterId: string; name: string } | null>(null);
 const shopBuyers = computed(() => objects.value
   .filter(object => object.kind === 'character' && object.canEdit && !object.parent_object_id)
   .sort((a, b) => Number(b.id === actorObject.value?.id) - Number(a.id === actorObject.value?.id))
   .map(object => ({ id: object.character_id, name: object.name })));
 const wallTool = ref<WallTool | null>(null);
+const wallBrushDetail = ref<BrushDetail>('normal');
+const scatterPlan = ref<ScatterPlan | null>(null);
 const openingKind = ref<'door' | 'window' | 'wall'>('door');
 const wallDrawMode = computed({
   get: () => wallTool.value === 'chain' || wallTool.value === 'room',
@@ -222,6 +236,8 @@ const wallTextureId = ref<string | null>(null);
 const wallPopover = ref<{ at: { x: number; y: number }; wallId: string; tile: number; edit: boolean } | null>(null);
 const wallWeapons = ref<Array<{ id: string; name: string }>>([]);
 const terrainMode = ref(false);
+const terrainKind = ref<TerrainKind | 'height'>('difficult');
+const terrainHeight = ref(10);
 const wallFirstPoint = ref<Position | null>(null);
 
 const rolls = ref<RollEntry[]>([]);
@@ -286,6 +302,7 @@ const hotkeysOpen = ref(false);
 const factionsOpen = ref(false);
 const factionsRevision = ref(0);
 const gridDialogOpen = ref(false);
+const { modForms, openModForm, loadModForms } = useModForms({ request: props.request, campaignId: () => props.campaignId });
 const gridPreview = ref<GridLook | null>(null);
 const soundPopoverOpen = ref(false);
 const soundPopoverTop = ref(0);
@@ -395,7 +412,7 @@ const {
 const {
   applyBuildModes, canBuild, builderActive, leaveBuilderTools, toggleBuilder, builderTool,
 } = useBuilder({
-  gameUi, sceneId, sceneDetail, targetingActive, templateAsTrigger, wallTool, wallKind, wallPopover,
+  gameUi, sceneId, sceneDetail, targetingActive, templateAsTrigger, wallTool, wallBrushDetail, scatterPlan, wallKind, wallPopover,
   terrainMode, wallFirstPoint, table: () => table, railMoreOpen, builderMode, tool,
 });
 
@@ -437,6 +454,8 @@ function paint() {
   table?.setFogPreview(fogPreviewCells.value);
   table?.setLightMap(illumination.value);
   table?.setDifficultCells(sceneDetail.value?.difficult_cells ?? []);
+  table?.setWaterCells(sceneDetail.value?.water_cells ?? []);
+  table?.setElevationCells(sceneDetail.value?.elevation_cells ?? []);
   table?.setReachCells(reach.value?.cells ?? []);
   table?.setTemplates(templateAreas.value);
   table?.setTriggerAreas(triggerAreas.value);
@@ -635,7 +654,7 @@ async function loadLists() {
 }
 
 const {
-  hudImage, factionPortraits, partyPortraits,
+  hudImage, factionPortraits, partyPortraits, portraitOf,
 } = useHudPortraits({
   props, gameUi, characters, objects, activeObjectId, loadImageUrl, allyOfViewer, sideOf,
   currentTurnCharacterId,
@@ -677,10 +696,11 @@ const {
   sceneSizeEntry,
 });
 const {
-  renameScene, selectScene, createSceneNamed, openSceneSettings, saveMapSize, mapBackgroundUrl,
+  renameScene, selectScene, createSceneNamed, copyScene, removeScene, restoreScene, loadSceneContents, loadSceneBackups,
+  canUseSceneFiles, exportScene, importScene, onSceneRemoved, openSceneSettings, saveMapSize, mapBackgroundUrl,
 } = useSceneWindow({
   props, sceneId, newSceneName, sceneDetail, sizeWidthInput, sizeHeightInput, sizeFeetInput, mapDialog,
-  run, loadLists, createScene, saveSceneSize, hudImage,
+  run, loadLists, createScene, saveSceneSize, hudImage, pushToast, error,
 });
 const {
   rollApplyTargets, placeImage, placeOnScene, onObjectCreated,
@@ -700,12 +720,12 @@ const {
   placementRemovedEntry,
 });
 const {
-  placeWallPoint, newWallLook, paintTerrain, clearTerrain, onWallPictureForNew, restyleWalls,
+  placeWallPoint, brushWalls, newWallLook, paintTerrain, clearTerrain, onWallPictureForNew, restyleWalls,
   wallPopoverWall, wallPopoverPicture, wallPopoverEverywhere, wallPopoverEdit, setWallOpening,
   toggleDoor, removeAllWalls,
 } = useWalls({
   props, sceneDetail, walls, wallTool, openingKind, wallStyle, wallKind, wallTextureId, wallPopover,
-  wallFirstPoint, basePath, refresh, run, history, wallsAddedEntry, wallAddedEntry, wallsRemovedEntry,
+  wallFirstPoint, terrainKind, terrainHeight, basePath, refresh, run, history, wallsAddedEntry, wallAddedEntry, wallsRemovedEntry,
   wallRemovedEntry,
 });
 const {
@@ -742,17 +762,22 @@ const {
 });
 const {
   hideSelection, conditionSelection, hpSelection, downedSelected, reviveSelection, combatSelection,
-  wallStyleSelection, removeSelection,
+  wallStyleSelection, wallAlternateSelection, removeSelection,
 } = useGroupActions({
   props, activeObjectId, walls, initiativeEntries, multiSelection, pushToast, basePath,
   objectsPath, initiativePath, loadRolls, loadInitiative, refresh, run, queueObjectSave,
   restyleWalls, objectStateOf, history, rememberObjectEdit, placementRemovedEntry, wallsRemovedEntry,
   templates, templateData, templateRemovedEntry, selectedObjects, selectedCreatures, clearSelection,
 });
+const { spreadSelection, startScatter, scatterAt } = useScatter({
+  props, sceneId, sceneDetail, objects, selectedObjects, scatterPlan, pushToast, refresh, loadLists, run,
+  saveObjectNow, objectStateOf, history, objectEditEntry, placementAddedEntry,
+});
+const scatterSamples = computed(() => selectedObjects.value.filter(object => object.canEdit && object.kind !== 'character').length);
 const {
   toolHint, toolOptionsMeta,
 } = useToolHints({
-  placingEncounter, placingBestiary, actionBar, targetingActive, pendingPinPoint, templateAsTrigger,
+  scatterPlan, placingEncounter, placingBestiary, actionBar, targetingActive, pendingPinPoint, templateAsTrigger,
   wallTool, terrainMode, wallFirstPoint, table: () => table, movingTemplateId, tool, shareRuler,
   diagonalRule, pendingTextPoint, editingTextId, movingTextId, sendMeasureClear, groupMoveActive,
 });
@@ -814,7 +839,7 @@ const {
 } = useReach({
   props, viewOnly, sceneId, sceneDetail, objects, activeObjectId, walls, visionPreview, eyesOfSelected,
   feetPerUnit, table: () => table, disposed: () => disposed, showMoveFilter, diagonalRule,
-  measureLabel, currentTurnCharacterId, refresh, currentEntry, actorObject,
+  measureLabel, currentTurnCharacterId, refresh, initiativeEntries, actorObject,
 });
 
 const {
@@ -833,6 +858,16 @@ const {
 });
 
 const currentEntries = computed<InitiativeEntry[]>(() => initiativeEntries.value.filter(entry => entry.is_current));
+const dyingOutsideCombat = computed(() => objects.value.filter(object => object.kind === 'character' && object.hp?.current === 0
+  && (object.conditions ?? []).includes('unconscious') && !(object.conditions ?? []).some(code => code === 'stable' || code === 'dead')
+  && !initiativeEntries.value.some(entry => entry.character_id === object.character_id)));
+function rollDyingSaves() {
+  return run(async () => {
+    const { rolled } = await props.request(`/campaigns/${props.campaignId}/death-saves`, 'POST', { sceneId: sceneId.value });
+    pushToast({ tone: 'info', title: 'Спасброски от смерти', detail: rolled ? `Брошено умирающим вне боя: ${rolled}.` : 'Умирающих вне боя на сцене нет.' });
+    await refresh();
+  });
+}
 const {
   joinInitiative, addNpcToInitiative, advanceInitiative, advanceActorTurn, endCombat, dashInitiative,
   canAutoTurn, autoTarget, autoTurn, actInitiative, economyInitiative, deleteInitiativeEntry,
@@ -844,9 +879,13 @@ const canAdvanceTurn = computed(() => currentEntries.value.length > 0 &&
   (Boolean(sceneDetail.value?.canManage) || currentEntries.value.some(entry => ownsCharacter(entry.character_id ?? null))));
 
 const characterNames = computed(() => Object.fromEntries(characters.value.map(character => [character.id, character.name])));
+// Heroes a player's own roll buttons may roll as: theirs, or every creature for the GM.
+const macroHeroes = computed(() => characters.value
+  .filter(character => character.kind !== 'object' && (sceneDetail.value?.canManage || character.owner_user_id === props.currentUserId))
+  .map(character => ({ id: character.id, name: character.name })));
 
 const {
-  gameWindowAvailable, windowHotkey, minigameOpen, gameMenu, onGameMenu, openActorSheet,
+  gameWindowAvailable, windowHotkey, minigameOpen, minigameDoor, hangRuneLock, gameMenu, onGameMenu, openActorSheet,
 } = useGameMenu({
   emit, sceneDetail, compendiumOpen, notes, notesCanManage, settingsOpen, hotkeysOpen, factionsOpen,
   paletteOpen, actorObject,
@@ -869,7 +908,7 @@ const {
 const {
   altHeld, releasePanKeys, handleKeyUp, handleKey,
 } = useTableKeys({
-  viewOnly, gameUi, hudHidden, actionBar, wallTool, wallPopover, terrainMode, wallFirstPoint,
+  scatterPlan, viewOnly, gameUi, hudHidden, actionBar, wallTool, wallPopover, terrainMode, wallFirstPoint,
   notesCanManage, table: () => table, mapFullscreen, settingsOpen, hotkeysOpen, factionsOpen,
   soundPopoverOpen, clockOpen, railMoreOpen, builderMode, multiCount, movingTemplateId, paletteOpen,
   tool, cameraMenuOpen, sectionsOpen, activeObject, frameCamera, focusActiveObject, removeFromScene,
@@ -894,8 +933,8 @@ const {
 });
 
 const {
-  onTableContext, tokenMenuObject, tokenMenuTarget, factionList, loadFactionList, tokenFactions,
-  tokenNotice, tokenMenuCanAttack, tokenAttack, tokenSpell, tokenHp, tokenFly, tokenFall, tokenSave,
+  onTableContext, tokenMenuObject, tokenMenuTarget, tokenXp, tokenRevive, factionList, loadFactionList, tokenFactions,
+  tokenNotice, tokenMenuCanAttack, tokenAttack, tokenSpell, tokenHp, tokenFly, tokenClimb, tokenFall, tokenSave,
   tokenCombat, tokenDisposition, tokenPing, tokenCondition, tokenHide, tokenRotate, tokenScale,
   tokenDuplicate, tokenRemove,
 } = useTokenMenu({
@@ -938,7 +977,13 @@ const {
   currentEntry,
 });
 
-const { questsRevision, showExperience, awardParty, showHpFloat } = useFloats({ props, objects, table: () => table, pushToast, run });
+const { eventTurn, useEventOption, skipEvent } = useInitiativeEvents({
+  props, sceneDetail, currentEntry, pushToast, initiativePath, loadInitiative, run,
+});
+
+const { questsRevision, showExperience, awardParty, showHpFloat } = useFloats({
+  props, objects, table: () => table, pushToast, run, canControl: characterId => Boolean(characters.value.find(entry => entry.id === characterId)?.can_control),
+});
 
 const {
   ensureTable, ensureBackground, dropBoard,
@@ -949,7 +994,8 @@ const {
   backgroundObjectUrl, showHpBars, showGizmo, showWeather, multiSelection, tool, overlay,
   loadModelFile, loadImageUrl, assetBlob, drawColor, measureLabel, sendMeasure, sendMeasureClear,
   onPinClick, sendPing, boardColors, surroundingsColors, gridLook, resetFraming, applyBuildModes,
-  liveGrab, livePull, onObjectTransform, paintTerrain, setWallOpening, toggleDoor, saveDrawing,
+  liveGrab, livePull, onObjectTransform, paintTerrain: (from, to) => (scatterPlan.value ? scatterAt(from, to) : paintTerrain(from, to)),
+  brushWalls, setWallOpening, toggleDoor, saveDrawing,
   onTextPoint, eraseAt, placeTemplate, onMultiPick, onMarquee, groupMoveActive, groupCenter,
   spawnBestiaryAt, deployEncounterAt, aimAreaNames, aimHovered, loadDragReach, showDragFilter,
   hideDragFilter, dragLabel, dragPath, onTableContext, handleGroundClick,
@@ -962,7 +1008,12 @@ const {
   disposed: () => disposed, factionsOpen, factionsRevision, pushToast, loadAudio, audioPlayer,
   loadRolls, loadInitiative, loadNotes, refresh, reloadCharacters, onLivePose, onLiveGrabDenied, speak,
   factionList, loadFactionList, showAttackFx, combatSummary, addOpportunity, addCounterspell,
-  closeCounterspell, addReactionOffer, showHpFloat, showExperience, questsRevision,
+  closeCounterspell, addReactionOffer, showHpFloat, showExperience, questsRevision, onSceneRemoved,
+  // A change to the selected creature (a cast, a rest, the sheet edited elsewhere) updates its resource strip.
+  onCharacterChanged: characterId => {
+    const id = actionActor.value?.characterId;
+    if (id && (characterId === null || characterId === id)) void actionBar.value?.refreshResources(id);
+  },
 });
 
 watch(() => placingEncounter.value ?? placingBestiary.value, placing => {
@@ -973,6 +1024,7 @@ onMounted(() => {
   preloadCombatSfx();
 
   void run(loadLists);
+  void loadModForms();
 
   let pollTick = 0;
   poll = setInterval(() => {
@@ -1007,7 +1059,7 @@ onBeforeUnmount(() => {
   <section
     class="tabletop-shell"
     :class="{ 'is-game': gameUi, 'hud-hidden': gameUi && hudHidden, 'in-combat': gameUi && initiativeMedals.length > 0 }"
-    :style="{ '--hint-shift': hintShift }"
+    :style="{ '--hint-shift': hintShift, '--strip-space': `${actionBar?.stripSpace ?? 0}px` }"
     aria-labelledby="tabletop-title"
   >
 
@@ -1028,6 +1080,7 @@ onBeforeUnmount(() => {
       :boss-options="bossOptions"
       :seconds-left="secondsLeft"
       :counter-hint="counterHint"
+      :portrait-of="portraitOf"
       @counterspell="counterspellIt"
       @skip-counterspell="skipCounterspell"
       @rebuke="rebukeIt"
@@ -1035,6 +1088,9 @@ onBeforeUnmount(() => {
       @take-opportunity="takeOpportunity"
       @dismiss-opportunity="dismissOpportunity"
       @use-legendary="useLegendary"
+      :event-turn="eventTurn"
+      @use-event="useEventOption"
+      @skip-event="skipEvent"
     />
     <p v-if="refreshError" class="notice error" role="alert">
       Обновление сцены: {{ refreshError }}
@@ -1042,7 +1098,7 @@ onBeforeUnmount(() => {
 
     <p v-if="error" class="notice error dismissible" role="alert">
       {{ error }}
-      <button type="button" class="notice-close" aria-label="Закрыть" @click="error = ''"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+      <button type="button" class="notice-close icon-only" aria-label="Закрыть" @click="error = ''"><GameIcon class="inline-icon" name="close" :size="16" /></button>
     </p>
 
     <div class="board-area" :class="{ 'is-fullscreen': mapFullscreen }">
@@ -1065,7 +1121,7 @@ onBeforeUnmount(() => {
         <p v-if="toolHint && !pendingTextPoint && !pendingPinPoint" class="tool-hint">{{ toolHint }}</p>
         <p v-if="visionChip || eyesChipName || visionChipParts.length || alliedToggle" class="vision-chip">
           <template v-if="visionChip"><GameIcon class="inline-icon" name="eye" :size="16" /> {{ visionChip }}</template>
-          <span v-if="eyesChipName"><GameIcon class="inline-icon" name="eye" :size="16" /> <span>Глазами:</span> <b translate="no">{{ eyesChipName }}</b> <span>— тёмное не видно</span></span>
+          <span v-if="eyesChipName"><GameIcon class="inline-icon" name="viewAs" :size="16" /> <span>Глазами:</span> <b translate="no">{{ eyesChipName }}</b> <span>— тёмное не видно</span></span>
           <span v-for="part in visionChipParts" :key="part.label"><GameIcon class="inline-icon" :name="part.icon!" :size="16" /> <span>{{ part.label }}</span>: <span>{{ part.hint }}</span></span>
           <button v-if="visionPreview || eyesOfSelected" type="button" @click="visionPreview = false; eyesOfSelected = false">Выключить</button>
           <button v-if="alliedToggle" type="button" @click="chooseVision(alliedToggle === 'allies' ? 'own' : 'allies')">
@@ -1102,7 +1158,7 @@ onBeforeUnmount(() => {
       </div>
 
       <p v-if="holdersText" class="board-holders" aria-live="polite">
-        <GameIcon class="inline-icon" name="hand" :size="16" /> Сейчас тянут: {{ holdersText }}
+        <GameIcon class="inline-icon" name="tug" :size="16" /> Сейчас тянут: {{ holdersText }}
       </p>
 
     </div>
@@ -1148,8 +1204,8 @@ onBeforeUnmount(() => {
             <span v-if="railWide">Свернуть</span>
           </button>
           <span class="rail-history" role="group" aria-label="История">
-            <button type="button" class="rail-mini" :disabled="busy || !history.undoLabel.value" :title="history.undoLabel.value ? `Отменить: ${history.undoLabel.value} (Ctrl+Z)` : 'Нечего отменять'" aria-label="Отменить" @click="stepHistory('undo')"><GameIcon name="undo" :size="16" /></button>
-            <button type="button" class="rail-mini" :disabled="busy || !history.redoLabel.value" :title="history.redoLabel.value ? `Повторить: ${history.redoLabel.value} (Ctrl+Y)` : 'Нечего повторять'" aria-label="Повторить" @click="stepHistory('redo')"><GameIcon name="redo" :size="16" /></button>
+            <button type="button" class="rail-mini icon-only" :disabled="busy || !history.undoLabel.value" :title="history.undoLabel.value ? `Отменить: ${history.undoLabel.value} (Ctrl+Z)` : 'Нечего отменять'" aria-label="Отменить" @click="stepHistory('undo')"><GameIcon name="undo" :size="16" /></button>
+            <button type="button" class="rail-mini icon-only" :disabled="busy || !history.redoLabel.value" :title="history.redoLabel.value ? `Повторить: ${history.redoLabel.value} (Ctrl+Y)` : 'Нечего повторять'" aria-label="Повторить" @click="stepHistory('redo')"><GameIcon name="redo" :size="16" /></button>
           </span>
         </div>
         <button
@@ -1160,36 +1216,36 @@ onBeforeUnmount(() => {
         <div ref="railScroll" class="rail-scroll" :class="{ 'more-below': railMore }" @scroll.passive="updateRailMore">
         <template v-if="builderMode">
           <span class="rail-heading" aria-hidden="true">Конструктор карты</span>
-          <button type="button" :aria-pressed="tool === 'select' && !builderActive" title="Выбор и перемещение (V)" aria-label="Выбор" @click="leaveBuilderTools(); tool = 'select'"><GameIcon name="pointer" /></button>
-          <button type="button" :aria-pressed="builderActive === 'walls'" title="Стены: цепочкой, комнатой, правка" aria-label="Стены" @click="builderTool('walls')"><GameIcon name="wall" /></button>
-          <button type="button" :aria-pressed="builderActive === 'doors'" title="Двери и окна: щелчок по участку готовой стены — дверь, окно или снова стена" aria-label="Двери" @click="builderTool('doors')"><GameIcon name="door" /></button>
-          <button type="button" :aria-pressed="builderActive === 'terrain'" title="Труднопроходимая местность: путь через клетки вдвое дороже" aria-label="Местность" @click="builderTool('terrain')"><GameIcon name="terrain" /></button>
-          <button type="button" :aria-pressed="builderActive === 'traps'" title="Ловушка: область, которую видит только мастер; срабатывает при входе" aria-label="Ловушки" @click="builderTool('traps')"><GameIcon name="trap" /></button>
-          <button type="button" :aria-pressed="isGameWindowOpen('vision')" title="Свет и обзор: время, освещение, погода, туман войны (8)" aria-label="Свет" @click="toggleGameWindow('vision')"><GameIcon name="flame" /></button>
-          <button type="button" :aria-pressed="Boolean(mapDialog)" title="Карта: размер в клетках, футы на клетку, картинка карты" aria-label="Карта" @click="mapDialog = mapDialog ? null : 'size'"><GameIcon name="image" /></button>
+          <button class="icon-only" type="button" :aria-pressed="tool === 'select' && !builderActive" title="Выбор и перемещение (V)" aria-label="Выбор" @click="leaveBuilderTools(); tool = 'select'"><GameIcon name="pointer" /></button>
+          <button class="icon-only" type="button" :aria-pressed="builderActive === 'walls'" title="Стены: цепочкой, комнатой, правка" aria-label="Стены" @click="builderTool('walls')"><GameIcon name="wall" /></button>
+          <button class="icon-only" type="button" :aria-pressed="builderActive === 'doors'" title="Двери и окна: щелчок по участку готовой стены — дверь, окно или снова стена" aria-label="Двери" @click="builderTool('doors')"><GameIcon name="door" /></button>
+          <button class="icon-only" type="button" :aria-pressed="builderActive === 'terrain'" title="Местность: труднопроходимая, мелководье, глубокая вода, высота клеток" aria-label="Местность" @click="builderTool('terrain')"><GameIcon name="terrain" /></button>
+          <button class="icon-only" type="button" :aria-pressed="builderActive === 'traps'" title="Ловушка: область, которую видит только мастер; срабатывает при входе" aria-label="Ловушки" @click="builderTool('traps')"><GameIcon name="trap" /></button>
+          <button class="icon-only" type="button" :aria-pressed="isGameWindowOpen('vision')" title="Свет и обзор: время, освещение, погода, туман войны (8)" aria-label="Свет" @click="toggleGameWindow('vision')"><GameIcon name="flame" /></button>
+          <button class="icon-only" type="button" :aria-pressed="Boolean(mapDialog)" title="Карта: размер в клетках, футы на клетку, картинка карты" aria-label="Карта" @click="mapDialog = mapDialog ? null : 'size'"><GameIcon name="image" /></button>
           <span class="rail-divider" aria-hidden="true" />
           <span class="rail-heading" aria-hidden="true">Вид стола</span>
-          <button type="button" :aria-expanded="cameraMenuOpen" :title="`Камера: вся доска (${cameraKeys.board}), сверху, участники боя, к выбранному`" aria-label="Камера" data-rail="camera" @click="openCameraMenu"><GameIcon name="crosshair" /></button>
-          <button type="button" :aria-pressed="gridDialogOpen" title="Сетка сцены для всех: вид, цвет, скрыть (своя — в «Настройках»)" aria-label="Сетка" @click="gridDialogOpen = !gridDialogOpen"><GameIcon name="grid" /></button>
+          <button class="icon-only" type="button" :aria-expanded="cameraMenuOpen" :title="`Камера: вся доска (${cameraKeys.board}), сверху, участники боя, к выбранному`" aria-label="Камера" data-rail="camera" @click="openCameraMenu"><GameIcon name="cameraFit" /></button>
+          <button class="icon-only" type="button" :aria-pressed="gridDialogOpen" title="Сетка: для всех на сцене и своя — только у вас" aria-label="Сетка" @click="gridDialogOpen = !gridDialogOpen"><GameIcon name="grid" /></button>
         </template>
         <template v-else>
         <span class="rail-heading" aria-hidden="true">На карте</span>
-        <button type="button" :aria-pressed="tool === 'select'" title="Выбор и перемещение (V)" aria-label="Выбор" @click="tool = 'select'"><GameIcon name="pointer" /></button>
-        <button type="button" :aria-pressed="tool === 'measure'" title="Линейка (M)" aria-label="Линейка" @click="tool = tool === 'measure' ? 'select' : 'measure'"><GameIcon name="ruler" /></button>
-        <button type="button" :aria-pressed="tool === 'ping'" title="Указка — покажет место всем (P или Ctrl+щелчок)" aria-label="Указка" @click="tool = tool === 'ping' ? 'select' : 'ping'"><GameIcon name="ping" /></button>
-        <button type="button" :aria-pressed="tool === 'template'" title="Область заклинания (R)" aria-label="Область" @click="tool = tool === 'template' ? 'select' : 'template'"><GameIcon name="burst" /></button>
+        <button class="icon-only" type="button" :aria-pressed="tool === 'select'" title="Выбор и перемещение (V)" aria-label="Выбор" @click="tool = 'select'"><GameIcon name="pointer" /></button>
+        <button class="icon-only" type="button" :aria-pressed="tool === 'measure'" title="Линейка (M)" aria-label="Линейка" @click="tool = tool === 'measure' ? 'select' : 'measure'"><GameIcon name="ruler" /></button>
+        <button class="icon-only" type="button" :aria-pressed="tool === 'ping'" title="Указка — покажет место всем (P или Ctrl+щелчок)" aria-label="Указка" @click="tool = tool === 'ping' ? 'select' : 'ping'"><GameIcon name="ping" /></button>
+        <button class="icon-only" type="button" :aria-pressed="tool === 'template'" title="Область заклинания (R)" aria-label="Область" @click="tool = tool === 'template' ? 'select' : 'template'"><GameIcon name="burst" /></button>
         <span class="rail-divider" aria-hidden="true" />
         <span class="rail-heading" aria-hidden="true">Разметка</span>
-        <button
+        <button class="icon-only"
           type="button" :aria-pressed="drawingTool" title="Рисование: кисть (B), подпись (L), ластик (E) — выбор в панели инструмента" aria-label="Рисование"
           @click="tool = drawingTool ? 'select' : lastDrawTool"
         ><GameIcon :name="tool === 'text' ? 'letter' : tool === 'erase' ? 'eraser' : 'quill'" /></button>
-        <button v-if="notesCanManage" type="button" :aria-pressed="tool === 'pin'" title="Булавка с заметкой (N)" aria-label="Булавка" @click="tool = tool === 'pin' ? 'select' : 'pin'"><GameIcon name="pushpin" /></button>
+        <button class="icon-only" v-if="notesCanManage" type="button" :aria-pressed="tool === 'pin'" title="Булавка с заметкой (N)" aria-label="Булавка" @click="tool = tool === 'pin' ? 'select' : 'pin'"><GameIcon name="pushpin" /></button>
         <span class="rail-divider" aria-hidden="true" />
         <span class="rail-heading" aria-hidden="true">Вид стола</span>
-        <button type="button" :aria-expanded="cameraMenuOpen" :title="`Камера: вся доска (${cameraKeys.board}), сверху, участники боя, к выбранному`" aria-label="Камера" data-rail="camera" @click="openCameraMenu"><GameIcon name="crosshair" /></button>
-        <button type="button" :aria-expanded="soundPopoverOpen" title="Звук: что играет, своя громкость; музыка, разовые звуки, фон места и звуки событий — «Всё о звуке…»" aria-label="Звук" data-rail="sound" @click="openSoundPopover"><GameIcon name="speaker" /></button>
-        <button type="button" :aria-expanded="railMoreOpen" title="Ещё: «Свободно», окно игроков, скрыть интерфейс" aria-label="Ещё" data-rail="more" @click="openRailMore"><GameIcon name="more" /></button>
+        <button class="icon-only" type="button" :aria-expanded="cameraMenuOpen" :title="`Камера: вся доска (${cameraKeys.board}), сверху, участники боя, к выбранному`" aria-label="Камера" data-rail="camera" @click="openCameraMenu"><GameIcon name="cameraFit" /></button>
+        <button class="icon-only" type="button" :aria-expanded="soundPopoverOpen" title="Звук: что играет, своя громкость; музыка, разовые звуки, фон места и звуки событий — «Всё о звуке…»" aria-label="Звук" data-rail="sound" @click="openSoundPopover"><GameIcon name="speaker" /></button>
+        <button class="icon-only" type="button" :aria-expanded="railMoreOpen" title="Ещё: сетка у меня, «Свободно», окно игроков, скрыть интерфейс" aria-label="Ещё" data-rail="more" @click="openRailMore"><GameIcon name="more" /></button>
         <span class="rail-divider" aria-hidden="true" />
         <button
           type="button" class="rail-sections" :class="{ open: sectionsOpen || gameMenu.some(item => item.pressed) }" :aria-expanded="sectionsOpen"
@@ -1214,13 +1270,27 @@ onBeforeUnmount(() => {
             :title="playerViewOpen ? `Окно игроков: ${playerViewName}` : 'Окно игроков — карта глазами игрока для проектора'"
             @click="togglePlayerViewChooser(); railMoreOpen = false"
           ><GameIcon name="projector" :size="18" />{{ playerViewOpen ? `Окно игроков: ${playerViewName}` : 'Окно игроков' }}</button>
+          <button
+            v-if="sceneDetail?.canManage && dyingOutsideCombat.length" type="button" role="menuitem" :disabled="busy"
+            :title="`Вне боя: ${dyingOutsideCombat.map(object => object.name).join(', ')} — по одному спасброску от смерти каждому`"
+            @click="rollDyingSaves(); railMoreOpen = false"
+          ><GameIcon name="deathSave" :size="18" />Спасброски умирающим<small>{{ dyingOutsideCombat.length }}</small></button>
+          <button type="button" role="menuitem" :aria-expanded="gridDialogOpen" title="Цвет, вид и прозрачность сетки — только у вас; «Как у мастера» вернёт общую" @click="gridDialogOpen = true; railMoreOpen = false"><GameIcon name="grid" :size="18" />Сетка у меня…</button>
           <button type="button" role="menuitem" title="H — показать снова: H или Esc" @click="hudHidden = true; railMoreOpen = false"><GameIcon name="eye" :size="18" />Скрыть интерфейс (H)</button>
+          <template v-if="modForms.length && !viewOnly">
+            <span class="rail-more-label">Из модов</span>
+            <button
+              v-for="form in modForms" :key="`${form.modId}/${form.id}`" type="button" role="menuitem"
+              :title="form.scope === 'character' && !actorObject ? `${form.title}: сначала выберите фигуру` : `${form.title} — мод «${form.modName}»`"
+              @click="openModForm = form; railMoreOpen = false"
+            ><GameIcon :name="modFormIcon(form)" :size="18" /><span translate="no">{{ form.title }}</span></button>
+          </template>
         </div>
         <div v-if="cameraMenuOpen" class="rail-more-menu rail-camera-menu g-frame" role="menu" :style="{ top: `${cameraMenuTop}px` }" @keydown.esc.stop="cameraMenuOpen = false">
-          <button type="button" role="menuitem" title="Вся доска — в свободном от панелей месте, с обычного угла" @click="frameCamera('board')"><GameIcon name="crosshair" :size="18" />Вся доска<kbd>{{ cameraKeys.board }}</kbd></button>
+          <button type="button" role="menuitem" title="Вся доска — в свободном от панелей месте, с обычного угла" @click="frameCamera('board')"><GameIcon name="cameraFit" :size="18" />Вся доска<kbd>{{ cameraKeys.board }}</kbd></button>
           <button type="button" role="menuitem" title="Вся доска сверху — как карта" @click="frameCamera('top')"><GameIcon name="map" :size="18" />Сверху</button>
-          <button v-if="combatantObjectIds.length" type="button" role="menuitem" title="Все участники боя в кадре; угол камеры прежний" @click="frameCamera('combat')"><GameIcon name="swords" :size="18" />Участники боя</button>
-          <button v-if="activeObject" type="button" role="menuitem" title="Камера смотрит на выбранного; угол и приближение прежние" @click="focusActiveObject(); cameraMenuOpen = false"><GameIcon name="target" :size="18" />К выбранному<kbd>{{ cameraKeys.focus }}</kbd></button>
+          <button v-if="combatantObjectIds.length" type="button" role="menuitem" title="Все участники боя в кадре; угол камеры прежний" @click="frameCamera('combat')"><GameIcon name="cameraCombat" :size="18" />Участники боя</button>
+          <button v-if="activeObject" type="button" role="menuitem" title="Камера смотрит на выбранного; угол и приближение прежние" @click="focusActiveObject(); cameraMenuOpen = false"><GameIcon name="cameraFollow" :size="18" />К выбранному<kbd>{{ cameraKeys.focus }}</kbd></button>
         </div>
         <div v-if="sectionsOpen" class="rail-more-menu rail-sections-menu g-frame" role="menu" :style="{ top: `${sectionsTop}px` }" @keydown.esc.stop="sectionsOpen = false">
           <label class="sections-search" title="Окна, действия, объекты и сцены по названию">
@@ -1265,15 +1335,21 @@ onBeforeUnmount(() => {
         @hp="tokenHp"
         @fall="tokenFall"
         @fly="tokenFly"
+        @climb="tokenClimb"
         @condition="tokenCondition"
         @sheet="tokenMenuTarget && emit('open-character-sheet', tokenMenuTarget.characterId)"
         @shop="tokenMenuTarget && (shopFor = { characterId: tokenMenuTarget.characterId, name: tokenMenuTarget.name })"
+        @examine="tokenMenuTarget && (examineFor = { characterId: tokenMenuTarget.characterId, name: tokenMenuTarget.name })"
         @hide="tokenHide"
         @focus="tokenMenuObject && selectPlacement(tokenMenuObject.id)"
         @remove="tokenRemove"
         @rotate="tokenRotate"
         @scale="tokenScale"
         @duplicate="tokenDuplicate"
+        @xp="tokenXp"
+        @revive="tokenRevive"
+        @level-up="tokenMenuTarget && emit('open-level-up', tokenMenuTarget.characterId)"
+        @level-down="tokenMenuTarget && emit('open-level-down', tokenMenuTarget.characterId)"
         @close="tokenMenu = null"
       />
 
@@ -1287,14 +1363,18 @@ onBeforeUnmount(() => {
         :all-hidden="selectedObjects.length > 0 && selectedObjects.every(object => object.hidden)"
         :busy="busy"
         :downed="downedSelected.length"
+        :things="scatterSamples"
         @revive="reviveSelection"
         @move="moveSelection"
         @rotate="rotateSelection"
+        @spread="spreadSelection"
+        @scatter="startScatter"
         @hide="hideSelection"
         @condition="conditionSelection"
         @hp="hpSelection"
         @combat="combatSelection"
         @wall-style="wallStyleSelection"
+        @wall-alternate="wallAlternateSelection"
         @remove="removeSelection"
         @clear="clearSelection"
       />
@@ -1309,14 +1389,18 @@ onBeforeUnmount(() => {
         :all-hidden="selectedObjects.length > 0 && selectedObjects.every(object => object.hidden)"
         :busy="busy"
         :downed="downedSelected.length"
+        :things="scatterSamples"
         @revive="reviveSelection"
         @move="moveSelection"
         @rotate="rotateSelection"
+        @spread="(options: SpreadOptions) => { spreadSelection(options); groupMenu = null; }"
+        @scatter="(options: ScatterOptions) => { startScatter(options); groupMenu = null; }"
         @hide="(hidden: boolean) => { hideSelection(hidden); groupMenu = null; }"
         @condition="conditionSelection"
         @hp="hpSelection"
         @combat="combatSelection"
         @wall-style="(style: WallStyle) => { wallStyleSelection(style); groupMenu = null; }"
+        @wall-alternate="(styles: WallStyle[], mode: AlternateMode, length: number) => { wallAlternateSelection(styles, mode, length); groupMenu = null; }"
         @remove="removeSelection"
         @clear="clearSelection(); groupMenu = null"
       />
@@ -1339,6 +1423,7 @@ onBeforeUnmount(() => {
         @strike="wallPopoverStrike"
         @picture="wallPopoverPicture"
         @everywhere="wallPopoverEverywhere"
+        @rune-lock="hangRuneLock(wallPopoverWall); wallPopover = null"
         @close="wallPopover = null"
       />
 
@@ -1359,7 +1444,7 @@ onBeforeUnmount(() => {
       <div v-if="trapPopover" class="trap-popover g-frame" role="dialog" aria-label="Ловушка" :style="trapPopoverStyle">
         <header class="trap-popover-head">
           <GameIcon name="trap" :size="18" /><b>Ловушка</b>
-          <button type="button" class="trap-popover-close" aria-label="Закрыть" @click="trapPopover = null"><GameIcon name="close" :size="14" /></button>
+          <button type="button" class="trap-popover-close icon-only" aria-label="Закрыть" @click="trapPopover = null"><GameIcon name="close" :size="14" /></button>
         </header>
         <div class="trap-popover-body">
           <TriggersPanel
@@ -1381,12 +1466,15 @@ onBeforeUnmount(() => {
         v-model:share-ruler="shareRuler"
         v-model:opening-kind="openingKind"
         v-model:wall-tool="wallTool"
+        v-model:wall-brush-detail="wallBrushDetail"
         v-model:wall-style="wallStyle"
         v-model:template-shape="templateShape"
         v-model:template-size-feet="templateSizeFeet"
         v-model:template-as-trigger="templateAsTrigger"
         v-model:draw-color="drawColor"
         v-model:draw-layer="drawLayer"
+        v-model:terrain-kind="terrainKind"
+        v-model:terrain-height="terrainHeight"
         :meta="toolOptionsMeta"
         :busy="busy"
         :builder-mode="builderMode"
@@ -1395,7 +1483,8 @@ onBeforeUnmount(() => {
         :walls-count="walls.length"
         :wall-texture-id="wallTextureId"
         :can-manage="Boolean(sceneDetail?.canManage)"
-        :difficult-cells="sceneDetail?.difficult_cells?.length ?? 0"
+        :terrain-counts="terrainCounts({ difficult: sceneDetail?.difficult_cells ?? [], water: sceneDetail?.water_cells ?? [] })"
+        :elevation-cells="sceneDetail?.elevation_cells ?? []"
         :colors="DRAW_COLORS"
         @wall-picture="onWallPictureForNew"
         @restyle-all="restyleWalls(null, newWallLook().style, newWallLook().textureAssetId)"
@@ -1424,6 +1513,7 @@ onBeforeUnmount(() => {
         :entries="partyPortraits"
         @select="selectPlacement"
         @open="emit('open-character-sheet', $event)"
+        @level-up="emit('open-level-up', $event)"
       />
 
       <footer v-show="!hudHidden" class="game-console g-frame">
@@ -1441,7 +1531,8 @@ onBeforeUnmount(() => {
             :chat="chatMessages"
             :speaker="chatSpeaker"
             :members="chatMembers"
-            @roll="payload => submitRoll({ ...payload, characterId: '' })"
+            :macros="{ campaignId: props.campaignId, request: props.request, heroes: macroHeroes }"
+            @roll="payload => submitRoll({ ...payload, characterId: payload.characterId ?? '' })"
             @say="sendChat"
           />
         </div>
@@ -1492,7 +1583,7 @@ onBeforeUnmount(() => {
         />
       </footer>
 
-      <button v-if="hudHidden" type="button" class="hud-restore g-gem" title="Показать интерфейс (H или Esc)" aria-label="Показать интерфейс" @click="hudHidden = false">
+      <button v-if="hudHidden" type="button" class="hud-restore g-gem icon-only" title="Показать интерфейс (H или Esc)" aria-label="Показать интерфейс" @click="hudHidden = false">
         <GameIcon name="eye" />
       </button>
     </template>
@@ -1508,12 +1599,20 @@ onBeforeUnmount(() => {
           :current-id="sceneId"
           :can-create="scenesCanManage"
           :can-manage="Boolean(sceneDetail?.canManage)"
+          :can-use-files="canUseSceneFiles"
           :busy="busy"
           :load-image="loadImageUrl"
+          :load-contents="loadSceneContents"
+          :load-backups="loadSceneBackups"
           @select="selectScene"
           @create="createSceneNamed"
           @rename="renameScene"
           @settings="openSceneSettings"
+          @copy="copyScene"
+          @remove="removeScene"
+          @restore="restoreScene"
+          @export="exportScene"
+          @import="importScene"
         />
       </GameWindow>
 
@@ -1793,7 +1892,7 @@ onBeforeUnmount(() => {
       </GameWindow>
     </template>
 
-    <MiniGamesModal v-if="minigameOpen && !viewOnly" :key="campaignId" :campaign-id="campaignId" :request="request" @close="minigameOpen = false" />
+    <MiniGamesModal v-if="minigameOpen && !viewOnly" :key="campaignId" :campaign-id="campaignId" :request="request" :door="minigameDoor" @close="minigameOpen = false" />
     <template v-if="!viewOnly">
       <GameWindow
         id="quests"
@@ -1894,6 +1993,17 @@ onBeforeUnmount(() => {
       :revision="factionsRevision"
       @close="factionsOpen = false"
     />
+    <ModFormDialog
+      v-if="openModForm"
+      :key="`${openModForm.modId}/${openModForm.id}`"
+      :form="openModForm"
+      :campaign-id="campaignId"
+      :request="request"
+      :characters="characters"
+      :character-id="actorObject?.character_id ?? null"
+      :character-name="actorObject?.name ?? null"
+      @close="openModForm = null"
+    />
     <GridSettingsDialog
       v-if="gridDialogOpen"
       :scene-grid="sceneDetail?.grid"
@@ -1922,6 +2032,18 @@ onBeforeUnmount(() => {
       @upload="uploadBackground"
       @rotate="rotateBackground"
       @clear-background="clearBackground"
+    />
+
+    <ExamineModal
+      v-if="examineFor"
+      :key="examineFor.characterId"
+      :campaign-id="campaignId"
+      :character-id="examineFor.characterId"
+      :name="examineFor.name"
+      :face="portraitOf(examineFor.characterId)"
+      :default-hero-id="actionActor && actionActor.kind === 'character' ? actionActor.characterId : null"
+      :request="request"
+      @close="examineFor = null"
     />
 
     <ShopModal
@@ -2006,6 +2128,7 @@ onBeforeUnmount(() => {
 .board-overlay :deep(.token-label.side-neutral){border-color:#c7a96a}
 .board-overlay :deep(.token-label.side-friendly){border-color:#6fb7b3}
 .board-overlay :deep(.table-label .label-icon){display:inline-block;vertical-align:-.15em;margin:0 2px}
+.board-overlay :deep(.table-label .label-image){object-fit:cover;border-radius:2px}
 .board-overlay :deep(.table-label.is-in-area){box-shadow:0 0 0 2px #e8835a,0 1px 4px #0009}
 .board-overlay :deep(.table-label.is-in-area::after){content:' ◎'}
 .board-overlay :deep(.object-label){border-style:dashed;font-weight:600}
@@ -2106,6 +2229,7 @@ p{line-height:1.5}.muted{font-size:13px}
 .sound-tabs button{min-height:30px;padding:2px 10px;font-size:13px}
 .sound-tabs button[aria-selected="true"]{color:var(--g-accent-text,#1a120b);background:var(--g-accent,#f5c469);border-color:var(--g-accent,#f5c469)}
 .sound-volume-hint{display:block;margin:0 0 8px}
+.game-tool-rail .rail-more-label{margin:6px 4px 0;padding-top:6px;border-top:1px solid var(--g-line,#ffffff22);font:600 11px var(--g-body-font);color:var(--g-muted,#cbb98f);text-transform:none}
 .game-tool-rail .rail-more-menu button{display:flex;align-items:center;justify-content:flex-start;gap:9px;width:auto;height:auto;min-height:34px;padding:4px 10px;font:600 12px var(--g-body-font);text-align:left}
 .game-tool-rail .rail-more-menu button[aria-checked="true"]{color:var(--g-accent-text);background:linear-gradient(90deg,var(--g-accent),color-mix(in srgb,var(--g-accent) 35%,transparent))}
 .game-tool-rail .rail-more-menu kbd{margin-left:auto;padding:0 4px;font:11px Consolas,monospace;opacity:.7;border:1px solid var(--g-gold-lo);border-radius:3px}
@@ -2134,13 +2258,14 @@ p{line-height:1.5}.muted{font-size:13px}
 .game-tool-rail.labeled .rail-heading{display:block}
 .game-tool-rail.labeled .rail-divider{width:auto;margin:4px 6px}
 .game-tool-rail{position:fixed;left:10px;top:calc(var(--game-top,54px) + 14px);z-index:2100;display:flex;flex-direction:column;align-items:center;gap:5px;padding:9px 6px;max-height:calc(100vh - var(--game-top,54px) - var(--game-bottom,154px) - max(0px,var(--chat-height,120px) - var(--game-bottom,156px) + 36px) - 28px)}
-/* scrollbar-width:none is ignored by Chromium/Electron; ::-webkit-scrollbar hides it. */
+/* scrollbar-width:none is ignored by Chromium; ::-webkit-scrollbar hides it. */
 .game-tool-rail button{display:grid;place-items:center;width:42px;height:42px;min-height:0;padding:0;border-radius:6px}
 .rail-divider{width:28px;height:1px;margin:3px 0;background:linear-gradient(90deg,transparent,var(--g-gold-lo),transparent)}
 .trap-popover{position:fixed;z-index:2300;width:360px;max-height:min(420px,calc(100vh - var(--game-top,54px) - var(--game-bottom,156px) - 24px));display:flex;flex-direction:column;padding:10px 12px;background:linear-gradient(110deg,#24170ff8,#100a07f5);box-shadow:0 14px 30px #000c}
 .trap-popover-body{min-height:0;overflow-y:auto;margin-right:-6px;padding-right:6px}
 .trap-popover-head{display:flex;align-items:center;gap:8px;margin-bottom:6px;color:var(--g-gold-hi)}
 .trap-popover-close{margin-left:auto;width:26px;min-width:26px;height:26px;min-height:26px;padding:0;display:grid;place-items:center}
+.tabletop-shell.is-game{--game-bottom:calc(var(--game-bottom-base,156px) + var(--strip-space,0px))}
 .game-console{position:fixed;left:10px;right:10px;bottom:10px;height:calc(var(--game-bottom,154px) - 20px);z-index:2100;display:grid;grid-template-columns:minmax(260px,27%) minmax(0,1fr);gap:16px;padding:10px 14px 10px 12px;background:linear-gradient(110deg,#271a12f7,#100a07fa 45%,#1d130df7)}
 @media (max-width:1100px){.game-console{grid-template-columns:minmax(220px,25%) minmax(0,1fr);gap:10px}}
 /* Action bar popovers rise above the windows at the screen edge (same z-index 2100). */

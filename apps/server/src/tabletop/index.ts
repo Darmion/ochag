@@ -1,5 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify';
 
+import type { Queryable } from '../db.ts';
+
 import { registerDrawingRoutes } from './scene/scene-drawings.ts';
 import { registerPinRoutes } from './scene/scene-pins.ts';
 import { registerAudioRoutes } from '../campaign/audio-routes.ts';
@@ -7,12 +9,17 @@ import { registerEncounterRoutes } from '../campaign/encounter-routes.ts';
 import { registerBestiaryRoutes } from '../campaign/bestiary-routes.ts';
 import { registerDifficultyRoutes } from '../campaign/difficulty-routes.ts';
 import { registerRollTableRoutes } from '../campaign/roll-table-routes.ts';
+import { registerRollMacroRoutes } from '../campaign/roll-macro-routes.ts';
 import { registerHeroRoutes } from '../characters/hero-routes.ts';
 import { registerLevelUpRoutes } from '../characters/level-up-routes.ts';
+import { registerLevelDownRoutes } from '../characters/level-down-routes.ts';
 import { registerClassFeatureRoutes } from '../rules/class-features.ts';
 import { registerMagicItemRoutes } from '../characters/magic-items.ts';
+import { registerMagicUseRoutes } from '../characters/magic-use.ts';
 import { registerInventoryRoutes } from '../characters/inventory-routes.ts';
+import { registerItemRoutes } from '../characters/item-routes.ts';
 import { registerObjectStateRoutes } from './scene/object-states.ts';
+import { registerExamineRoutes } from './scene/examine-routes.ts';
 import { registerRestRoutes } from '../characters/rest-routes.ts';
 import { createExperience, registerExperienceRoutes } from '../characters/experience.ts';
 import { registerLootRoutes } from './combat/loot-routes.ts';
@@ -23,10 +30,13 @@ import { registerFactionRoutes } from '../campaign/factions.ts';
 import { registerCounterRoutes } from './scene/scene-counters.ts';
 import { registerTemplateRoutes } from './scene/scene-templates.ts';
 import { createTriggerEngine } from './scene/scene-triggers.ts';
-import { addCondition, setFallHandler, setConditionGuard } from '../rules/conditions.ts';
+import { runZone } from './spells/runtime/zones.ts';
+import { addCondition, setFallHandler, setConditionGuard, setSpellEndHandler } from '../rules/conditions.ts';
+import { onSpellsEnded, registerSpellCommandRoutes } from './spells/runtime/commands.ts';
 import { createConditionEngine } from '../rules/condition-engine.ts';
 import { registerConditionRoutes } from '../rules/condition-routes.ts';
-import { registerWorldTimeRoutes } from '../campaign/world-time.ts';
+import { registerConditionRuleRoutes } from '../rules/condition-rule-routes.ts';
+import { registerWorldTimeRoutes, setTimeCourse } from '../campaign/world-time.ts';
 import { registerHandoutRoutes } from '../campaign/handout-routes.ts';
 import { registerArtRoutes } from '../campaign/art-routes.ts';
 import { registerDialogueRoutes } from '../campaign/dialogue-routes.ts';
@@ -57,10 +67,12 @@ import { type TableContext } from './context.ts';
 import { registerLiveRoutes } from './live/socket.ts';
 import { registerSceneRoutes } from './scene/routes.ts';
 import { registerWallRoutes } from './scene/walls.ts';
+import { registerWallAlternateRoute } from './scene/wall-alternate.ts';
 import { registerObjectRoutes } from './scene/objects.ts';
 import { registerRollRoutes } from './rolls/routes.ts';
 import { registerStealthRoutes } from './combat/stealth.ts';
 import { registerInitiativeRoutes } from './combat/initiative.ts';
+import { registerInitiativeEventRoutes } from './combat/initiative-events.ts';
 import { registerTurnRoutes } from './combat/turn.ts';
 import { registerTurnActionRoutes } from './combat/turn-actions.ts';
 import { registerCombatEndRoutes } from './combat/combat-end.ts';
@@ -77,7 +89,7 @@ async (app, options) => {
   const reactionWindowMs = options.reactionWindowMs ?? 20_000;
   const counterWindows = new Map<string, CounterWindow>();
 
-  const ctx = { app, db, auth, membership, presence, subscriptions, counterWindows, reactionWindowMs } as TableContext;
+  const ctx = { app, db, auth, membership, presence, subscriptions, counterWindows, walkPaths: new Map(), reactionWindowMs } as TableContext;
 
   const stopEvents = options.events?.listen((campaignId, event) => { void notifyCampaign(ctx, campaignId, event); });
   app.addHook('onClose', async () => { stopEvents?.(); });
@@ -92,11 +104,14 @@ async (app, options) => {
   registerArtRoutes(feature);
   registerChronicleRoutes(feature);
   registerRollTableRoutes({ ...feature, rollDie, insertRoll });
+  registerRollMacroRoutes(feature);
   registerHeroRoutes({ ...feature, rollDie, insertRoll });
-  registerLevelUpRoutes({
+  const levelContext = {
     ...feature, rollDie, insertRoll, canManageCharacter,
-    isCharacterManager: async (q, member, userId) => (await rightsOf(q, member, userId)).characterManager,
-  });
+    isCharacterManager: async (q: Parameters<typeof rightsOf>[0], member: any, userId: string) => (await rightsOf(q, member, userId)).characterManager,
+  };
+  registerLevelUpRoutes(levelContext);
+  registerLevelDownRoutes(levelContext);
   registerShopRoutes({
     ...feature,
     canActAs: async (q, member, userId, characterId) => {
@@ -123,6 +138,8 @@ async (app, options) => {
     },
   });
   registerInventoryRoutes({ ...feature, rightsOf, loadPlacements, detachChildren });
+  registerItemRoutes({ ...feature, rightsOf, loadPlacements, detachChildren, campaignFlag });
+  registerExamineRoutes(feature);
   registerObjectStateRoutes({
     ...feature, rightsOf, rollSkill,
     canActAs: async (q, member, userId, characterId) => {
@@ -133,10 +150,19 @@ async (app, options) => {
     sendNotices: (campaignId, notices) => triggers.send(campaignId, notices),
   });
   registerTemplateRoutes({ ...feature, loadPlacements, rollSaveAgainst: withTable(ctx, rollSaveAgainst), addCondition, areaCovers, areaCoverBonus });
-  const conditionContext = { ...feature, insertRoll, rollDie, canManageCharacter, rollSaveAgainst: withTable(ctx, rollSaveAgainst) };
+  const conditionContext = {
+    ...feature, insertRoll, rollDie, canManageCharacter, rollSaveAgainst: withTable(ctx, rollSaveAgainst),
+    hurt: (q: Queryable, campaignId: string, userId: string, characterId: string, amount: number, damageType: string) =>
+      applyHpChange(ctx, q, campaignId, userId, characterId, { mode: 'damage', amount, damageType, critical: false }),
+  };
   const conditionEngine = createConditionEngine(conditionContext);
+  setTimeCourse(conditionEngine.timePassed);
   registerConditionRoutes({ ...conditionContext, engine: conditionEngine, spendStandUp: withTable(ctx, spendStandUp) });
-  registerRestRoutes({ ...feature, insertRoll, rollDie, canManageCharacter, applyHpChange: withTable(ctx, applyHpChange), announceHpChange: withTable(ctx, announceHpChange), campaignFlag });
+  registerConditionRuleRoutes(feature);
+  registerRestRoutes({
+    ...feature, insertRoll, rollDie, canManageCharacter, applyHpChange: withTable(ctx, applyHpChange), announceHpChange: withTable(ctx, announceHpChange), campaignFlag,
+    restSaves: (q, campaignId, userId, characterId) => conditionEngine.ruledSaves(q, campaignId, userId, characterId, 'long-rest'),
+  });
   const experience = createExperience({ campaignFlag });
   const actionEconomy = createActionEconomy({ campaignFlag });
   registerExperienceRoutes({
@@ -163,6 +189,7 @@ async (app, options) => {
     ...feature, rollCheckFor: withTable(ctx, rollCheckFor), insertRoll, rollDie, notifyManagers: withTable(ctx, notifyManagers),
     hpChange: (q, campaignId, userId, characterId, change) => applyHpChange(ctx, q, campaignId, userId, characterId, change),
     fall: (q, campaignId, userId, characterId, feet, hidden) => featureApi.fall(q, campaignId, userId, characterId, feet, hidden),
+    spellZone: (q, campaignId, userId, trigger, sceneId, actor, moment) => runZone(ctx, q, campaignId, userId, trigger, sceneId, actor, moment),
   });
   registerEncounterRoutes({
     ...feature,
@@ -183,6 +210,10 @@ async (app, options) => {
   registerMagicItemRoutes({
     ...feature, rollDie, insertRoll, canManageCharacter,
     isCharacterManager: async (q, member, userId) => (await rightsOf(q, member, userId)).characterManager,
+  });
+  registerMagicUseRoutes({
+    ...feature, rollDie, insertRoll, canManageCharacter, actionEconomy,
+    applyHpChange: withTable(ctx, applyHpChange), announceHpChange: withTable(ctx, announceHpChange),
   });
   const featureApi = registerClassFeatureRoutes({
     ...feature, rollDie, insertRoll, canManageCharacter, actionEconomy, applyHpChange: withTable(ctx, applyHpChange), announceHpChange: withTable(ctx, announceHpChange), campaignFlag,
@@ -210,7 +241,8 @@ async (app, options) => {
     creatureType: (q, campaignId, characterId) => creatureTypeOf(q, campaignId, characterId),
     unarmedStrike: (campaignId, sceneId, characterId, targetId, userId, die) => unarmedStrike(ctx, campaignId, sceneId, characterId, targetId, userId, die),
     rollSaveAgainst: (q, campaignId, userId, characterId, ability, dc, label, hidden, against) => rollSaveAgainst(ctx, q, campaignId, userId, characterId, ability, dc, label, hidden, null, [], against ?? null),
-    pushAway: (q, campaignId, sceneId, fromId, targetId, feet) => pushAway(q, campaignId, sceneId, fromId, targetId, feet),
+    pushAway: (q, campaignId, sceneId, fromId, targetId, feet, userId) =>
+      pushAway(q, campaignId, sceneId, fromId, targetId, feet, false, (id, fall) => featureApi.fall(q, campaignId, userId, id, fall, false)),
     weaponAttack: async (campaignId, sceneId, characterId, weaponId, targetId, userId) => {
       let key = weaponId;
       if (!key) {
@@ -234,15 +266,19 @@ async (app, options) => {
   registerLiveRoutes(ctx);
   registerSceneRoutes(ctx);
   registerWallRoutes(ctx);
+  registerWallAlternateRoute(ctx);
   registerObjectRoutes(ctx);
   registerRollRoutes(ctx);
   registerStealthRoutes(ctx);
   registerInitiativeRoutes(ctx);
+  registerInitiativeEventRoutes(ctx);
   registerTurnRoutes(ctx);
   registerTurnActionRoutes(ctx);
   registerCombatEndRoutes(ctx);
   registerCombatActionRoutes(ctx);
   registerCastRoutes(ctx);
+  registerSpellCommandRoutes(ctx);
+  setSpellEndHandler((q, campaignId, rows) => onSpellsEnded(ctx, q, campaignId, rows));
   registerCounterspellRoutes(ctx);
   registerAutoTurnRoutes(ctx);
 

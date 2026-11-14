@@ -229,9 +229,9 @@ async function loginWithSaved(entry: SavedLogin) {
 
       const message = response.data?.message ?? t('Не удалось войти (ответ сервера {status}). Проверьте адрес сервера и попробуйте ещё раз.', { status: response.status });
       throw new ApiError(
-        response.status === 401 ? `${message} ${t('Введите пароль заново — он сохранится.')}` : message,
+        message,
         response.status,
-        response.data?.hints ?? [],
+        [...(response.status === 401 ? [t('Введите пароль заново — он сохранится.')] : []), ...(response.data?.hints ?? [])],
         response.status === 0,
       );
     }

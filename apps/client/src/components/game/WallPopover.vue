@@ -36,6 +36,7 @@ export function defaultWallHp(wall: Pick<WallSegment, 'kind' | 'style'>): number
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import { cssZoom } from '../../settings/uiScale';
+import GameIcon from './GameIcon.vue';
 
 export type WallChange = {
   style?: WallStyle; kind?: WallKind; open?: boolean; locked?: boolean; broken?: boolean; hpMax?: number | null; remove?: true;
@@ -58,6 +59,7 @@ const emit = defineEmits<{
   strike: [weaponId: string];
   picture: [file: File];
   everywhere: [];
+  runeLock: [];
   close: [];
 }>();
 
@@ -94,12 +96,21 @@ function onDocument(event: PointerEvent) {
 function onKey(event: KeyboardEvent) {
   if (event.key === 'Escape') emit('close');
 }
+let sizeObserver: ResizeObserver | null = null;
+const measure = () => { height.value = Math.min(root.value?.offsetHeight ?? 300, window.innerHeight / zoom.value - 16); };
 onMounted(() => {
-  height.value = Math.min(root.value?.offsetHeight ?? 300, window.innerHeight / zoom.value - 16);
+  measure();
+  if (root.value && typeof ResizeObserver !== 'undefined') {
+    sizeObserver = new ResizeObserver(measure);
+    sizeObserver.observe(root.value);
+  }
+  window.addEventListener('resize', measure);
   document.addEventListener('pointerdown', onDocument, true);
   window.addEventListener('keydown', onKey);
 });
 onBeforeUnmount(() => {
+  sizeObserver?.disconnect();
+  window.removeEventListener('resize', measure);
   document.removeEventListener('pointerdown', onDocument, true);
   window.removeEventListener('keydown', onKey);
 });
@@ -116,7 +127,7 @@ function onFile(event: Event) {
   <div ref="root" class="wall-popover g-frame" :style="position" role="dialog" :aria-label="kindLabel" @contextmenu.prevent>
     <div class="head">
       <b>{{ kindLabel }}<small v-if="steps > 1" class="muted"> · участок {{ tile + 1 }} из {{ steps }}</small></b>
-      <button type="button" class="close" aria-label="Закрыть" @click="emit('close')">×</button>
+      <button type="button" class="close icon-only" aria-label="Закрыть" @click="emit('close')"><GameIcon name="close" :size="14" /></button>
     </div>
     <div class="wall-popover-body">
 
@@ -167,6 +178,7 @@ function onFile(event: Event) {
       </label>
       <div v-if="wall.kind === 'door' && !wall.broken" class="flags">
         <label class="checkbox-label"><input type="checkbox" :checked="wall.locked" :disabled="busy" @change="change({ locked: ($event.target as HTMLInputElement).checked })" /> заперта (игрок не откроет)</label>
+        <button type="button" class="rune-lock" :disabled="busy" title="Дверь запрётся, пока отряд не разгадает рунный замок" @click="emit('runeLock')"><GameIcon class="inline-icon" name="lock" :size="15" /> Повесить рунный замок…</button>
       </div>
       <label class="row" :title="`По материалу — ${defaultWallHp(wall)}; пусто — по материалу`">
         <span>Прочность</span>
@@ -187,7 +199,7 @@ function onFile(event: Event) {
 .wall-popover-body{display:flex;flex-direction:column;gap:8px;min-height:0;overflow-y:auto;overflow-x:hidden}
 .head{display:flex;justify-content:space-between;align-items:center;gap:8px}
 .head small{font-weight:400}
-.close{min-height:26px;width:26px;padding:0}
+.close{display:grid;place-items:center;place-content:center;min-height:26px;width:26px;padding:0}
 section{display:flex;flex-direction:column;gap:6px}
 section.edit{padding-top:8px;border-top:1px solid var(--g-line, #fff2)}
 section.edit.first{order:-1;padding-top:0;border-top:0;padding-bottom:8px;border-bottom:1px solid var(--g-line, #fff2)}
@@ -201,5 +213,6 @@ section.edit.first{order:-1;padding-top:0;border-top:0;padding-bottom:8px;border
 .strike select{flex:1;min-width:0}
 .strike button{min-height:28px;padding:2px 12px}
 .flags{display:flex;flex-direction:column;gap:2px;font-size:12px}
+.flags .rune-lock{align-self:flex-start;margin-top:4px;font-size:12px}
 .danger{color:#ffb3b3}
 </style>

@@ -8,13 +8,13 @@ import { abilityModifier } from '../../../../../../packages/domain/dice/dice.ts'
 import type { FeatureLook, FeatureView, FeatureViewFn } from './types.ts';
 
 async function eldritchMaster(use: FeatureUse): Promise<FeatureResult> {
-  const { q, campaignId, characterId, classes, row } = use;
+  const { q, campaignId, characterId, classes, row, userId } = use;
   const ctx = use.ctx;
   if (await entryOf(q, campaignId, characterId, null)) reject(400, `«Мастер таинств» — вне боя: на это уходит минута.`);
   if (!(await pactSlotsSpent(q, campaignId, characterId, classes))) reject(400, `${row.name}: ячейки договора и так целы.`);
   await spendResource(q, campaignId, row, 'Мастер таинств');
   await restorePactSlots(q, campaignId, characterId, classes);
-  announceTime(ctx, campaignId, await advanceWorldTime(q, campaignId, 1));
+  announceTime(ctx, campaignId, await advanceWorldTime(q, campaignId, 1, userId));
   return { message: `${row.name}: «Мастер таинств» — минута мольбы, ячейки договора вернулись.`, float: 'ячейки', economyScene: null, heal: null };
 }
 

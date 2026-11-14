@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { CounterPrompt, InitiativeEntry, LegendaryOption, OpportunityPrompt, RebukePrompt, SlotChoice } from '../../tabletop/view/types';
 import GameIcon from '../game/GameIcon.vue';
+import HudPortrait from '../game/HudPortrait.vue';
+import type { PortraitFace } from '../../tabletop/view/hudPortraits';
 
 defineProps<{
   busy: boolean;
@@ -11,6 +13,8 @@ defineProps<{
   bossOptions: Record<string, LegendaryOption[]>;
   secondsLeft: (deadline: number) => number;
   counterHint: (prompt: CounterPrompt, choice: SlotChoice) => string;
+  portraitOf: (characterId: string) => PortraitFace | null;
+  eventTurn?: InitiativeEntry | null;
 }>();
 const legendaryOpen = defineModel<boolean>('legendaryOpen', { required: true });
 const emit = defineEmits<{
@@ -21,15 +25,28 @@ const emit = defineEmits<{
   'take-opportunity': [prompt: OpportunityPrompt];
   'dismiss-opportunity': [prompt: OpportunityPrompt];
   'use-legendary': [entryId: string, index: number];
+  'use-event': [index: number];
+  'skip-event': [];
 }>();
 </script>
 
 <template>
   <div
-    v-if="opportunityPrompts.length || counterPrompts.length || rebukePrompts.length || (legendaryOpen && legendaryBosses.length)"
+    v-if="opportunityPrompts.length || counterPrompts.length || rebukePrompts.length || (legendaryOpen && legendaryBosses.length) || eventTurn"
     class="opportunity-prompts" role="alertdialog" aria-label="Реакции и легендарные действия"
   >
     <div v-for="prompt in counterPrompts" :key="prompt.key" class="opportunity counter-prompt g-frame">
+      <div class="counter-faces" aria-hidden="true">
+        <figure class="face caster">
+          <span class="avatar"><HudPortrait :name="prompt.casterName" :image-url="portraitOf(prompt.casterId)?.imageUrl ?? null" :image-crop="portraitOf(prompt.casterId)?.imageCrop" :crest="portraitOf(prompt.casterId)?.crest ?? null" round /></span>
+          <figcaption translate="no">{{ prompt.casterName }}</figcaption>
+        </figure>
+        <span class="clash"><GameIcon name="bolt" :size="18" /><small>{{ prompt.spellName }}</small></span>
+        <figure class="face reactor">
+          <span class="avatar"><HudPortrait :name="prompt.reactorName" :image-url="portraitOf(prompt.reactorId)?.imageUrl ?? null" :image-crop="portraitOf(prompt.reactorId)?.imageCrop" :crest="portraitOf(prompt.reactorId)?.crest ?? null" round /></span>
+          <figcaption translate="no">{{ prompt.reactorName }}</figcaption>
+        </figure>
+      </div>
       <span>
         <GameIcon class="inline-icon" name="hand" :size="16" /> «{{ prompt.casterName }}» творит «{{ prompt.spellName }}»{{ prompt.spellLevel ? ` (${prompt.spellLevel} ур.)` : ' (заговор)' }} —
         «{{ prompt.reactorName }}»: «Контрзаклинание» (реакция)?
@@ -52,13 +69,22 @@ const emit = defineEmits<{
     <div v-for="prompt in opportunityPrompts" :key="prompt.key" class="opportunity g-frame">
       <span v-if="prompt.reason === 'sentinel'"><GameIcon class="inline-icon" name="swords" :size="16" /> «{{ prompt.moverName }}» бьёт другого рядом с «{{ prompt.reactorName }}» — «Часовой»: атака реакцией</span>
       <span v-else-if="prompt.reason === 'mage-slayer'"><GameIcon class="inline-icon" name="sparkle" :size="16" /> «{{ prompt.moverName }}» колдует рядом с «{{ prompt.reactorName }}» — «Убийца магов»: атака реакцией</span>
-      <span v-else><GameIcon class="inline-icon" name="swords" :size="16" /> «{{ prompt.moverName }}» уходит от «{{ prompt.reactorName }}» — атака при уходе (реакция)</span>
+      <span v-else><GameIcon class="inline-icon" name="opportunity" :size="16" /> «{{ prompt.moverName }}» уходит от «{{ prompt.reactorName }}» — атака при уходе (реакция)</span>
       <button type="button" class="primary" :disabled="busy" @click="emit('take-opportunity', prompt)">Атаковать</button>
       <button type="button" :disabled="busy" @click="emit('dismiss-opportunity', prompt)">Пропустить</button>
     </div>
+    <div v-if="eventTurn?.event" class="opportunity legendary-prompt g-frame">
+      <span><GameIcon class="inline-icon" name="castle" :size="16" /> «{{ eventTurn.name }}»: ход логова — одно действие</span>
+      <button
+        v-for="(option, index) in eventTurn.event.options" :key="index" type="button"
+        :disabled="busy || !eventTurn.event.free.includes(index)"
+        :title="eventTurn.event.free.includes(index) ? (option.text || option.name) : 'Было в прошлом раунде'" @click="emit('use-event', index)"
+      >{{ option.name }}</button>
+      <button type="button" :disabled="busy" title="Логово в этот раз ничего не делает — ход переходит дальше" @click="emit('skip-event')">Пропустить</button>
+    </div>
     <template v-if="legendaryOpen">
       <div v-for="boss in legendaryBosses" :key="boss.entry.id" class="opportunity legendary-prompt g-frame">
-        <span><GameIcon class="inline-icon" name="crown" :size="16" /> «{{ boss.entry.name }}»: легендарные действия — осталось {{ boss.left }} из {{ boss.max }}</span>
+        <span><GameIcon class="inline-icon" name="legendary" :size="16" /> «{{ boss.entry.name }}»: легендарные действия — осталось {{ boss.left }} из {{ boss.max }}</span>
         <button
           v-for="(option, index) in bossOptions[boss.entry.character_id!] ?? []" :key="index" type="button"
           :disabled="busy || option.cost > boss.left" :title="option.text || option.name" @click="emit('use-legendary', boss.entry.id, index)"
@@ -73,9 +99,17 @@ const emit = defineEmits<{
 <style scoped>
 .opportunity-prompts{position:fixed;left:50%;top:calc(var(--game-top,54px) + 130px);translate:-50% 0;z-index:2300;display:grid;gap:6px;max-width:min(680px,92vw)}
 .opportunity{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;background:#1d140cf2;color:#f1e4c5;border:1px solid #b5575d;border-radius:6px;box-shadow:0 6px 18px #000a}
-.opportunity span{flex:1 1 260px;font-weight:600}
+.opportunity > span{flex:1 1 260px;font-weight:600}
 .legendary-prompt{border-color:#c9a24a}
 .counter-prompt{border-color:#6f8fd8}
+.counter-faces{flex:1 1 100%;display:flex;align-items:center;justify-content:center;gap:14px}
+.counter-faces .face{margin:0;display:flex;flex-direction:column;align-items:center;gap:3px;width:84px}
+.counter-faces .avatar{position:relative;display:block;width:48px;height:48px;border-radius:50%;overflow:hidden;background:#0006;--portrait-letter:12px}
+.counter-faces .caster .avatar{box-shadow:0 0 0 2px #b5575d}
+.counter-faces .reactor .avatar{box-shadow:0 0 0 2px #6f8fd8}
+.counter-faces figcaption{max-width:100%;font-size:12px;font-weight:600;text-align:center;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.counter-faces .clash{display:flex;flex-direction:column;align-items:center;gap:2px;color:#9fb6ec;max-width:140px;text-align:center}
+.counter-faces .clash small{font-size:11px;color:#d9cdb0}
 .rebuke-prompt{border-color:#d8742f}
 .opportunity select{min-height:30px;font-size:13px;max-width:260px}
 .prompt-timer{margin-left:6px;font-weight:700;color:#f1d27a}

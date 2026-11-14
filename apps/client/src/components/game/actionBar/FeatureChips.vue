@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue';
+import GameIcon from '../GameIcon.vue';
 import { featureChips, type CardFeature } from '../../../actionBar/featureCards';
 
 const props = defineProps<{ feature: CardFeature; working: boolean }>();
@@ -18,7 +19,7 @@ function add(event: Event) {
   <div class="choice-chips">
     <span v-for="chip in card.chips" :key="chip.value" class="choice-chip" :class="{ muted: chip.spent }">
       <span :title="chip.hint">{{ chip.label }}</span>
-      <button type="button" class="chip-remove" :disabled="working" :aria-label="`Убрать «${chip.name}»`" :title="`Убрать «${chip.name}»`" @click="emit('toggle', chip.value, false)">×</button>
+      <button type="button" class="chip-remove icon-only" :disabled="working" :aria-label="`Убрать «${chip.name}»`" :title="`Убрать «${chip.name}»`" @click="emit('toggle', chip.value, false)"><GameIcon name="close" :size="12" /></button>
     </span>
     <select v-if="card.add" class="sense-select chip-add" :disabled="working" :aria-label="card.add.ariaLabel" @change="add">
       <option value="">{{ card.add.placeholder }}</option>

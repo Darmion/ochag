@@ -4,9 +4,11 @@ import { useEscapeClose } from '../../ui/escapeStack';
 import { hasVisualMods, loadVisualMods, openModsFolder, setVisualModOn, visualMods, visualModsOff } from '../../settings/visualMods';
 import { artPackError, artPacks, hasArtPacks, loadArtPacks, packOn, sectionOn, setArtPackOn, setArtPackSection } from '../../art/artPacks';
 import { modSectionText, modText, type ModTranslations } from '../../settings/modText';
+import { confirmAction } from '../../ui/confirmDialog';
 import GameIcon from '../game/GameIcon.vue';
+import { adventureCountsText, type Adventure } from '../../lobby/adventures';
 
-const props = defineProps<{ request?: (path: string, method?: string) => Promise<any> }>();
+const props = defineProps<{ request?: (path: string, method?: string) => Promise<any>; campaignId?: string }>();
 const emit = defineEmits<{ close: [] }>();
 useEscapeClose(() => emit('close'));
 
@@ -62,10 +64,75 @@ async function loadServer() {
     serverError.value = cause instanceof Error ? cause.message : 'Не удалось получить список модов. Нажмите «Обновить список».';
   }
 }
+type SpellPack = {
+  id: string; name: string; version: string; description: string; author: string; translations?: ModTranslations; bundled: boolean;
+  error: string | null; count: number; names: string[]; skipped: Array<{ file: string; reason: string }>; added: number;
+};
+const spellPacks = ref<SpellPack[]>([]);
+const spellPacksManage = ref(false);
+const spellPackError = ref('');
+const spellPackInfo = ref('');
+const adventures = ref<Adventure[]>([]);
+const adventureError = ref('');
+async function loadAdventures() {
+  if (!props.request) { adventures.value = []; return; }
+  try {
+    adventures.value = (await props.request('/adventures')).adventures ?? [];
+    adventureError.value = '';
+  } catch (cause) {
+    adventureError.value = cause instanceof Error ? cause.message : 'Не удалось получить приключения. Нажмите «Обновить список».';
+  }
+}
+
+async function loadSpellPacks() {
+  if (!props.request || !props.campaignId) { spellPacks.value = []; return; }
+  try {
+    const data = await props.request(`/campaigns/${props.campaignId}/spell-packs`);
+    spellPacks.value = data.packs ?? [];
+    spellPacksManage.value = data.canManage === true;
+    spellPackError.value = '';
+  } catch (cause) {
+    spellPackError.value = cause instanceof Error ? cause.message : 'Не удалось получить наборы заклинаний. Нажмите «Обновить список».';
+  }
+}
+async function addSpellPack(pack: SpellPack) {
+  if (!props.request || !props.campaignId) return;
+  busy.value = true;
+  spellPackInfo.value = '';
+  try {
+    const result = await props.request(`/campaigns/${props.campaignId}/spell-packs/${pack.id}`, 'POST');
+    spellPackInfo.value = result.added ? `Добавлено заклинаний: ${result.added}.` : 'Все заклинания набора уже в кампании.';
+    await loadSpellPacks();
+  } catch (cause) {
+    spellPackError.value = cause instanceof Error ? cause.message : 'Не удалось добавить набор. Попробуйте ещё раз.';
+  } finally {
+    busy.value = false;
+  }
+}
+async function removeSpellPack(pack: SpellPack) {
+  if (!props.request || !props.campaignId) return;
+  const ok = await confirmAction(
+    `Заклинания набора «${modText(pack, 'name', pack.name)}» пропадут из кампании вместе с правками мастера. Те, что знает хоть один герой, останутся. Набор можно добавить снова.`,
+    { title: 'Убрать набор из кампании?', confirmLabel: 'Убрать набор', danger: true },
+  );
+  if (!ok) return;
+  busy.value = true;
+  spellPackInfo.value = '';
+  try {
+    const result = await props.request(`/campaigns/${props.campaignId}/spell-packs/${pack.id}`, 'DELETE');
+    spellPackInfo.value = result.kept ? `Убрано заклинаний: ${result.removed}. Осталось ${result.kept} — их знают герои.` : `Убрано заклинаний: ${result.removed}.`;
+    await loadSpellPacks();
+  } catch (cause) {
+    spellPackError.value = cause instanceof Error ? cause.message : 'Не удалось убрать набор. Попробуйте ещё раз.';
+  } finally {
+    busy.value = false;
+  }
+}
+
 async function reload() {
   busy.value = true;
   try {
-    await Promise.all([loadServer(), loadVisualMods(), loadArtPacks(), loadBundled()]);
+    await Promise.all([loadServer(), loadVisualMods(), loadArtPacks(), loadBundled(), loadSpellPacks(), loadAdventures()]);
   } finally {
     busy.value = false;
   }
@@ -78,7 +145,7 @@ onMounted(reload);
     <div class="modal-card">
       <header class="modal-header">
         <h3>Моды</h3>
-        <button type="button" class="modal-close" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="modal-close icon-only" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
 
       <section class="modal-section">
@@ -111,6 +178,66 @@ onMounted(reload);
           <button v-if="restartNeeded" type="button" class="primary" :disabled="busy" @click="restartServer()">Перезапустить сервер</button>
           <button type="button" @click="openModsFolder()">Открыть папку модов</button>
         </div>
+      </section>
+
+      <section class="modal-section">
+        <h4>Заклинания — для кампании</h4>
+        <small class="muted">Наборы своих заклинаний: папка с mod.json («kind»: «spells») и файлами .spell.json в «Папке модов» сервера. Мастер добавляет набор в кампанию одной кнопкой, и заклинания сразу можно учить.</small>
+        <p v-if="!request" class="muted">Войдите на сервер, чтобы увидеть его наборы заклинаний.</p>
+        <p v-else-if="!campaignId" class="muted">Откройте кампанию, чтобы добавить в неё набор.</p>
+        <template v-else>
+          <p v-if="spellPackError" class="mod-error">{{ spellPackError }}</p>
+          <p v-if="!spellPacks.length && !spellPackError" class="muted">Наборов заклинаний на этом сервере нет.</p>
+          <ul v-else-if="spellPacks.length" class="mod-list">
+            <li v-for="pack in spellPacks" :key="pack.id" :class="{ error: pack.error }">
+              <div class="mod-head">
+                <b translate="no">{{ modText(pack, 'name', pack.name) }}</b>
+                <small class="muted" translate="no">{{ pack.version }}{{ pack.author ? ` · ${modText(pack, 'author', pack.author)}` : '' }}</small>
+                <span class="mod-status">{{ pack.added ? `в кампании: ${pack.added} из ${pack.count}` : `заклинаний: ${pack.count}` }}</span>
+              </div>
+              <p v-if="pack.description" class="mod-text" translate="no">{{ modText(pack, 'description', pack.description) }}</p>
+              <p v-if="pack.error" class="mod-error">{{ pack.error }}</p>
+              <p v-else-if="pack.names.length" class="mod-text muted pack-names" translate="no">{{ pack.names.join(', ') }}{{ pack.count > pack.names.length ? '…' : '' }}</p>
+              <details v-if="pack.skipped.length" class="pack-skipped">
+                <summary>Пропущено файлов: {{ pack.skipped.length }}</summary>
+                <ul><li v-for="item in pack.skipped" :key="item.file"><span translate="no">{{ item.file }}</span> — {{ item.reason }}</li></ul>
+              </details>
+              <div v-if="spellPacksManage && !pack.error" class="mod-buttons">
+                <button type="button" class="primary" :disabled="busy || !pack.count || pack.added >= pack.count" @click="addSpellPack(pack)">
+                  {{ pack.added >= pack.count && pack.count ? 'Все в кампании' : 'Добавить в кампанию' }}
+                </button>
+                <button v-if="pack.added" type="button" :disabled="busy" @click="removeSpellPack(pack)">Убрать из кампании</button>
+              </div>
+            </li>
+          </ul>
+          <p v-if="spellPackInfo" class="muted" role="status">{{ spellPackInfo }}</p>
+          <p v-if="!spellPacksManage && spellPacks.length" class="muted">Добавляет наборы мастер кампании.</p>
+        </template>
+      </section>
+
+      <section class="modal-section">
+        <h4>Приключения — для новой кампании</h4>
+        <small class="muted">Готовое приключение: папка с mod.json («kind»: «adventure»), файлами сцен .ochag-scene и adventure.json с заметками, заданиями и раздаточными. Кампания из него создаётся в лобби: «Новая кампания» → «Из готового приключения…».</small>
+        <p v-if="!request" class="muted">Войдите на сервер, чтобы увидеть его приключения.</p>
+        <template v-else>
+          <p v-if="adventureError" class="mod-error">{{ adventureError }}</p>
+          <p v-if="!adventures.length && !adventureError" class="muted">Приключений на этом сервере нет.</p>
+          <ul v-else-if="adventures.length" class="mod-list">
+            <li v-for="adventure in adventures" :key="adventure.id" :class="{ error: adventure.error }">
+              <div class="mod-head">
+                <b translate="no">{{ modText(adventure, 'name', adventure.name) }}</b>
+                <small class="muted" translate="no">{{ adventure.version }}{{ adventure.author ? ` · ${modText(adventure, 'author', adventure.author)}` : '' }}</small>
+                <span class="mod-status">{{ adventure.error ? 'не готово' : adventureCountsText(adventure.counts) }}</span>
+              </div>
+              <p v-if="adventure.description" class="mod-text" translate="no">{{ modText(adventure, 'description', adventure.description) }}</p>
+              <p v-if="adventure.error" class="mod-error">{{ adventure.error }}</p>
+              <details v-if="adventure.problems.length" class="pack-skipped">
+                <summary>Пропущено при чтении: {{ adventure.problems.length }}</summary>
+                <ul><li v-for="problem in adventure.problems" :key="problem" translate="no">{{ problem }}</li></ul>
+              </details>
+            </li>
+          </ul>
+        </template>
       </section>
 
       <section class="modal-section">
@@ -199,6 +326,9 @@ onMounted(reload);
 .pack-sections{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:4px 12px;margin-top:6px}
 .pack-sections .checkbox-label{display:flex;align-items:baseline;gap:6px;margin:0;font-size:13px}
 .pack-sections small{margin:0;display:inline}
+.pack-names{font-size:12px}
+.pack-skipped{margin-top:4px;font-size:12px}
+.pack-skipped ul{margin:4px 0 0;padding-left:18px}
 .mod-buttons{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
 .mod-buttons button{min-height:30px;padding:2px 12px;font-size:13px}
 </style>

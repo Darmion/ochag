@@ -5,7 +5,7 @@ import vue from '@vitejs/plugin-vue';
 
 const here = (path: string) => fileURLToPath(new URL(path, import.meta.url));
 
-// Relative URLs keep the client working over file:// in Electron.
+// Relative URLs: the same build runs in the desktop window and from the GM's server.
 const brandAssets = [
   { source: here('../../branding/icon.png'), target: 'favicon.png' },
   { source: here('../../branding/logo.png'), target: 'branding/logo.png' },

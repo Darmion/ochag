@@ -28,7 +28,8 @@ const GAME_KEYS: Array<[string, string]> = [
 
 const FIXED_KEYS = computed<Array<[string, string]>>(() => [
   ['Ctrl + щелчок', 'Указка, не меняя инструмента'],
-  [cameraScheme.value === 'tts' ? 'W A S D или стрелки' : 'W A S D', 'Камера: вперёд, влево, назад, вправо (держать)'],
+  [cameraScheme.value === 'tts' ? 'W A S D или стрелки' : 'W A S D', 'Камера: вперёд, влево, назад, вправо (держать; чем дольше, тем быстрее)'],
+  ['Shift + W A S D', 'Камера втрое быстрее — через большую карту за пару секунд'],
   ...(altShowsRail() ? [['Зажать Alt', 'Развернуть левую ленту инструментов с подписями, пока держите'] as [string, string]] : []),
   ['Ctrl + «+» / «−» / 0', 'Масштаб интерфейса: крупнее, мельче, 100 %'],
   ['Щелчок по булавке', 'Открыть заметку'],
@@ -62,7 +63,8 @@ const MOUSE = computed<Array<[string, string]>>(() => [
       ] as Array<[string, string]>
     : [['Зажать ЛКМ на пустом месте', 'Вращать камеру'] as [string, string]]),
   ['Зажать ПКМ', 'Сдвинуть камеру'],
-  ['Колесо', 'Приблизить или отдалить'],
+  ['Колесо', 'Приблизить или отдалить — туда, где курсор'],
+  ['Shift + колесо', 'Приближать и отдалять крупными шагами'],
   ['Shift + кубик на панели', 'Скрытый бросок (видите вы и мастер)'],
 ]);
 
@@ -110,7 +112,7 @@ const rebindRows = computed(() => REBINDABLE_ACTIONS.map(action => ({ action, co
     <div class="modal-card">
       <header class="modal-header">
         <h3>Горячие клавиши стола</h3>
-        <button type="button" class="modal-close" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="modal-close icon-only" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
 
       <section class="modal-section">

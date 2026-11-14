@@ -1,3 +1,6 @@
+import type { ObjectLink } from './links.ts';
+import { assertFreshTry, type CheckActor, type SkillCheck } from './skill-checks.ts';
+
 export const MAP_STORIES = [
   { title: 'Тропа к лунному святилищу', description: 'Сопоставьте дорожные записи до и после наводнения.', places: ['Старый мост', 'Сторожевая башня', 'Тисовая роща', 'Лунное святилище', 'Затопленная мельница'], solution: [1, 0, 2, 3],
     scraps: [
@@ -21,17 +24,18 @@ export const MAP_STORIES = [
       { source: 'Карта инженера · до обвала', text: 'Из лагеря идите к виадуку; пещеру лучше пропустить.' },
     ], hint: 'Исключите разрушенный виадук. Между лагерем и перевалом остаётся пещера.' },
 ] as const;
-export type MapFragments = { revision: number; phase: 'active' | 'solved' | 'lost' | 'cancelled'; story: number; title: string; description: string; places: string[]; scraps: { source: string; text: string }[]; solution: number[]; hint: string; hintShown: boolean; route: number[]; doubtful: number[]; attempts: number; limit: number; message: string; notes: { author: string; text: string }[]; history: { route: number[]; matches: number }[] };
-export type MapFragmentsView = Omit<MapFragments, 'solution' | 'hint'> & { solution?: number[]; hint?: string };
+export type MapFragments = { revision: number; phase: 'active' | 'solved' | 'lost' | 'cancelled'; story: number; title: string; description: string; places: string[]; scraps: { source: string; text: string }[]; solution: number[]; hint: string; hintShown: boolean; route: number[]; doubtful: number[]; attempts: number; limit: number; message: string; notes: { author: string; text: string }[]; history: { route: number[]; matches: number }[]; target?: ObjectLink | null; effect?: string | null; check?: SkillCheck | null };
+export type MapFragmentsView = Omit<MapFragments, 'solution' | 'hint' | 'target'> & { solution?: number[]; hint?: string; target?: ObjectLink | null };
 export type MapCommand = { action: 'append'; place: number } | { action: 'remove'; slot: number } | { action: 'mark'; scrap: number } | { action: 'note'; text: string } | { action: 'check' | 'hint' | 'solve' | 'cancel' };
-export function createMapFragments(revision: number, story: number): MapFragments {
+export function createMapFragments(revision: number, story: number, target: ObjectLink | null = null, check: SkillCheck | null = null): MapFragments {
   if (!Number.isInteger(story) || !MAP_STORIES[story]) throw new Error('История не найдена.');
   const source = MAP_STORIES[story];
-  return { revision, story, phase: 'active', title: source.title, description: source.description, places: [...source.places], scraps: source.scraps.map(s => ({ ...s })), solution: [...source.solution], hint: source.hint, hintShown: false, route: [], doubtful: [], attempts: 0, limit: 4, message: 'Соберите маршрут из четырёх разных мест. Одно место лишнее.', notes: [], history: [] };
+  return { revision, story, phase: 'active', title: source.title, description: source.description, places: [...source.places], scraps: source.scraps.map(s => ({ ...s })), solution: [...source.solution], hint: source.hint, hintShown: false, route: [], doubtful: [], attempts: 0, limit: 4, message: 'Соберите маршрут из четырёх разных мест. Одно место лишнее.', notes: [], history: [], target, effect: null, check };
 }
 export function viewMapFragments(game: MapFragments, manager: boolean): MapFragmentsView {
-  const { solution, hint, ...publicState } = structuredClone(game);
-  return { ...publicState, ...(manager ? { solution } : {}), ...(manager || game.hintShown ? { hint } : {}) };
+  // The secret the map opens stays the GM's until the route is found.
+  const { solution, hint, target, ...publicState } = structuredClone(game);
+  return { ...publicState, ...(manager ? { solution, target: target ?? null } : {}), ...(manager || game.hintShown ? { hint } : {}) };
 }
 export function actMapFragments(current: MapFragments, command: MapCommand, user: { name: string; manager: boolean }): MapFragments {
   if (['hint', 'solve', 'cancel'].includes(command.action) && !user.manager) throw new Error('Это действие доступно только мастеру.');
@@ -68,4 +72,21 @@ export function actMapFragments(current: MapFragments, command: MapCommand, user
     }
   }
   game.revision++; return game;
+}
+
+// A hero who knows the region (History, Survival) opens the GM's hint; it is allowed before the dice roll.
+export function mapCheckAllowed(game: MapFragments, actor: CheckActor) {
+  if (!game.check) throw new Error('Мастер не назначил проверку навыка для этой карты.');
+  if (game.phase !== 'active') throw new Error('Проверка доступна, пока идёт поиск.');
+  if (game.hintShown) throw new Error('Подсказка уже открыта.');
+  assertFreshTry(game.check.tried, actor);
+}
+export function applyMapCheck(current: MapFragments, actor: CheckActor, success: boolean): MapFragments {
+  mapCheckAllowed(current, actor);
+  const game = structuredClone(current);
+  game.check!.tried.push({ id: actor.id, name: actor.name });
+  if (success) { game.hintShown = true; game.message = `${actor.name}: проверка удалась — подсказка открыта.`; }
+  else game.message = `${actor.name}: проверка не удалась — обрывки ничего не подсказали.`;
+  game.revision++;
+  return game;
 }

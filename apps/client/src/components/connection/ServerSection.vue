@@ -70,7 +70,7 @@ defineExpose({ reveal });
         <small v-if="props.summary" class="section-line">{{ props.summary }}</small>
       </span>
       <span v-if="props.status" class="section-status"><i aria-hidden="true" />{{ props.status }}</span>
-      <span class="section-chevron" aria-hidden="true">▾</span>
+      <span class="section-chevron" aria-hidden="true"><GameIcon name="chevron" :size="14" /></span>
     </summary>
     <div class="section-body"><slot /></div>
   </details>
@@ -93,7 +93,7 @@ defineExpose({ reveal });
 .section-status{display:inline-flex;align-items:center;gap:6px;flex:none;max-width:42%;padding:3px 10px;border:1px solid color-mix(in srgb,var(--tone) 70%,transparent);border-radius:12px;font:700 11px var(--g-body-font,inherit);letter-spacing:.04em;color:var(--tone);background:color-mix(in srgb,var(--tone) 12%,transparent);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .section-status i{width:8px;height:8px;flex:none;border-radius:50%;background:var(--tone);box-shadow:0 0 8px color-mix(in srgb,var(--tone) 70%,transparent)}
 .server-section[data-tone="off"] .section-status{color:var(--g-text-dim)}
-.section-chevron{flex:none;font-size:14px;color:var(--g-gold-lo);transition:transform .15s ease}
+.section-chevron{flex:none;display:inline-grid;place-items:center;color:var(--g-gold-lo);transition:transform .15s ease}
 .server-section[open]>summary .section-chevron{transform:rotate(180deg);color:var(--g-gold-hi)}
 .section-body{padding:2px 16px 14px 18px;border-top:1px solid color-mix(in srgb,var(--brass-light) 60%,transparent)}
 @media (max-width:720px){.section-summary{flex-wrap:wrap}.section-status{order:3;max-width:none;margin-left:48px}}

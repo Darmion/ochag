@@ -46,7 +46,7 @@ const note = defineModel<string>('note', { required: true });
         <dd>
           <template v-for="(item, itemIndex) in fact.items" :key="itemIndex"><span v-if="itemIndex" class="dot">; </span><template v-for="(segment, index) in item" :key="index">{{ index ? ' ' : '' }}<span :translate="segment.user ? 'no' : undefined">{{ segment.text }}</span></template></template>
         </dd>
-        <button type="button" class="link-button icon-button to-section" :aria-label="`К разделу: ${fact.label}`" title="К разделу таблицы" @click="emit('toSection', fact.section)"><GameIcon class="inline-icon" name="pencil" :size="16" /></button>
+        <button type="button" class="link-button icon-button to-section icon-only" :aria-label="`К разделу: ${fact.label}`" title="К разделу таблицы" @click="emit('toSection', fact.section)"><GameIcon class="inline-icon" name="pencil" :size="16" /></button>
       </div>
     </dl>
 
@@ -58,7 +58,7 @@ const note = defineModel<string>('note', { required: true });
           <span class="muted">{{ block.parts.when }}</span>
           <span v-if="block.parts.times" class="muted">{{ block.parts.times }}</span>
           <span class="muted">{{ block.parts.who }}</span>
-          <button type="button" class="link-button icon-button to-section" aria-label="К разделу таблицы" title="К разделу таблицы" @click="emit('toSection', block.section)"><GameIcon class="inline-icon" name="pencil" :size="16" /></button>
+          <button type="button" class="link-button icon-button to-section icon-only" aria-label="К разделу таблицы" title="К разделу таблицы" @click="emit('toSection', block.section)"><GameIcon class="inline-icon" name="pencil" :size="16" /></button>
         </header>
         <p v-if="block.parts.check" class="check-line">{{ block.parts.check }}</p>
         <ul v-if="block.parts.outcomes.length || block.parts.half" class="check-outcomes">

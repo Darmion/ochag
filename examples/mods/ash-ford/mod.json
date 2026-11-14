@@ -1,0 +1,16 @@
+{
+  "id": "ash-ford",
+  "name": "Пепел над Кривым бродом",
+  "version": "1.0.0",
+  "kind": "adventure",
+  "author": "Пример из docs/MODS.md",
+  "description": "Короткое приключение на вечер для героев 1–2 уровня: таверна, брод и гоблины, которые знают больше, чем говорят.",
+  "adventure": "adventure.json",
+  "translations": {
+    "en": {
+      "name": "Ash over Crooked Ford",
+      "author": "Example from docs/MODS.md",
+      "description": "A short one-evening adventure for level 1–2 heroes: a tavern, a ford and goblins who know more than they say."
+    }
+  }
+}

@@ -1,4 +1,4 @@
-// No Electron dependency: used by the tests and by the server (serving the installer).
+// Does not take bridge/runtime.cjs: used by the tests and by the server (serving the installer).
 //   { installers: [{ version, file, sha256, size, source, savedAt }] }
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');

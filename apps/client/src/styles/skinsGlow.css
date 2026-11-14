@@ -1,0 +1,298 @@
+:root[data-ui="game"][data-skin="obsidian"] {
+  --g-void: #040307;
+  --g-table: #151419;
+  --g-stone-1: #1b1a20;
+  --g-stone-2: #111015;
+  --g-stone-3: #09080d;
+  --g-well: #07060a;
+  --g-gold: #bdb7d1;
+  --g-gold-hi: #f2f0fb;
+  --g-gold-lo: #5f5973;
+  --g-gold-deep: #25212f;
+  --g-text: #e7e4f0;
+  --g-text-dim: #a5a0b6;
+  --g-text-faint: #706b82;
+  --g-accent: #3d2b60;
+  --g-accent-hi: #6849a6;
+  --g-accent-text: #f4efff;
+  --g-line: #2b2734;
+  --g-glow: color-mix(in srgb, #b49cff 34%, transparent);
+  --g-title-font: 'Vollkorn SC', Georgia, serif;
+  --g-display-font: 'Ruslan Display', Georgia, serif;
+  --g-stone-panel: linear-gradient(118deg, #ffffff0c, transparent 34%), var(--g-noise), linear-gradient(160deg, var(--g-stone-1), var(--g-stone-2) 55%, var(--g-stone-3));
+  --page-bg: radial-gradient(ellipse at 70% -10%, #6849a62e, transparent 60%), radial-gradient(ellipse at 50% 115%, #000d, transparent 60%), var(--g-noise), var(--g-void);
+  --button-bg-from: #26222f;
+  --button-bg-to: #0d0c12;
+  --table-header-bg: #17141d;
+  --theme-radius: 4px;
+}
+:root[data-ui="game"][data-skin="abyss"] {
+  --g-void: #01060a;
+  --g-table: #0f2229;
+  --g-stone-1: #11262e;
+  --g-stone-2: #0a171d;
+  --g-stone-3: #050d11;
+  --g-well: #040a0d;
+  --g-gold: #92cbc9;
+  --g-gold-hi: #e3fbf8;
+  --g-gold-lo: #41727a;
+  --g-gold-deep: #143037;
+  --g-text: #d9ecec;
+  --g-text-dim: #91b2b3;
+  --g-text-faint: #5d7e81;
+  --g-accent: #104757;
+  --g-accent-hi: #176575;
+  --g-accent-text: #ecffff;
+  --g-line: #1b343c;
+  --g-glow: color-mix(in srgb, #6fe0e0 32%, transparent);
+  --g-title-font: 'Vollkorn SC', Georgia, serif;
+  --g-display-font: 'Yeseva One', Georgia, serif;
+  --g-body-font: Georgia, 'Times New Roman', serif;
+  --g-stone-panel: radial-gradient(ellipse at 20% 0, #1f8b9b1f, transparent 60%), var(--g-noise), linear-gradient(170deg, var(--g-stone-1), var(--g-stone-2) 60%, var(--g-stone-3));
+  --page-bg: radial-gradient(ellipse at 30% -10%, #1f8b9b30, transparent 60%), radial-gradient(ellipse at 50% 120%, #000e, transparent 60%), var(--g-noise), var(--g-void);
+  --button-bg-from: var(--g-stone-1);
+  --button-bg-to: var(--g-stone-3);
+  --table-header-bg: var(--g-stone-2);
+  --theme-radius: 8px;
+}
+:root[data-ui="game"][data-skin="ember"] {
+  --g-void: #070505;
+  --g-table: #241a16;
+  --g-stone-1: #261e1a;
+  --g-stone-2: #181310;
+  --g-stone-3: #0e0b09;
+  --g-well: #0a0807;
+  --g-gold: #c58a61;
+  --g-gold-hi: #efd0ad;
+  --g-gold-lo: #7c401e;
+  --g-gold-deep: #37190b;
+  --g-text: #ecdacc;
+  --g-text-dim: #ab9585;
+  --g-text-faint: #745f53;
+  --g-accent: #76240e;
+  --g-accent-hi: #a43b18;
+  --g-accent-text: #fff0e4;
+  --g-line: #34271f;
+  --g-glow: #ff8a3a33;
+  --g-stone-panel: radial-gradient(ellipse at 50% 130%, #c64a1c24, transparent 62%), var(--g-noise), linear-gradient(165deg, var(--g-stone-1), var(--g-stone-2) 55%, var(--g-stone-3));
+  --page-bg: radial-gradient(ellipse at 50% 125%, #c64a1c38, transparent 55%), radial-gradient(ellipse at 50% -20%, #000c, transparent 60%), var(--g-cracks), var(--g-noise), var(--g-void);
+  --button-bg-from: #2e2420;
+  --button-bg-to: #110d0b;
+  --table-header-bg: #1c1612;
+  --theme-radius: 5px;
+}
+:root[data-ui="game"][data-skin="neon"] {
+  --g-void: #05030c;
+  --g-table: #140f24;
+  --g-stone-1: #181030;
+  --g-stone-2: #0f0a1f;
+  --g-stone-3: #080512;
+  --g-well: #06040e;
+  --g-gold: #3eeeff;
+  --g-gold-hi: #cbfdff;
+  --g-gold-lo: #2387a3;
+  --g-gold-deep: #13263f;
+  --g-text: #ebe8ff;
+  --g-text-dim: #aaa4d8;
+  --g-text-faint: #726da0;
+  --g-accent: #81116e;
+  --g-accent-hi: #ac188f;
+  --g-accent-text: #ffeafb;
+  --g-line: #2b2252;
+  --g-glow: color-mix(in srgb, #3eeeff 42%, transparent);
+  --g-title-font: Bahnschrift, 'Segoe UI', Arial, sans-serif;
+  --g-display-font: Bahnschrift, 'Segoe UI', Arial, sans-serif;
+  --g-body-font: 'Segoe UI', Arial, sans-serif;
+  --g-noise: none;
+  --g-cracks: none;
+  --g-stone-panel: radial-gradient(ellipse at 100% 0, #f02fcf1c, transparent 55%), radial-gradient(ellipse at 0 100%, #3eeeff14, transparent 55%), linear-gradient(160deg, var(--g-stone-1), var(--g-stone-3));
+  --g-ring: inset 0 0 0 1px #000, inset 0 0 0 2px #3eeeff26, 0 0 0 1px var(--g-gold), 0 0 7px #3eeeff40, 0 0 18px #f02fcf1f;
+  --page-bg: radial-gradient(ellipse at 15% -10%, #f02fcf2a, transparent 55%), radial-gradient(ellipse at 90% 110%, #3eeeff22, transparent 55%), var(--g-void);
+  --button-bg-from: #1d1438;
+  --button-bg-to: #0a0716;
+  --table-header-bg: #120c26;
+  --theme-radius: 10px;
+}
+:root[data-ui="game"][data-skin="spectral"] {
+  --g-void: #020604;
+  --g-table: #0d1a14;
+  --g-stone-1: #101f18;
+  --g-stone-2: #09130f;
+  --g-stone-3: #050b08;
+  --g-well: #040906;
+  --g-gold: #80ffb3;
+  --g-gold-hi: #e2fff0;
+  --g-gold-lo: #317c55;
+  --g-gold-deep: #123120;
+  --g-text: #e0f4e9;
+  --g-text-dim: #96b9a7;
+  --g-text-faint: #608171;
+  --g-accent: #184d3c;
+  --g-accent-hi: #237558;
+  --g-accent-text: #ecfff6;
+  --g-line: #183427;
+  --g-glow: color-mix(in srgb, #80ffb3 36%, transparent);
+  --g-title-font: 'Vollkorn SC', Georgia, serif;
+  --g-display-font: 'Ruslan Display', Georgia, serif;
+  --g-body-font: Georgia, 'Times New Roman', serif;
+  --g-stone-panel: radial-gradient(ellipse at 50% -20%, #80ffb314, transparent 60%), var(--g-noise), linear-gradient(170deg, var(--g-stone-1), var(--g-stone-3));
+  --g-ring: inset 0 0 0 1px #000, inset 0 0 0 2px var(--g-gold-deep), 0 0 0 1px var(--g-gold-lo), 0 0 14px #80ffb340;
+  --page-bg: radial-gradient(ellipse at 50% 120%, #2fb48726, transparent 55%), radial-gradient(ellipse at 50% -15%, #000d, transparent 60%), var(--g-cracks), var(--g-noise), var(--g-void);
+  --button-bg-from: var(--g-stone-1);
+  --button-bg-to: var(--g-stone-3);
+  --table-header-bg: var(--g-stone-2);
+  --theme-radius: 6px;
+}
+:root[data-ui="game"][data-skin="lava"] {
+  --g-void: #080302;
+  --g-table: #171416;
+  --g-stone-1: #201b1b;
+  --g-stone-2: #120f10;
+  --g-stone-3: #090708;
+  --g-well: #090504;
+  --g-gold: #ff8c2c;
+  --g-gold-hi: #ffd47c;
+  --g-gold-lo: #8c2d0c;
+  --g-gold-deep: #3b1206;
+  --g-text: #f3ddcc;
+  --g-text-dim: #b99680;
+  --g-text-faint: #7e6251;
+  --g-accent: #8b230b;
+  --g-accent-hi: #b73712;
+  --g-accent-text: #fff1e2;
+  --g-line: #3b2017;
+  --g-glow: color-mix(in srgb, #ff5a14 26%, transparent);
+  --g-stone-panel: radial-gradient(ellipse at 50% 135%, #ff4a1a2e, transparent 60%), var(--g-cracks), var(--g-noise), linear-gradient(165deg, var(--g-stone-1), var(--g-stone-2) 55%, var(--g-stone-3));
+  --g-ring: inset 0 0 0 1px #000, inset 0 0 0 2px var(--g-gold-deep), 0 0 0 1px var(--g-gold-lo), 0 0 8px #ff5a1433, 0 8px 22px #ff3b121a;
+  --page-bg: radial-gradient(ellipse at 20% 120%, #ff4a1a2e, transparent 50%), radial-gradient(ellipse at 85% 115%, #ff8c2c22, transparent 45%), radial-gradient(ellipse at 50% -15%, #000d, transparent 60%), var(--g-cracks), var(--g-noise), var(--g-void);
+  --button-bg-from: #2a1a14;
+  --button-bg-to: #0e0807;
+  --table-header-bg: #1b100c;
+  --theme-radius: 4px;
+  --skin-flow: repeating-linear-gradient(90deg, #411008 0%, #8f260d 14%, #e85c19 28%, #ffb84d 33%, #ffe0a3 35%, #e85c19 39%, #411008 50%);
+}
+:root[data-ui="game"][data-skin="gems"] {
+  --g-void: #05040a;
+  --g-table: #17132a;
+  --g-stone-1: #1b1732;
+  --g-stone-2: #110e22;
+  --g-stone-3: #0a0814;
+  --g-well: #080610;
+  --g-gold: #cdaeff;
+  --g-gold-hi: #f5eeff;
+  --g-gold-lo: #6c51ab;
+  --g-gold-deep: #2b2049;
+  --g-text: #edeafb;
+  --g-text-dim: #ada6d1;
+  --g-text-faint: #746e98;
+  --g-accent: #19553f;
+  --g-accent-hi: #237957;
+  --g-accent-text: #effff7;
+  --g-line: #2b2547;
+  --g-glow: color-mix(in srgb, #b98cff 40%, transparent);
+  --g-title-font: 'Yeseva One', Georgia, serif;
+  --g-display-font: 'Yeseva One', Georgia, serif;
+  --g-body-font: Georgia, 'Times New Roman', serif;
+  --g-stone-panel: radial-gradient(ellipse at 100% 0, #4aa8ff17, transparent 55%), radial-gradient(ellipse at 0 100%, #2fb37f14, transparent 55%), var(--g-noise), linear-gradient(155deg, var(--g-stone-1), var(--g-stone-3));
+  --g-ring: inset 0 0 0 1px #000, inset 0 0 0 2px var(--g-gold-deep), 0 0 0 1px var(--g-gold-lo), 0 0 10px #9b5cff26, 0 0 18px #3fd8a012;
+  --page-bg: radial-gradient(ellipse at 15% -10%, #9b5cff26, transparent 55%), radial-gradient(ellipse at 85% 110%, #2fb37f1c, transparent 55%), var(--g-noise), var(--g-void);
+  --button-bg-from: var(--g-stone-1);
+  --button-bg-to: var(--g-stone-3);
+  --table-header-bg: var(--g-stone-2);
+  --theme-radius: 10px;
+  --skin-flow: repeating-linear-gradient(90deg, #7650ad 0%, #5b8cdb 12%, #36ae87 27%, #daf7ee 29%, #36ae87 31%, #7650ad 50%);
+}
+:root[data-ui="game"][data-skin="opal"] {
+  --g-void: #07080c;
+  --g-table: #1b1e26;
+  --g-stone-1: #1f222c;
+  --g-stone-2: #15171e;
+  --g-stone-3: #0c0d12;
+  --g-well: #090a0e;
+  --g-gold: #d9e3f1;
+  --g-gold-hi: #ffffff;
+  --g-gold-lo: #7d889b;
+  --g-gold-deep: #2b303c;
+  --g-text: #eef1f7;
+  --g-text-dim: #abb2c1;
+  --g-text-faint: #737b8c;
+  --g-accent: #344c76;
+  --g-accent-hi: #496ba3;
+  --g-accent-text: #f5f8ff;
+  --g-line: #2b2f3a;
+  --g-glow: color-mix(in srgb, #e6d6ff 34%, transparent);
+  --g-title-font: 'Yeseva One', Georgia, serif;
+  --g-display-font: 'Yeseva One', Georgia, serif;
+  --g-body-font: Georgia, 'Times New Roman', serif;
+  --g-noise: none;
+  --g-stone-panel: linear-gradient(120deg, #ffd6e81a, #c8f0ff1c 38%, #d8ffd614 66%, transparent 90%), linear-gradient(160deg, var(--g-stone-1), var(--g-stone-2) 55%, var(--g-stone-3));
+  --g-ring: inset 0 0 0 1px #000, inset 0 0 0 2px var(--g-gold-deep), 0 0 0 1px var(--g-gold-lo), 0 0 14px #c8f0ff1f;
+  --page-bg: radial-gradient(ellipse at 20% -10%, #ffd6e81c, transparent 55%), radial-gradient(ellipse at 80% 110%, #c8f0ff17, transparent 55%), var(--g-void);
+  --button-bg-from: var(--g-stone-1);
+  --button-bg-to: var(--g-stone-3);
+  --table-header-bg: var(--g-stone-2);
+  --theme-radius: 12px;
+  --skin-flow: linear-gradient(90deg, #ffd6e8, #c8f0ff, #d8ffd6, #fff2c8, #e6d6ff, #ffd6e8, #c8f0ff, #d8ffd6, #fff2c8, #e6d6ff, #ffd6e8);
+}
+
+:root[data-ui="game"]:is([data-skin="obsidian"], [data-skin="abyss"], [data-skin="ember"], [data-skin="neon"], [data-skin="spectral"], [data-skin="lava"], [data-skin="gems"], [data-skin="opal"]) :is(.panel, .g-frame, .modal-card) {
+  border-radius: var(--theme-radius);
+}
+
+:root[data-ui="game"][data-skin="neon"] :is(.g-frame, .panel)::before,
+:root[data-ui="game"][data-skin="neon"] :is(.g-frame, .panel)::after {
+  background: linear-gradient(90deg, #3eeeff, #cbfdff 30%, #f02fcf 70%, #3eeeff);
+}
+:root[data-ui="game"][data-skin="neon"] :is(h1, h2, h3) { text-shadow: 0 0 6px #3eeeffaa, 0 0 18px #f02fcf55; letter-spacing: .02em; }
+:root[data-ui="game"][data-skin="neon"] .g-gem { box-shadow: inset 0 0 0 1px #000, inset 0 0 10px #3eeeff33, 0 0 0 1px var(--g-gold), 0 0 0 3px #13263f, 0 0 0 4px #f02fcf99, 0 0 12px #3eeeff77; }
+
+:root[data-ui="game"][data-skin="spectral"] :is(.g-frame, .panel)::before,
+:root[data-ui="game"][data-skin="spectral"] :is(.g-frame, .panel)::after {
+  background: linear-gradient(90deg, #317c55, #80ffb3 45%, #e2fff0 55%, #317c55);
+}
+:root[data-ui="game"][data-skin="spectral"] :is(h1, h2, h3) { text-shadow: 0 0 8px #80ffb366, 0 1px 0 #000; }
+
+
+:root[data-ui="game"]:is([data-skin="lava"], [data-skin="gems"], [data-skin="opal"]) :is(.g-frame, .panel)::before {
+  inset: -2px;
+  top: -2px;
+  right: -2px;
+  bottom: -2px;
+  left: -2px;
+  height: auto;
+  padding: 2px;
+  border-radius: inherit;
+  background: var(--skin-flow) 0 0 / 200% 100%;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0);
+}
+:root[data-ui="game"]:is([data-skin="lava"], [data-skin="gems"], [data-skin="opal"]) :is(.g-frame, .panel)::after { content: none; }
+
+:root[data-ui="game"]:is([data-skin="obsidian"], [data-skin="abyss"], [data-skin="ember"], [data-skin="neon"], [data-skin="spectral"], [data-skin="lava"], [data-skin="gems"], [data-skin="opal"]) :is(button.primary, button[aria-pressed="true"]) {
+  background: linear-gradient(180deg, #ffffff12, #0000 50%), linear-gradient(180deg, var(--g-accent-hi), var(--g-accent));
+}
+:root[data-ui="game"][data-skin="lava"] :is(h1, h2) { text-shadow: 0 0 10px #ff5a1466, 0 1px 0 #000; }
+
+@media (prefers-reduced-motion: no-preference) {
+  :root[data-ui="game"][data-skin-motion="on"]:is([data-skin="lava"], [data-skin="gems"], [data-skin="opal"]) :is(.panel, .modal-card)::before {
+    animation: skin-flow var(--skin-flow-time, 14s) linear infinite;
+  }
+  :root[data-ui="game"][data-skin="lava"] { --skin-flow-time: 26s; }
+  :root[data-ui="game"][data-skin="gems"] { --skin-flow-time: 24s; }
+  :root[data-ui="game"][data-skin="opal"] { --skin-flow-time: 22s; }
+  :root[data-ui="game"][data-skin-motion="on"]:is([data-skin="neon"], [data-skin="spectral"]) :is(.g-frame, .panel)::before {
+    animation: skin-breathe 12s ease-in-out infinite;
+  }
+  :root[data-ui="game"][data-skin-motion="on"][data-skin="ember"] :is(.g-frame, .panel)::after {
+    animation: skin-smoulder 6s ease-in-out infinite;
+  }
+}
+
+:root[data-ui="game"][data-skin-motion="off"] :is(.level-badge, .level-badge svg, .portrait.current .portrait-image, .game-backdrop::before, .game-backdrop::after) {
+  animation: none;
+}
+
+@keyframes skin-flow { from { background-position: 0 0; } to { background-position: 100% 0; } }
+@keyframes skin-breathe { 0%, 100% { opacity: .88; } 50% { opacity: 1; } }
+@keyframes skin-smoulder { 0%, 100% { opacity: .82; } 50% { opacity: 1; } }

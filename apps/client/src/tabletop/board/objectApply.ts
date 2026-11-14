@@ -17,12 +17,14 @@ export type ObjectApplyDeps = Pick<LabelApi, 'removeLabel'> & {
   syncHandleFromRoot: (root: TransformNode) => void;
   dropLivePose: (objectId: string) => void;
   isLivePosed: (objectId: string) => boolean;
-  moveRoot: (objectId: string, root: TransformNode, x: number, y: number, z: number, rotationY: number, scale: number, glide: boolean) => void;
+  moveRoot: (objectId: string, root: TransformNode, x: number, y: number, z: number, rotationY: number, scale: number, glide: boolean, walk?: Array<[number, number]> | null) => void;
   makeLabel: (objectId: string) => OverlayLabel | null;
   makeHpBar: (objectId: string) => OverlayLabel | null;
   refreshLabel: (objectId: string) => void;
   refreshHpBar: (record: ObjectRecord) => void;
   refreshGlow: (record: ObjectRecord) => void;
+  refreshHeld: (record: ObjectRecord) => void;
+  dropHeld: (objectId: string) => void;
   multi: () => { objects: Set<string>; walls: Set<string>; templates: Set<string>; };
   refreshAim: () => void;
   refreshMulti: () => void;
@@ -31,7 +33,7 @@ export type ObjectApplyDeps = Pick<LabelApi, 'removeLabel'> & {
 export function createObjectApply({
   scene, removeLabel, objectEntries, animationIndex, appearanceKey, buildContent, selectedId,
   setActiveObject, refreshActiveObject, draggingId, syncHandleFromRoot, dropLivePose,
-  isLivePosed, moveRoot, makeLabel, makeHpBar, refreshLabel, refreshHpBar, refreshGlow, multi,
+  isLivePosed, moveRoot, makeLabel, makeHpBar, refreshLabel, refreshHpBar, refreshGlow, refreshHeld, dropHeld, multi,
   refreshAim, refreshMulti,
 }: ObjectApplyDeps) {
   function markObjectMeshes(record: ObjectRecord) {
@@ -66,6 +68,7 @@ export function createObjectApply({
     const record = objectEntries.get(objectId);
     if (!record) return;
 
+    dropHeld(objectId);
     record.content.dispose();
     record.holder.dispose();
     removeLabel(record.label);
@@ -151,10 +154,11 @@ export function createObjectApply({
       refreshLabel(object.id);
       refreshHpBar(record);
       refreshGlow(record);
+      refreshHeld(record);
 
       // While an object is being pulled, live messages own its position; a stale one from a scene refresh is not applied.
       if (object.id !== draggingId() && !isLivePosed(object.id)) {
-        moveRoot(object.id, record.holder, object.world_x, object.world_y, object.world_z, object.rotation_y, object.scale, placedBefore);
+        moveRoot(object.id, record.holder, object.world_x, object.world_y, object.world_z, object.rotation_y, object.scale, placedBefore, object.walk);
         if (object.id === selectedId()) syncHandleFromRoot(record.holder);
       }
 

@@ -4,3 +4,4 @@ export * from './movement/budget.ts';
 export * from './movement/cells.ts';
 export * from './movement/distance.ts';
 export * from './movement/grapple-fear.ts';
+export * from './movement/paths.ts';

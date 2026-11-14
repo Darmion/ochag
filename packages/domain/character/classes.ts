@@ -350,6 +350,26 @@ export function advanceClassText(text: string | null | undefined, totalLevel: nu
   return own ? result : `${result.replace(/[\s/,;+]+$/u, '')} / ${CLASS_LABELS[classId]} 1`;
 }
 
+export function reduceClassText(text: string | null | undefined, totalLevel: number | null | undefined, classId: ClassId): string | null {
+  const source = (text ?? '').trim();
+  const parsed = parseClassLevels(source, totalLevel);
+  const own = parsed.classes.find(entry => entry.id === classId);
+  if (!own) return null;
+  if (!parsed.multiclass) return source;
+  const found = classMatches(source);
+  const index = found.findIndex(entry => entry.id === classId);
+  const entry = found[index]!;
+  const tailEnd = found[index + 1]?.at ?? source.length;
+  if (own.level <= 1) {
+    const before = source.slice(0, entry.at).replace(/[\s/,;+]+$/u, '');
+    const after = source.slice(tailEnd).replace(/^[\s/,;+]+/u, '');
+    return before && after ? `${before} / ${after}` : before || after;
+  }
+  const tail = source.slice(entry.end, tailEnd);
+  const number = /\d+/.exec(tail)!;
+  return source.slice(0, entry.end) + tail.slice(0, number.index) + (own.level - 1) + tail.slice(number.index + number[0].length) + source.slice(tailEnd);
+}
+
 export function withSubclassText(text: string | null | undefined, totalLevel: number | null | undefined, classId: ClassId, subclassName: string): string {
   const source = (text ?? '').trim();
   const at = classMatches(source).find(entry => entry.id === classId);

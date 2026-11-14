@@ -5,6 +5,8 @@ import type { PortraitEntry } from '../../components/game/GamePortraits.vue';
 import type { SceneObjectDTO, TabletopProps, Character } from './types';
 import type { ObjectSide } from '../scene';
 
+export type PortraitFace = { name: string; imageUrl: string | null; imageCrop: unknown; crest: string | null };
+
 export type HudPortraitsDeps = {
   props: TabletopProps;
   gameUi: ComputedRef<boolean>;
@@ -33,6 +35,8 @@ export function useHudPortraits({ props, gameUi, characters, objects, activeObje
     characters.value.filter(entry => entry.kind !== 'object').map(entry => [entry.id, hudImage(objectImageId(entry))]),
   ));
 
+  const readyLevels = computed(() => new Set(characters.value.filter(entry => entry.level_ready).map(entry => entry.id)));
+
   const partyPortraits = computed<PortraitEntry[]>(() => {
     if (!gameUi.value) return [];
     const mine = (object: SceneObjectDTO) => object.owner_user_id === props.currentUserId;
@@ -52,8 +56,16 @@ export function useHudPortraits({ props, gameUi, characters, objects, activeObje
         isSelected: object.id === activeObjectId.value,
         conditions: (object.conditions ?? []).map(code => conditionInfo(code)),
         inspired: object.inspired === true,
+        levelReady: readyLevels.value.has(object.character_id),
       }));
   });
 
-  return { hudImage, factionPortraits, partyPortraits };
+  // A creature's face for prompts that name it (the counterspell window shows who counters whom).
+  function portraitOf(characterId: string): PortraitFace | null {
+    const object = objects.value.find(entry => entry.character_id === characterId && !entry.parent_object_id) ?? objects.value.find(entry => entry.character_id === characterId);
+    if (!object) return null;
+    return { name: object.name, imageUrl: hudImage(objectImageId(object)), imageCrop: object.image_asset_id ? object.image_crop : null, crest: classCrest(object.classId) };
+  }
+
+  return { hudImage, factionPortraits, partyPortraits, portraitOf };
 }

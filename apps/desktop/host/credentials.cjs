@@ -1,4 +1,4 @@
-const {app, safeStorage} = require('electron');
+const {app, safeStorage} = require('../bridge/runtime.cjs');
 const path = require('node:path');
 const fs = require('node:fs/promises');
 const crypto = require('node:crypto');

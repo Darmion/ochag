@@ -67,7 +67,7 @@ export async function loadPlacements(q: Queryable, campaignId: string, sceneId: 
                 p.rotation_y::float8 AS rotation_y, p.scale::float8 AS scale,
                 p.snap_to_grid, p.animation_name, p.hidden, p.revision,
                 c.name, c.kind, c.disposition, c.factions_explicit, c.size, c.owner_user_id, c.shared,
-                c.model_asset_id, c.image_asset_id, c.image_crop, c.merchant,
+                c.model_asset_id, c.image_asset_id, c.image_open_asset_id, c.image_crop, c.merchant,
                 GREATEST(COALESCE((c.sheet_extra->>'darkvisionFeet')::float8, 0), CASE WHEN EXISTS (
                   SELECT 1 FROM character_effects dv WHERE dv.campaign_id=c.campaign_id AND dv.character_id=c.id AND dv.active AND dv.effect_code='darkvision_spell'
                 ) THEN 60 ELSE 0 END, COALESCE((
@@ -77,7 +77,7 @@ export async function loadPlacements(q: Queryable, campaignId: string, sceneId: 
                 ), 0)) AS darkvision_feet,
                 COALESCE((
                   SELECT MAX(COALESCE((e.parameters->>'height')::float8, 0)) FROM character_effects e
-                  WHERE e.campaign_id=p.campaign_id AND e.character_id=p.character_id AND e.active AND e.effect_code IN ('flying', 'dragon_wings')
+                  WHERE e.campaign_id=p.campaign_id AND e.character_id=p.character_id AND e.active AND e.effect_code IN ('flying', 'dragon_wings', 'climbing')
                 ), 0)::float8 AS altitude_feet
          FROM scene_objects p
          JOIN characters c

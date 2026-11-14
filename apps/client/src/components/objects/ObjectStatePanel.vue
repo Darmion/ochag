@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue';
 import { DAMAGE_TYPES } from '../../rules/objectRules';
+import { HAZARD_PRESETS, type Hazard } from '../../createObject/presets';
 
 export type ObjectState = {
   full: boolean;
@@ -20,17 +21,6 @@ export type ObjectState = {
   hazard?: Hazard | null;
 };
 
-type Hazard = {
-  types: string[]; radiusFeet: number; formula: string; damageType: string;
-  save: string | null; dc: number | null; halfOnSuccess: boolean; message: string | null;
-};
-
-const HAZARD_PRESETS: Array<{ label: string; hazard: Hazard }> = [
-  { label: 'Бочка с маслом', hazard: { types: ['fire'], radiusFeet: 10, formula: '4d6', damageType: 'fire', save: 'dexterity', dc: 12, halfOnSuccess: true, message: 'Масло вспыхивает!' } },
-  { label: 'Бочонок пороха', hazard: { types: ['fire', 'lightning'], radiusFeet: 15, formula: '6d6', damageType: 'fire', save: 'dexterity', dc: 13, halfOnSuccess: true, message: 'Грохот взрыва!' } },
-  { label: 'Склянка кислоты', hazard: { types: [], radiusFeet: 5, formula: '2d6', damageType: 'acid', save: 'dexterity', dc: 11, halfOnSuccess: true, message: 'Кислота разлетается брызгами.' } },
-  { label: 'Подпиленная колонна', hazard: { types: ['bludgeoning', 'force', 'thunder'], radiusFeet: 10, formula: '3d10', damageType: 'bludgeoning', save: 'dexterity', dc: 14, halfOnSuccess: true, message: 'Колонна рушится!' } },
-];
 const ABILITIES = [['strength', 'Сила'], ['dexterity', 'Ловкость'], ['constitution', 'Телосложение'], ['wisdom', 'Мудрость']] as const;
 
 type Actor = { id: string; name: string };

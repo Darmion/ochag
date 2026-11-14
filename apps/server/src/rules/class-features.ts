@@ -1,6 +1,6 @@
 import type { Queryable } from '../db.ts';
 import type { ActionEconomy } from './action-economy.ts';
-import { loadEffects, type Notice } from './conditions.ts';
+import { loadConditionState, loadEffects, type Notice } from './conditions.ts';
 import { restoreOwnForm } from './shape-forms.ts';
 import { reject, type SceneFeatureContext } from '../tabletop/scene-feature.ts';
 import { characterClassLevels } from '../../../../packages/domain/character/classes.ts';
@@ -8,9 +8,9 @@ import { classFeaturesFor, classLevelOf, HIT_MANEUVERS, MANEUVERS, darkBlessingH
 import { hasFeat } from '../../../../packages/domain/character/feats.ts';
 import { SRD_GEAR_BY_INDEX } from '../../../../packages/domain/srd/gear.ts';
 import { abilityModifier, proficiencyBonusForLevel } from '../../../../packages/domain/dice/dice.ts';
-import { conditionState, incapacitatedReason } from '../../../../packages/domain/combat/conditions.ts';
+import { incapacitatedReason } from '../../../../packages/domain/combat/conditions.ts';
 import { mergedClassResources } from '../../../../packages/domain/srd/progression.ts';
-import { SRD_MONSTERS } from '../../../../packages/domain/srd/monsters.ts';
+import { bestiaryMonsters, findMonster } from '../../../../packages/domain/world/bestiary.ts';
 import { relationsFor } from '../campaign/factions.ts';
 import { registerBossRoutes } from './class-features/boss.ts';
 import { registerChoiceRoutes } from './class-features/choices.ts';
@@ -46,7 +46,7 @@ export type ClassFeatureContext = SceneFeatureContext & {
   unarmedStrike?: (campaignId: string, sceneId: string | null, characterId: string, targetId: string, userId: string, die: number) => Promise<any>;
   creatureType?: (q: Queryable, campaignId: string, characterId: string) => Promise<string | null>;
   weaponAttack?: (campaignId: string, sceneId: string | null, characterId: string, weaponId: string | null, targetId: string, userId: string) => Promise<any>;
-  pushAway?: (q: Queryable, campaignId: string, sceneId: string, fromId: string, targetId: string, feet: number) => Promise<number>;
+  pushAway?: (q: Queryable, campaignId: string, sceneId: string, fromId: string, targetId: string, feet: number, userId: string) => Promise<{ feet: number; drop: number }>;
   legendaryStrike?: (
     campaignId: string, sceneId: string, bossId: string, option: LegendaryOption, preferred: string[],
   ) => Promise<{ summary: string; attacks?: any[]; targets?: any[]; moved?: unknown } | null>;
@@ -62,7 +62,7 @@ export const HARMFUL_SPELL_EFFECTS = new Set([
 
 export function wildShapeBeasts(druidLevel: number) {
   const limit = wildShapeLimit(druidLevel);
-  return SRD_MONSTERS
+  return bestiaryMonsters()
     .filter(monster => /зверь/.test(monster.type) && monster.cr <= limit.cr)
     .filter(monster => (limit.fly || !/лета/.test(monster.speedNote ?? '')) && (limit.swim || !/плава/.test(monster.speedNote ?? '')));
 }
@@ -124,7 +124,7 @@ export async function syncLegendaryResistance(q: Queryable, campaignId: string, 
 
 export function creatureTypeText(sheetExtra: any): string {
   const index = sheetExtra?.srdMonster;
-  const monster = index ? SRD_MONSTERS.find(entry => entry.index === index) : null;
+  const monster = typeof index === 'string' ? findMonster(index) : null;
   if (monster) return monster.type;
   const about = sheetExtra?.text?.about?.value;
   return typeof sheetExtra?.creatureType === 'string' ? sheetExtra.creatureType : typeof about === 'string' ? about.split('\n')[0] ?? '' : '';
@@ -144,7 +144,7 @@ export async function hasEvasion(q: Queryable, campaignId: string, characterId: 
   const features = classFeaturesFor(characterClassLevels(row).classes);
   const hunter = features.some(feature => feature.id === 'superior-hunters-defense') && knownSuperiorDefense(row.sheet_extra).includes('evasion');
   if (!hunter && !features.some(feature => feature.id === 'evasion' || feature.id === 'evasion-monk')) return false;
-  const state = conditionState((await loadEffects(q, campaignId, characterId)).map(effect => effect.effect_code));
+  const state = (await loadConditionState(q, campaignId, characterId));
   return !incapacitatedReason(state);
 }
 
@@ -152,7 +152,7 @@ const SHIELD_NAMES = [SRD_GEAR_BY_INDEX.get('shield')?.nameRu.toLowerCase() ?? '
 async function shieldMasterReady(q: Queryable, campaignId: string, characterId: string): Promise<boolean> {
   const row = (await q.query('SELECT kind, sheet_extra FROM characters WHERE campaign_id=$1 AND id=$2', [campaignId, characterId])).rows[0] as any;
   if (!row || row.kind === 'object' || !hasFeat(row.sheet_extra, 'shield-master')) return false;
-  if (incapacitatedReason(conditionState((await loadEffects(q, campaignId, characterId)).map(effect => effect.effect_code)))) return false;
+  if (incapacitatedReason((await loadConditionState(q, campaignId, characterId)))) return false;
   const held = (
     await q.query(`SELECT lower(name) AS name FROM characters WHERE campaign_id=$1 AND container_id=$2 AND kind='object'`, [campaignId, characterId])
   ).rows.map(entry => String(entry.name));

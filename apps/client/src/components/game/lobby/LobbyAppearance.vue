@@ -32,7 +32,7 @@ const emit = defineEmits<{
           <input type="file" accept="image/png,image/jpeg,image/webp" :disabled="appearanceBusy !== null" @change="emit('upload', 'avatar', $event.target as HTMLInputElement)" />
         </label>
         <button v-if="selected.avatar_asset_id && imageUrls[selected.id]?.avatar" type="button" :disabled="appearanceBusy !== null" title="Как аватар ляжет в кружок: сдвинуть и приблизить" @click="emit('open-crop', 'avatar')">
-          <GameIcon name="crosshair" :size="16" /> Кадр аватара…
+          <GameIcon name="crop" :size="16" /> Кадр аватара…
         </button>
         <button v-if="selected.avatar_asset_id" type="button" :disabled="appearanceBusy !== null" @click="emit('remove', 'avatar')">
           <GameIcon name="trash" :size="16" /> Убрать аватар
@@ -43,7 +43,7 @@ const emit = defineEmits<{
           <input type="file" accept="image/png,image/jpeg,image/webp" :disabled="appearanceBusy !== null" @change="emit('upload', 'banner', $event.target as HTMLInputElement)" />
         </label>
         <button v-if="selected.banner_asset_id && imageUrls[selected.id]?.banner" type="button" :disabled="appearanceBusy !== null" title="Какая часть картинки видна в полосе баннера" @click="emit('open-crop', 'banner')">
-          <GameIcon name="crosshair" :size="16" /> Кадр баннера…
+          <GameIcon name="crop" :size="16" /> Кадр баннера…
         </button>
         <button v-if="selected.banner_asset_id" type="button" :disabled="appearanceBusy !== null" @click="emit('remove', 'banner')">
           <GameIcon name="trash" :size="16" /> Убрать баннер

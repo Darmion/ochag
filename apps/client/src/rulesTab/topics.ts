@@ -18,7 +18,7 @@ const KNOWN_RULE_TOPICS: Record<string, RuleTopic> = {
   movement_limit: 'movement', one_per_cell: 'movement', hostile_blocks: 'movement', diagonal_5_10_5: 'movement',
   spell_targets: 'magic', spell_effects: 'magic', pact_slots: 'magic',
   long_rest_daily: 'recovery', rest_interruption: 'recovery',
-  auto_level: 'characters', level_choices: 'characters',
+  auto_level: 'characters', level_choices: 'characters', encumbrance: 'characters', encumbrance_speed: 'movement', ammo_use: 'combat',
   party_vision: 'exploration',
 };
 

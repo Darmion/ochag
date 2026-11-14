@@ -27,7 +27,7 @@ const expanded = ref(false);
         <span v-if="summary" class="item-card-summary">{{ summary }}</span>
       </span>
       <span v-if="tags.length" class="item-card-tags">{{ tags.join(' · ') }}</span>
-      <span v-if="$slots.default" class="item-card-caret" aria-hidden="true">{{ expanded ? '▾' : '▸' }}</span>
+      <span v-if="$slots.default" class="item-card-caret" aria-hidden="true"><GameIcon :name="expanded ? 'chevron' : 'chevronRight'" :size="12" /></span>
     </button>
     <div v-if="expanded && $slots.default" class="item-card-body"><slot /></div>
     <div v-if="$slots.footer" class="item-card-footer"><slot name="footer" /></div>
@@ -43,7 +43,7 @@ const expanded = ref(false);
 .item-card-title{font-weight:700;overflow-wrap:break-word}
 .item-card-summary{font-size:12px;color:var(--muted-ink);line-height:1.35}
 .item-card-tags{font-size:11px;color:var(--muted-ink);white-space:nowrap}
-.item-card-caret{flex-shrink:0;opacity:.7}
+.item-card-caret{flex-shrink:0;display:inline-grid;place-items:center;opacity:.7}
 .item-card-body{padding:0 12px 12px 38px;line-height:1.5;font-size:13px}
 .item-card-footer{display:flex;flex-wrap:wrap;align-items:center;gap:8px;padding:8px 12px;border-top:1px solid var(--brass-light)}
 .item-card.is-compact .item-card-head{padding:6px 10px}

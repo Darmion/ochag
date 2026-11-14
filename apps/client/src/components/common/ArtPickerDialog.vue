@@ -65,7 +65,7 @@ function pick(path: string) {
     <div class="picker-card">
       <header class="picker-header">
         <h3>{{ title }}</h3>
-        <button type="button" class="picker-close" :aria-label="t('Закрыть')" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="picker-close icon-only" :aria-label="t('Закрыть')" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
 
       <section v-if="suggestedItems.length" class="suggested" :aria-label="t('Подходящие')">

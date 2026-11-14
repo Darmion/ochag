@@ -211,7 +211,7 @@ watch(tab, value => {
         <nav class="compendium-tabs" role="tablist" aria-label="Разделы справочника">
           <button v-for="entry in TABS" :key="entry.id" type="button" role="tab" :aria-selected="tab === entry.id" :class="{ active: tab === entry.id }" @click="tab = entry.id">{{ entry.label }}</button>
         </nav>
-        <button type="button" class="close" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="close icon-only" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
       <p v-if="error" class="error" role="alert">{{ error }}</p>
 

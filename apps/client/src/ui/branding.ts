@@ -1,4 +1,5 @@
-// The app name lives here; package.json «build» (read by electron-builder) and apps/desktop/main/windows.cjs titles are set separately.
+// The app name lives here; the installer (apps/desktop/src-tauri/tauri.release.conf.json) and the native texts of
+// i18n/nativeTexts.ts name it separately.
 export const branding = {
   appName: 'Очаг',
   tagline: 'виртуальный стол для ролевых игр',

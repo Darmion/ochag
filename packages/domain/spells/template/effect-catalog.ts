@@ -29,6 +29,7 @@ const CONDITION_DURATIONS: readonly Option[] = [
 ];
 const REPEAT_SAVES: readonly Option[] = [['none', 'нет'], ['start', 'в начале хода цели'], ['end', 'в конце хода цели'], ['damaged', 'когда получает урон']];
 const ABILITY_OR_ALL: readonly Option[] = [['all', 'все'], ...ABILITIES];
+export const CURE_KINDS: readonly Option[] = [['disease', 'болезнь'], ['poison', 'яд'], ['curse', 'проклятие']];
 
 const LASTS: readonly FieldSpec[] = [
   { key: 'lasts', label: 'Сколько длится', type: 'select', options: [['spell', 'как у заклинания'], ['rounds', 'N раундов'], ['target-next-end', 'до конца следующего хода цели'], ['target-next-start', 'до начала следующего хода цели'], ['caster-next-end', 'до конца следующего хода заклинателя'], ['caster-next-start', 'до начала следующего хода заклинателя']], default: 'spell' },
@@ -45,6 +46,13 @@ export const PRESETS: readonly Option[] = [
   ['expeditious', '«Поспешное отступление»: Рывок бонусным действием'], ['stoneskin', '«Каменная кожа»'],
   ['warding-bond', '«Охраняющая связь»'], ['beacon-of-hope', '«Маяк надежды»'], ['haste', '«Ускорение» целиком (с вялостью после)'],
   ['slow', '«Замедление» целиком'], ['sleep', '«Усыпление»: запас хитов, от меньших к большим'],
+  ['stabilize', '«Уход за умирающим»: существо при смерти становится стабильным'], ['revive', 'Оживить мёртвого с 1 хитом'],
+  ['greater-restoration', '«Высшее восстановление»: снять окаменение, очарование или степень истощения'],
+  ['bless', '«Благословение»: +к4 к атакам и спасброскам'], ['bane', '«Порча»: −к4 к атакам и спасброскам'],
+  ['light', '«Свет»: предмет светит, прежний «Свет» гаснет'], ['faerie-fire', '«Огонь фей»: подсвечены, атаки по ним с преимуществом'],
+  ['barkskin', '«Дубовая кора»: КД не ниже 16'], ['longstrider', '«Скороход»: скорость +10 фт.'],
+  ['darkvision', '«Тёмное зрение»: тёмное зрение 60 фт.'], ['spider-climb', '«Паук»: лазание по стенам и потолку'],
+  ['energy-ward', '«Защита от энергии»: сопротивление выбранной стихии'],
 ];
 
 type EffectSpec = { label: string; support: EngineSupport; fields: readonly FieldSpec[]; nested?: boolean };
@@ -146,6 +154,7 @@ export const EFFECT_CATALOG: Readonly<Record<EffectKind, EffectSpec>> = {
     { key: 'who', label: 'Кого', type: 'select', options: [['self', 'себя'], ['target', 'цель']], default: 'self', showIf: { key: 'mode', in: ['teleport'] } },
   ] },
   summon: { label: 'Призыв', support: 'partial', fields: [
+    { key: 'rules', label: 'Правила', type: 'select', options: [['plain', 'обычный призыв'], ['familiar', 'как «Поиск фамильяра»: один, фея, без атак'], ['steed', 'как «Поиск скакуна»: один, фея, Интеллект не ниже 6'], ['conjure', 'как «Призыв животных»: число по опасности']], default: 'plain' },
     { key: 'creatures', label: 'Существа (через запятую, из бестиария) или пусто — по фильтру', type: 'text', default: '' },
     { key: 'creatureType', label: 'Тип', type: 'select', options: [['any', 'любой'], ...CREATURE_TYPES], default: 'beast' },
     { key: 'maxCr', label: 'ПО не больше', type: 'number', default: 2 },
@@ -158,6 +167,8 @@ export const EFFECT_CATALOG: Readonly<Record<EffectKind, EffectSpec>> = {
     { key: 'maxCr', label: 'ПО не больше', type: 'number', default: 1, showIf: { key: 'limit', in: ['fixed'] } },
     { key: 'creatureType', label: 'Тип облика', type: 'select', options: [['any', 'любой'], ...CREATURE_TYPES], default: 'beast' },
     { key: 'willingNoSave', label: 'Согласным — без спасброска', type: 'bool', default: true },
+    { key: 'consent', label: 'Кого можно', type: 'select', options: [['any', 'любого (несогласный спасается, разум — зверя)'], ['willing', 'только согласных (разум свой)']], default: 'any' },
+    { key: 'maxSize', label: 'Размер облика не больше', type: 'select', options: [['', 'любой'], ['tiny', 'крошечный'], ['small', 'маленький'], ['medium', 'средний'], ['large', 'большой'], ['huge', 'огромный']], default: '' },
     { key: 'forbid', label: 'В облике нельзя', type: 'multi', options: [['cast', 'колдовать'], ['speak', 'говорить']], default: ['cast', 'speak'] },
   ] },
   zone: { label: 'Зона на карте', support: 'partial', nested: true, fields: [
@@ -166,12 +177,15 @@ export const EFFECT_CATALOG: Readonly<Record<EffectKind, EffectSpec>> = {
     { key: 'sizeFeet', label: 'Размер, фт.', type: 'number', default: 20, showIf: { key: 'shapeFrom', in: ['own'] } },
     { key: 'heightFeet', label: 'Высота, фт. (цилиндр)', type: 'number', default: 0, showIf: { key: 'shapeFrom', in: ['own'] } },
     { key: 'difficult', label: 'Труднопроходимая местность', type: 'bool', default: false },
+    { key: 'follows', label: 'Движется с заклинателем', type: 'bool', default: false },
+    { key: 'spares', label: 'Не задевает союзников заклинателя', type: 'bool', default: false },
+    { key: 'drift', label: 'В начале хода заклинателя отходит от него, фт. (0 — стоит)', type: 'number', default: 0 },
     { key: 'obscured', label: 'Заслонено', type: 'select', options: [['none', 'нет'], ['light', 'слабо'], ['heavy', 'сильно']], default: 'none' },
     { key: 'darkness', label: 'Магическая тьма', type: 'bool', default: false },
     { key: 'silence', label: 'Тишина', type: 'bool', default: false },
     { key: 'lightFeet', label: 'Свет, фт. (0 — нет)', type: 'number', default: 0 },
   ] },
-  wall: { label: 'Стена', support: 'no', fields: [
+  wall: { label: 'Стена', support: 'partial', fields: [
     { key: 'blocks', label: 'Преграждает', type: 'multi', options: [['move', 'движение'], ['sight', 'взгляд'], ['spells', 'заклинания']], default: ['move'] },
     { key: 'ac', label: 'КД отрезка (0 — неразрушима)', type: 'number', default: 0 },
     { key: 'hp', label: 'Хиты отрезка', type: 'number', default: 0 },
@@ -182,6 +196,7 @@ export const EFFECT_CATALOG: Readonly<Record<EffectKind, EffectSpec>> = {
   remove: { label: 'Снятие', support: 'partial', fields: [
     { key: 'what', label: 'Что', type: 'select', options: [['conditions', 'состояния из списка'], ['one-condition', 'одно состояние на выбор'], ['spells', 'заклинания'], ['curse', 'проклятие'], ['disease', 'болезнь'], ['poison', 'яд'], ['exhaustion', 'истощение'], ['petrified', 'окаменение'], ['stabilize', 'стабилизировать'], ['revive', 'оживить']], default: 'conditions' },
     { key: 'conditions', label: 'Состояния', type: 'multi', options: CONDITIONS, default: ['poisoned'], showIf: { key: 'what', in: ['conditions', 'one-condition'] } },
+    { key: 'kinds', label: 'Или по виду', type: 'multi', options: CURE_KINDS, default: [], showIf: { key: 'what', in: ['conditions', 'one-condition'] }, hint: 'болезни, яды и проклятия с вкладки «Состояния»' },
     { key: 'upTo', label: 'До круга', type: 'number', default: 3, showIf: { key: 'what', in: ['spells'] } },
     { key: 'levels', label: 'Уровней', type: 'number', default: 1, showIf: { key: 'what', in: ['exhaustion'] } },
     { key: 'hp', label: 'С хитами', type: 'number', default: 1, showIf: { key: 'what', in: ['revive'] } },
@@ -202,6 +217,7 @@ export const EFFECT_CATALOG: Readonly<Record<EffectKind, EffectSpec>> = {
   ] },
   preset: { label: 'Готовый эффект (как у заклинания SRD)', support: 'yes', fields: [
     { key: 'preset', label: 'Эффект', type: 'select', options: PRESETS, default: 'sanctuary' },
+    ...LASTS,
   ] },
   message: { label: 'Сообщение', support: 'partial', fields: [
     { key: 'audience', label: 'Кому', type: 'select', options: [['all', 'всем'], ['target', 'только цели'], ['gm', 'только мастеру']], default: 'all' },

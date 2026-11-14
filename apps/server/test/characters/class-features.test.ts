@@ -111,7 +111,7 @@ test('class features and bosses', async t => {
     assert.deepEqual(list.features.map((entry: any) => [entry.id, entry.available]), [['rage', true], ['reckless-attack', true], ['danger-sense', true], ['frenzy', false], ['unarmored-defense', true], ['feats', true]]);
     assert.equal(list.features[0].detail, '+2 к урону');
     assert.match(list.features.find((entry: any) => entry.id === 'unarmored-defense').detail, /^без доспехов КД \d+ = 10 \+ ЛОВ \+ ТЕЛ \(\+2 со щитом\)$/);
-    assert.deepEqual(list.features[0].resource, {name: 'Ярость', current: 3, max: 3}, 'missing resources come from the class table');
+    assert.deepEqual(list.features[0].resource, {name: 'Ярость', current: 3, max: 3, recharge: 'long'}, 'missing resources come from the class table, with how they come back');
     assert.deepEqual((await features(shade.id)).features.map((entry: any) => [entry.id, entry.available, entry.detail]), [
       ['cunning-action', false, 'Рывок, Отход, Спрятаться'], ['sneak-attack', true, '2d6'], ['feats', true, 'не отмечены'],
     ]);

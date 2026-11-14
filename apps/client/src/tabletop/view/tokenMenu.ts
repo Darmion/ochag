@@ -4,7 +4,7 @@ import type { WallSegment, Tabletop, MultiSelection } from '../scene';
 import { signalColor } from '../signals';
 import { type Position, footprintCells } from '../grid';
 import { inArea, type AreaShape } from '../areas';
-import type { TokenMenuTarget, TokenSaveRequest } from '../../components/game/TokenMenu.vue';
+import type { TokenMenuTarget, TokenReviveRequest, TokenSaveRequest } from '../../components/game/TokenMenu.vue';
 import { wallTileAt } from '../../components/game/WallPopover.vue';
 import { conditionInfo } from '../../rules/conditions';
 import GameActionBar from '../../components/game/actionBar/GameActionBar.vue';
@@ -103,9 +103,28 @@ export function useTokenMenu({ props, viewOnly, gameUi, sceneId, sceneDetail, ac
   }
 
   const tokenMenuObject = computed(() => (tokenMenu.value ? objects.value.find(entry => entry.id === tokenMenu.value!.objectId) ?? null : null));
+  const tokenSheet = ref<{ characterId: string; level: number | null; experience: number | null; next: number | null } | null>(null);
+  async function loadTokenSheet() {
+    const object = tokenMenuObject.value;
+    if (!object || object.kind === 'object' || !(object.canEdit || sceneDetail.value?.canManage)) return;
+    try {
+      const sheet = await props.request(`/campaigns/${props.campaignId}/characters/${object.character_id}`);
+      if (tokenMenuObject.value?.character_id !== object.character_id) return;
+      tokenSheet.value = {
+        characterId: object.character_id, level: sheet.level ?? null,
+        experience: typeof sheet.experience === 'number' ? sheet.experience : null, next: sheet.experience_info?.next ?? null,
+      };
+    } catch {
+    }
+  }
+  watch(() => tokenMenu.value?.objectId, id => {
+    tokenSheet.value = null;
+    if (id) void loadTokenSheet();
+  });
   const tokenMenuTarget = computed<TokenMenuTarget | null>(() => {
     const object = tokenMenuObject.value;
     if (!object) return null;
+    const sheet = tokenSheet.value?.characterId === object.character_id ? tokenSheet.value : null;
     return {
       characterId: object.character_id, objectId: object.id, name: object.name,
       hpText: object.hp ? `♡ ${object.hp.current} / ${object.hp.max}${object.hp.temp ? ` +${object.hp.temp}` : ''}` : null,
@@ -116,9 +135,39 @@ export function useTokenMenu({ props, viewOnly, gameUi, sceneId, sceneDetail, ac
       merchant: object.merchant === true,
       factions: object.factions ?? null,
       canFly: object.canFly === true,
+      canClimb: object.canClimb === true || (object.conditions ?? []).includes('spider_climb'),
       flightHeight: object.flightHeight ?? null,
+      level: sheet?.level ?? null,
+      experience: sheet?.experience ?? null,
+      nextExperience: sheet?.next ?? null,
     };
   });
+
+  function tokenXp(amount: number) {
+    const object = tokenMenuObject.value;
+    if (!object || !amount) return;
+    return run(async () => {
+      const result = await props.request(`/campaigns/${props.campaignId}/experience`, 'POST', {
+        characterIds: [object.character_id], amount, reason: amount < 0 ? `Мастер отнял опыт у «${object.name}»` : `Награда мастера для «${object.name}»`,
+      });
+      const award = result.awards?.[0];
+      tokenNotice.value = award
+        ? `${award.amount < 0 ? `Опыт −${-award.amount}` : `Опыт +${award.amount}`} · теперь ${award.experience}`
+        : 'Опыт не изменился';
+      await Promise.all([loadTokenSheet(), refresh()]);
+    });
+  }
+
+  function tokenRevive(request: TokenReviveRequest) {
+    const object = tokenMenuObject.value;
+    if (!object) return;
+    return run(async () => {
+      const result = await props.request(`/campaigns/${props.campaignId}/characters/revive`, 'POST', { characterIds: [object.character_id], ...request });
+      const revived = result.revived?.[0];
+      tokenNotice.value = revived ? `Встаёт: хиты ${revived.hp}` : `Не воскрешён: ${result.skipped?.[0]?.reason ?? 'жив'}`;
+      await Promise.all([refresh(), loadInitiative()]);
+    });
+  }
 
   const factionList = ref<Array<{ id: string; name: string; color: string }>>([]);
   async function loadFactionList() {
@@ -188,6 +237,16 @@ export function useTokenMenu({ props, viewOnly, gameUi, sceneId, sceneDetail, ac
     return run(async () => {
       const result = await props.request(`/campaigns/${props.campaignId}/characters/${object.character_id}/flying`, 'PUT', { on, ...(height !== undefined ? { height } : {}) });
       tokenNotice.value = String(result.message ?? (on ? 'Летит' : 'На земле'));
+      await refresh();
+    });
+  }
+
+  function tokenClimb(on: boolean, height?: number) {
+    const object = tokenMenuObject.value;
+    if (!object || !sceneId.value) return;
+    return run(async () => {
+      const result = await props.request(`/campaigns/${props.campaignId}/characters/${object.character_id}/climbing`, 'PUT', { on, sceneId: sceneId.value, ...(height !== undefined ? { height } : {}) });
+      tokenNotice.value = String(result.message ?? (on ? 'На стене' : 'На земле'));
       await refresh();
     });
   }
@@ -313,5 +372,5 @@ export function useTokenMenu({ props, viewOnly, gameUi, sceneId, sceneDetail, ac
     await removeFromScene();
   }
 
-  return { onTableContext, tokenMenuObject, tokenMenuTarget, factionList, loadFactionList, tokenFactions, tokenNotice, tokenMenuCanAttack, tokenAttack, tokenSpell, tokenHp, tokenFly, tokenFall, tokenSave, tokenCombat, tokenDisposition, tokenPing, tokenCondition, tokenHide, tokenRotate, tokenScale, tokenDuplicate, tokenRemove };
+  return { onTableContext, tokenMenuObject, tokenMenuTarget, tokenXp, tokenRevive, factionList, loadFactionList, tokenFactions, tokenNotice, tokenMenuCanAttack, tokenAttack, tokenSpell, tokenHp, tokenFly, tokenClimb, tokenFall, tokenSave, tokenCombat, tokenDisposition, tokenPing, tokenCondition, tokenHide, tokenRotate, tokenScale, tokenDuplicate, tokenRemove };
 }

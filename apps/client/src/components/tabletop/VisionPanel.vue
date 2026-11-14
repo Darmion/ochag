@@ -126,7 +126,7 @@ const setPartyVision = (value: boolean) => run(async () => {
         <p class="hint">Пусто — без предела. Предел нужен для тумана, метели, густого леса.</p>
         <label class="checkbox-label preview">
           <input type="checkbox" :checked="preview" @change="emit('update:preview', ($event.target as HTMLInputElement).checked)" />
-          <GameIcon class="inline-icon" name="eye" :size="16" /> Показать карту глазами отряда
+          <GameIcon class="inline-icon" name="viewAs" :size="16" /> Показать карту глазами отряда
         </label>
         <p class="hint">Глазами одного существа — кнопка «Глазами» на панели действий, у кубиков.</p>
       </template>

@@ -21,7 +21,7 @@ import { rollSaveAgainst } from '../rolls/checks.ts';
 import { campaignFlag, insertRoll, rollDie } from '../rolls/dice.ts';
 import { rollCheckAs } from '../rolls/roll-check.ts';
 import { feetBetween, getScene } from '../scene/board.ts';
-import { creatureCells, diagonalRule, movementGrid, movementRules } from '../scene/movement.ts';
+import { creatureCells, diagonalRule, movementGrid, movementRules, rememberWalk, walkRoute } from '../scene/movement.ts';
 import { loadPlacements } from '../scene/placements.ts';
 import type { Placement } from '../shared.ts';
 
@@ -180,7 +180,8 @@ export async function legendaryStep(ctx: TableContext, campaignId: string, scene
       if (better) best = { to, strike, distance, cost };
     }
     if (!best || best.distance >= feetBetween(scene, boss, target) - 1e-9) return { summary: 'некуда подойти', moved: null };
-    await q.query('UPDATE scene_objects SET x=$3, z=$4, revision=revision+1 WHERE campaign_id=$1 AND id=$2', [campaignId, boss.id, best.to.x, best.to.z]);
+    const revision = (await q.query('UPDATE scene_objects SET x=$3, z=$4, revision=revision+1 WHERE campaign_id=$1 AND id=$2 RETURNING revision', [campaignId, boss.id, best.to.x, best.to.z])).rows[0].revision;
+    rememberWalk(ctx, boss.id, revision, best.to, walkRoute(grid, from, best.to, occupied));
     await q.query('UPDATE scenes SET revision=revision+1 WHERE id=$1', [sceneId]);
     notices = await triggers.fireEnter(q, campaignId, scene, owner, { characterId: bossId, name: boss.name, size: boss.size }, from, best.to);
     return { summary: `подходит к «${target.name}»${best.strike ? ' — теперь достаёт' : ''}`, moved: { from, to: best.to } };

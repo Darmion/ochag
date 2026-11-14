@@ -176,4 +176,109 @@ test('level up window', async t => {
     const wizardPlan = (await request('GET', `${base}/characters/${wizard.id}/level-up`, gm.token)).json().milestone;
     assert.equal(wizardPlan.replaceSpell, false);
   });
+
+  await t.test('a dry run shows before → after and leaves the sheet untouched; the list tells who may level up that a level waits', async () => {
+    const cleric = await create({name: 'Элия', className: 'Жрец', level: 3, wisdom: 16, constitution: 14, hpMax: 24});
+    const roster = async (token: string) => (await request('GET', `${base}/characters`, token)).json().characters.find((entry: any) => entry.id === cleric.id);
+    assert.equal((await roster(alice.token)).level_ready, false);
+    await request('POST', `${base}/experience`, gm.token, {characterIds: [cleric.id], amount: 2700});
+    assert.equal((await roster(alice.token)).level_ready, true, 'the owner sees it');
+    assert.equal((await roster(gm.token)).level_ready, true, 'and the GM');
+    assert.equal((await roster(bob.token))?.level_ready ?? false, false, 'another player does not');
+    assert.equal('experience' in (await roster(alice.token)), false, 'experience stays out of the list');
+
+    const info = (await request('GET', `${base}/characters/${cleric.id}/level-up`, alice.token)).json();
+    assert.deepEqual(info.suggestion.asi, {kind: 'asi', increases: {wisdom: 2}}, 'a cleric raises Wisdom');
+    assert.equal(info.suggestion.cantrips.length, info.plan.cantrips);
+    assert.equal(info.featureTexts['Улучшение характеристик'].automation, 'auto', 'every new feature comes with its card');
+    const untouched = await sheet(cleric.id);
+    const rollCount = async () => (await request('GET', `${base}/rolls`, gm.token)).json().rolls.length;
+    const rollsBefore = await rollCount();
+
+    const preview = await levelUp(cleric.id, {...info.suggestion, dryRun: true});
+    assert.equal(preview.statusCode, 200, preview.body);
+    const {before, after, problems, hpGain} = preview.json();
+    assert.deepEqual(problems, []);
+    assert.deepEqual([before.level, after.level, before.scores.wisdom, after.scores.wisdom, after.proficiency], [3, 4, 16, 18, 2]);
+    assert.equal(after.hpMax - before.hpMax, hpGain);
+    assert.ok(after.slots.some((slot: any) => slot.level === 2 && slot.max === 3), 'a third 2nd-level slot');
+    assert.equal(after.spells - before.spells, info.plan.cantrips);
+
+    const partial = (await levelUp(cleric.id, {hp: 'roll', dryRun: true})).json();
+    assert.ok(partial.problems.length, 'the ability increase is not chosen yet');
+    assert.deepEqual([partial.after.level, partial.after.scores.wisdom], [4, 16], 'the rest is previewed anyway');
+    assert.ok(partial.hpRange[0] >= 1 && partial.hpRange[1] > partial.hpRange[0], 'a roll shows its range');
+    const still = await sheet(cleric.id);
+    assert.deepEqual([still.level, still.wisdom, still.hp_max, still.revision], [untouched.level, untouched.wisdom, untouched.hp_max, untouched.revision], 'nothing was written');
+    assert.equal(await rollCount(), rollsBefore, 'a dry run rolls nothing');
+
+    const done = await levelUp(cleric.id, info.suggestion);
+    assert.equal(done.statusCode, 201, done.body);
+    assert.equal((await sheet(cleric.id)).hp_max, before.hpMax + hpGain, 'exactly what the dry run promised');
+    assert.equal((await roster(alice.token)).level_ready, false);
+  });
+
+  await t.test('the GM takes experience away without lowering the level; lowering a level undoes exactly what it gave', async () => {
+    const levelDown = (id: string, body: any = {}, token = alice.token) => request('POST', `${base}/characters/${id}/level-down`, token, body);
+    const giveXp = (id: string, amount: number, token = gm.token) => request('POST', `${base}/experience`, token, {characterIds: [id], amount});
+
+    const scout = await create({name: 'Ласка', className: 'Следопыт', level: 1, dexterity: 16, hpMax: 11});
+    await giveXp(scout.id, 900);
+    const taken = await giveXp(scout.id, -600);
+    assert.equal(taken.statusCode, 201, taken.body);
+    assert.deepEqual([taken.json().awards[0].amount, taken.json().awards[0].experience, taken.json().awards[0].level], [-600, 300, 1]);
+    assert.equal((await giveXp(scout.id, -5000)).json().awards[0].experience, 0, 'not below zero');
+    assert.equal((await giveXp(scout.id, -10, alice.token)).statusCode, 403);
+    assert.equal((await request('POST', `${base}/experience`, gm.token, {characterIds: [scout.id], amount: -10, split: true})).statusCode, 400);
+    assert.equal((await levelDown(scout.id)).statusCode, 400, 'level 1 is the floor');
+
+    const paladin = await create({name: 'Гвиневра', className: 'Паладин', level: 1, strength: 16, charisma: 14, constitution: 14, hpMax: 12});
+    await request('POST', `${base}/characters/${paladin.id}/weapons`, alice.token, {name: 'Длинный меч', ability: 'strength', damageFormula: '1d8+@mod', damageType: 'slashing'});
+    const start = await sheet(paladin.id);
+    await giveXp(paladin.id, 300);
+    assert.equal((await levelUp(paladin.id, {hp: 'average', fightingStyle: 'dueling'})).statusCode, 201);
+    assert.equal((await levelDown(paladin.id, {expectedLevel: 3})).statusCode, 409, 'a stale confirmation is refused');
+    const preview = (await request('GET', `${base}/characters/${paladin.id}/level-down`, alice.token)).json();
+    assert.deepEqual([preview.from, preview.to, preview.recorded, preview.stillReady], [2, 1, true, true]);
+    assert.ok(preview.lines.some((line: string) => /боевого стиля/.test(line)));
+    assert.equal((await request('GET', `${base}/characters/${paladin.id}/level-down`, bob.token)).statusCode, 403);
+    const down = await levelDown(paladin.id);
+    assert.equal(down.statusCode, 200, down.body);
+    const back = await sheet(paladin.id);
+    assert.deepEqual([back.level, back.hp_max, back.hp_current, back.weapons[0].damage_formula], [1, start.hp_max, start.hp_current, '1d8+@mod']);
+    assert.deepEqual(back.resources.map((r: any) => [r.name, r.max]).sort(), start.resources.map((r: any) => [r.name, r.max]).sort());
+    assert.equal(back.sheet_extra?.text?.levels, undefined, 'the level 2 note is gone');
+    assert.equal(back.experience, 300, 'experience stays');
+
+    const wizard = await create({name: 'Сова', className: 'Волшебник', level: 1, intelligence: 16, constitution: 12, hpMax: 7});
+    await giveXp(wizard.id, 300);
+    assert.equal((await levelUp(wizard.id, {hp: 'average', subclass: 'evocation', spells: ['shield', 'magic-missile']})).statusCode, 201);
+    assert.equal((await levelDown(wizard.id, {}, gm.token)).statusCode, 200, 'the GM may lower it too');
+    const plain = await sheet(wizard.id);
+    assert.deepEqual([plain.level, plain.class_name, plain.sheet_extra?.subclasses?.wizard], [1, 'Волшебник', undefined]);
+    assert.equal((await pg.query('SELECT 1 FROM character_spells WHERE character_id=$1', [wizard.id])).rows.length, 0);
+    const slots = (await pg.query<any>('SELECT level, max FROM character_spell_slots WHERE character_id=$1 AND max > 0', [wizard.id])).rows;
+    assert.deepEqual(slots, [{level: 1, max: 2}]);
+
+    const brute = await create({name: 'Гром', className: 'Воин', level: 3, strength: 16, constitution: 14, hpMax: 28});
+    await pg.query('UPDATE characters SET hp_current=20 WHERE id=$1', [brute.id]);
+    await giveXp(brute.id, 2700);
+    assert.equal((await levelUp(brute.id, {hp: 'average', asi: {kind: 'asi', increases: {constitution: 2}}})).statusCode, 201);
+    await levelDown(brute.id);
+    const brute3 = await sheet(brute.id);
+    assert.deepEqual([brute3.level, brute3.constitution, brute3.hp_max, brute3.hp_current], [3, 14, 28, 20]);
+    assert.equal((await levelDown(brute.id)).statusCode, 200, 'an unrecorded level goes down too');
+    const brute2 = await sheet(brute.id);
+    assert.deepEqual([brute2.level, brute2.hp_max], [2, 28 - 8], 'the average of a d10 + CON');
+
+    const mixed = await create({name: 'Сплав', className: 'Воин 3 / Волшебник 2', level: 5, constitution: 14, hpMax: 40});
+    const ask = (await request('GET', `${base}/characters/${mixed.id}/level-down`, alice.token)).json();
+    assert.deepEqual([ask.recorded, ask.needsClass, ask.classes.map((entry: any) => entry.id)], [false, true, ['fighter', 'wizard']]);
+    assert.equal((await levelDown(mixed.id)).statusCode, 400, 'which class?');
+    assert.equal((await levelDown(mixed.id, {classId: 'wizard'})).statusCode, 200);
+    assert.equal((await sheet(mixed.id)).class_name, 'Воин 3 / Волшебник 1');
+    await levelDown(mixed.id, {classId: 'wizard'});
+    const single = await sheet(mixed.id);
+    assert.deepEqual([single.class_name, single.level, single.hp_max], ['Воин 3', 3, 40 - 6 - 6]);
+  });
 });

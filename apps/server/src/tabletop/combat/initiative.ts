@@ -19,9 +19,11 @@ import { classSpeedBonus } from '../scene/movement.ts';
 import { loadPlacements } from '../scene/placements.ts';
 import { canManage, initiativeParams, type InitiativeParams, objectSchema, reject, sceneParams, type SceneParams, uuid } from '../shared.ts';
 import { restMeetsCombat } from './combat-rest.ts';
+import { syncTurnEvents } from './initiative-events.ts';
+import { eventOf, freeOptions } from '../../../../../packages/domain/combat/initiative-events.ts';
 
 // One order for every query: rows started in one transaction share created_at, so dexterity and id break ties.
-export const INITIATIVE_ORDER = 'ie.score DESC, ie.created_at ASC, c.dexterity DESC NULLS LAST, ie.id ASC';
+export const INITIATIVE_ORDER = 'ie.score DESC, ie.tie_rank ASC, ie.created_at ASC, c.dexterity DESC NULLS LAST, ie.id ASC';
 
 export async function initiativeQueue(q: Queryable, campaignId: string, sceneId: string, lock = false) {
   const entries = (
@@ -96,7 +98,7 @@ export function registerInitiativeRoutes(ctx: TableContext) {
       const userId = await auth(request);
       const { campaignId, sceneId } = request.params;
 
-      await membership(db, campaignId, userId);
+      const member = await membership(db, campaignId, userId);
       const scene = await getScene(db, campaignId, sceneId, false);
 
       const { rows } = await db.query(
@@ -104,6 +106,7 @@ export function registerInitiativeRoutes(ctx: TableContext) {
                 ie.moved_feet::float8 AS moved_feet, ie.dashes,
                 ie.action_used, ie.bonus_used, ie.reaction_used, ie.attacks_made, ie.disengaged,
                 ie.legendary_used, ie.sneak_attack_used, ie.action_surged, COALESCE(c.legendary_actions, 0) AS legendary_actions,
+                ie.event_of, ie.event_kind, ie.event_last, owner.turn_events AS event_source,
                 ('death-save' = ANY(ie.turn_flags)) AS death_saved,
                 ('haste' = ANY(ie.turn_flags)) AS haste_used,
                 EXISTS (SELECT 1 FROM character_effects e WHERE e.campaign_id = ie.campaign_id AND e.character_id = ie.character_id AND e.active AND e.effect_code = 'slow_spell') AS slowed,
@@ -111,18 +114,22 @@ export function registerInitiativeRoutes(ctx: TableContext) {
                 c.attacks_per_action, c.class_name, c.level, c.sheet_extra->'info' AS info
          FROM initiative_entries ie
          LEFT JOIN characters c ON c.campaign_id = ie.campaign_id AND c.id = ie.character_id
+         LEFT JOIN characters owner ON owner.campaign_id = ie.campaign_id AND owner.id = ie.event_of
          WHERE ie.campaign_id=$1 AND ie.scene_id=$2
          ORDER BY ${INITIATIVE_ORDER}`,
         [campaignId, sceneId],
       );
+      const manager = await canManage(db, member, userId);
 
       const entries = [];
-      for (const { attacks_per_action, class_name, level, info, slowed, ...entry } of rows) {
+      for (const { attacks_per_action, class_name, level, info, slowed, event_source, ...entry } of rows) {
+        const event = entry.event_kind ? eventOf(event_source, entry.event_kind) : null;
         const bonus = entry.character_id && entry.speed_feet !== null ? (await classSpeedBonus(db, campaignId, entry.character_id)).feet : 0;
         entries.push({
           ...entry,
           ...(bonus ? { speed_feet: Number(entry.speed_feet) + bonus } : {}),
           attacks_per_action: entry.character_id && !slowed ? attacksPerActionOf({ attacks_per_action, class_name, level, sheet_extra: { info } }) : 1,
+          ...(event && manager ? { event: { options: event.options, free: freeOptions(event, entry.event_last), noRepeat: event.rules.noRepeat } } : {}),
         });
       }
       return { entries, combatRound: scene.combat_round };
@@ -187,6 +194,7 @@ export function registerInitiativeRoutes(ctx: TableContext) {
         );
         await markCombatStart(ctx, q, campaignId, sceneId, userId);
         await syncReflexTurn(q, campaignId, sceneId, characterId);
+        await syncTurnEvents(q, campaignId, sceneId, characterId);
 
         await insertRoll(
           q, campaignId, userId, characterId, `Инициатива: ${character.name}`,
@@ -259,6 +267,7 @@ export function registerInitiativeRoutes(ctx: TableContext) {
           joined.push({ characterId: creature.id, name: creature.name, score: total });
           await markCombatStart(ctx, q, campaignId, sceneId, userId);
           await syncReflexTurn(q, campaignId, sceneId, creature.id);
+          await syncTurnEvents(q, campaignId, sceneId, creature.id);
         }
 
         let started = false;
@@ -423,7 +432,7 @@ export function registerInitiativeRoutes(ctx: TableContext) {
         }
 
         await q.query('DELETE FROM initiative_entries WHERE id=$1', [entryId]);
-        if (entry.character_id) await q.query('DELETE FROM initiative_entries WHERE campaign_id=$1 AND scene_id=$2 AND reflex_of=$3', [campaignId, sceneId, entry.character_id]);
+        if (entry.character_id) await q.query('DELETE FROM initiative_entries WHERE campaign_id=$1 AND scene_id=$2 AND (reflex_of=$3 OR event_of=$3)', [campaignId, sceneId, entry.character_id]);
 
         if (entry.is_current) {
           const after = await initiativeQueue(q, campaignId, sceneId, true);

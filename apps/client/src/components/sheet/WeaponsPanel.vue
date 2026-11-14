@@ -5,6 +5,7 @@ import { computed, onMounted, ref } from 'vue';
 import { DAMAGE_TYPES } from '../../rules/objectRules';
 import ItemArt from '../rpg/ItemArt.vue';
 import GameIcon from '../game/GameIcon.vue';
+import DamageTag from '../common/DamageTag.vue';
 
 export type WeaponDTO = {
   id: string;
@@ -176,11 +177,11 @@ function importLegacy() {
       <li v-for="weapon in weapons" :key="weapon.id" class="weapon-row">
         <ItemArt :name="weapon.name" :srd-index="weapon.srd_index" :size="30" :fallback-icon="weapon.weapon_kind === 'ranged' ? 'bow' : 'swords'" />
         <template v-if="readOnly">
-          <strong>{{ weapon.name }}</strong>
+          <strong>{{ weapon.name }} <DamageTag v-if="weapon.damage_type" :type="weapon.damage_type" icon-only /></strong>
           <span class="muted">{{ describe(weapon) }}</span>
         </template>
         <template v-else>
-          <div class="weapon-summary"><strong>{{ weapon.name }}</strong><span class="muted">{{ describe(weapon) }}</span></div>
+          <div class="weapon-summary"><strong>{{ weapon.name }} <DamageTag v-if="weapon.damage_type" :type="weapon.damage_type" icon-only /></strong><span class="muted">{{ describe(weapon) }}</span></div>
           <button type="button" class="primary" :disabled="working || busy" title="Бросок атаки (без цели)" @click="emit('attack', weapon.id)">Атака</button>
           <details class="weapon-settings">
             <summary>Настройки оружия</summary>
@@ -200,7 +201,7 @@ function importLegacy() {
             <option v-for="type in DAMAGE_TYPES" :key="type.id" :value="type.id">{{ type.label }}</option>
           </select>
 
-          <button type="button" class="w-remove" :disabled="working || busy" aria-label="Убрать" @click="remove(weapon)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+          <button type="button" class="w-remove icon-only" :disabled="working || busy" aria-label="Убрать" @click="remove(weapon)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
           <details class="w-more">
             <summary>{{ describe(weapon) }}</summary>
             <div class="w-more-fields">

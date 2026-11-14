@@ -30,7 +30,7 @@ export type ObjectDragDeps = {
   createPathLine: RulersApi['createPathLine'];
   createRuler: RulersApi['createRuler'];
   measureText: (from: Position, to: Position) => string;
-  isTerrainBrush: () => boolean;
+  isBrushMode: () => boolean;
   cancelGesture: () => boolean;
 };
 
@@ -38,7 +38,7 @@ export function createObjectDrag({
   canvas, options, widthCells, heightCells, live, tools, scene, camera, cameraGesture,
   holdCamera, objectEntries, setDragging, isSelectionEnabled, selectedId, syncHandleFromRoot,
   contestedObject, isWallPickMode, isWallDrawMode, tool, clampX, clampZ, pickGroundPoint,
-  createPathLine, createRuler, measureText, isTerrainBrush, cancelGesture,
+  createPathLine, createRuler, measureText, isBrushMode, cancelGesture,
 }: ObjectDragDeps) {
   let objectDrag: {
     objectId: string;
@@ -89,7 +89,7 @@ export function createObjectDrag({
 
   scene.onPointerObservable.add(info => {
     if (info.type === PointerEventTypes.POINTERDOWN) {
-      if (info.event.button !== 0 || isWallDrawMode() || isWallPickMode() || isTerrainBrush() || tool() !== 'select' || info.event.ctrlKey || info.event.shiftKey || !isSelectionEnabled() || cameraGesture(info.event)) return;
+      if (info.event.button !== 0 || isWallDrawMode() || isWallPickMode() || isBrushMode() || tool() !== 'select' || info.event.ctrlKey || info.event.shiftKey || !isSelectionEnabled() || cameraGesture(info.event)) return;
 
       const pick = scene.pick(scene.pointerX, scene.pointerY, mesh => Boolean(mesh.metadata?.objectId));
       const objectId = pick?.hit ? (pick.pickedMesh?.metadata?.objectId as string | undefined) : undefined;

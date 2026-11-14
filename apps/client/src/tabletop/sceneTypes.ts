@@ -3,6 +3,13 @@ import type { BoardDimensions, Position } from './grid';
 import type { Area, AreaShape } from './areas';
 import type { OverlayLabel } from './board/labels';
 import type { GameIconName } from '../ui/gameIcons';
+import type { HeldHand, HeldLook } from '../../../../packages/domain/character/held';
+
+// An item in a creature's hand as the board draws it: its own picture, a library picture or, failing both, the line icon of its look.
+export type HeldItemLook = { hand: HeldHand; look: HeldLook; twoHanded: boolean; art: string | null; imageAssetId: string | null };
+
+// A line icon or a picture the GM uploaded (a condition of the campaign).
+export type LabelIcon = GameIconName | { image: string };
 
 export type ObjectSide = 'mine' | 'party' | 'hostile' | 'neutral' | 'friendly' | 'object';
 
@@ -14,7 +21,7 @@ export type ObjectAppearance =
 export type PlacedObject = {
   id: string;
   name: string;
-  icons?: GameIconName[];
+  icons?: LabelIcon[];
   creature: boolean;
   size: string;
   side: ObjectSide;
@@ -22,6 +29,7 @@ export type PlacedObject = {
   world_x: number;
   world_y: number;
   world_z: number;
+  walk?: Array<[number, number]> | null;
   rotation_y: number;
   scale: number;
   animation_name: string | null;
@@ -30,6 +38,7 @@ export type PlacedObject = {
   hp: { current: number; max: number; temp: number } | null;
   dead?: boolean;
   light?: { bright: number; dim: number; cone?: number | null } | null;
+  held?: HeldItemLook[];
 };
 
 export type ObjectTransform = {
@@ -99,6 +108,7 @@ export type ToolHooks = {
   onPlacePoint?: (point: Position) => void;
   onTemplatePlace?: (template: { x: number; z: number; direction: number }) => void;
   onTerrainRect?: (from: GridCellRef, to: GridCellRef) => void;
+  onWallBrush?: (segments: Array<{ x1: number; z1: number; x2: number; z2: number }>, closed: boolean) => void;
   onWallPick?: (wallId: string | null, screen: { x: number; y: number }, point: Position | null) => void;
   onDoorClick?: (wallId: string) => void;
   onMultiPick?: (pick: { objectId: string | null; wallId: string | null; point: Position | null }) => void;
@@ -160,7 +170,10 @@ export type FrameInsets = { left: number; top: number; right: number; bottom: nu
 
 export type PoseTarget = { x: number; y: number; z: number; rotationY: number; scale: number };
 
-export type Glide = { fromX: number; fromY: number; fromZ: number; toX: number; toY: number; toZ: number; start: number; duration: number };
+export type Glide = {
+  fromX: number; fromY: number; fromZ: number; toX: number; toY: number; toZ: number; start: number; duration: number;
+  route?: Array<{ x: number; z: number; at: number }>;
+};
 
 export type DrawingRecord = {
   mesh: Mesh | null;

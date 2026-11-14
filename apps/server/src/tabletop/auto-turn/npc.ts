@@ -15,7 +15,7 @@ import { INITIATIVE_ORDER } from '../combat/initiative.ts';
 import { detectOpportunities } from '../combat/opportunity.ts';
 import type { TableContext } from '../context.ts';
 import { feetBetween, getScene } from '../scene/board.ts';
-import { creatureCells, flySpeedFrom, movementRules, movementState, releaseDistantGrapples, spendMovement } from '../scene/movement.ts';
+import { creatureCells, flySpeedFrom, movementRules, movementState, releaseDistantGrapples, rememberWalk, spendMovement, walkRoute } from '../scene/movement.ts';
 import { loadPlacements } from '../scene/placements.ts';
 import type { Placement } from '../shared.ts';
 
@@ -208,7 +208,8 @@ export async function fleeFrom(ctx: TableContext, q: Queryable, campaignId: stri
   }
   if (!best) return null;
   if (state) await spendMovement(ctx, q, campaignId, scene, npc.character_id, from, best.to);
-  await q.query('UPDATE scene_objects SET x=$3, z=$4, revision=revision+1 WHERE campaign_id=$1 AND id=$2', [campaignId, npc.id, best.to.x, best.to.z]);
+  const revision = (await q.query('UPDATE scene_objects SET x=$3, z=$4, revision=revision+1 WHERE campaign_id=$1 AND id=$2 RETURNING revision', [campaignId, npc.id, best.to.x, best.to.z])).rows[0].revision;
+  rememberWalk(ctx, npc.id, revision, best.to, walkRoute(grid, from, best.to, occupied));
   await q.query('UPDATE scenes SET revision=revision+1 WHERE id=$1', [scene.id]);
   const notices = await triggers.fireEnter(q, campaignId, scene, userId, { characterId: npc.character_id, name: npc.name, size: npc.size }, from, best.to);
   notices.push(...await releaseDistantGrapples(q, campaignId, scene, npc.character_id));

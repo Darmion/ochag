@@ -1,6 +1,7 @@
 import { onBeforeUnmount, watch, type ComputedRef, type Ref } from 'vue';
 import { connectLive, type LiveConnection } from '../tabletop/live';
 import { emitCampaignEvent } from './campaignEvents';
+import { minigameChanged } from '../minigames/minigameSync';
 
 export function useCampaignLive({ loggedIn, campaignId, token }: {
   loggedIn: ComputedRef<boolean>;
@@ -21,6 +22,7 @@ export function useCampaignLive({ loggedIn, campaignId, token }: {
       onRollsChanged: () => emitCampaignEvent('rolls', undefined),
       onInitiativeChanged: sceneId => emitCampaignEvent('initiative', sceneId),
       onNotes: () => emitCampaignEvent('notes', undefined),
+      onMinigame: kind => minigameChanged(kind),
       onCharacter: characterId => emitCampaignEvent('character', characterId),
       onCharacters: () => emitCampaignEvent('characters', undefined),
       onHandout: handout => emitCampaignEvent('handout', handout),

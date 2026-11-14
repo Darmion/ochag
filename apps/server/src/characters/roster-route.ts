@@ -3,6 +3,7 @@ import { purgeGoneSummons } from '../rules/summons.ts';
 import { canManageScenes } from '../tabletop/scene/scene-permissions.ts';
 import { inventoryVisibility } from './inventory-routes.ts';
 import { type Options, paramsSchema, type CampaignParams } from './import/shared.ts';
+import { levelReady } from '../../../../packages/domain/character/level-up.ts';
 
 export function registerCharacterListRoute(app: FastifyInstance, { db, auth, membership, requirePermission }: Options) {
   app.get<{ Params: CampaignParams }>(
@@ -26,7 +27,7 @@ export function registerCharacterListRoute(app: FastifyInstance, { db, auth, mem
 
       const { rows } = await db.query(
         `SELECT c.id, c.name, c.owner_user_id, u.display_name AS owner_display_name,
-                c.kind, c.disposition, c.size, c.image_asset_id, c.image_crop, c.model_asset_id, c.shared, c.container_id,
+                c.kind, c.disposition, c.size, c.image_asset_id, c.image_crop, c.model_asset_id, c.shared, c.container_id, c.level, c.experience,
                 ($3 OR c.owner_user_id = $2) IS TRUE AS can_delete,
                 (
                   $3 OR $4::boolean OR c.owner_user_id = $2 OR EXISTS (
@@ -47,7 +48,12 @@ export function registerCharacterListRoute(app: FastifyInstance, { db, auth, mem
         [campaignId, userId, privileged, sceneManager],
       );
 
-      return { characters: inventoryVisibility(rows as Parameters<typeof inventoryVisibility>[0], privileged || sceneManager), canManage: privileged };
+      // Level and experience stay out of the list; only whoever may level the hero up learns that a level waits.
+      const listed = (rows as any[]).map(({ level, experience, ...row }) => ({
+        ...row,
+        level_ready: row.kind === 'character' && (privileged || row.can_control) && levelReady({ level, experience: Number(experience ?? 0) }),
+      }));
+      return { characters: inventoryVisibility(listed as Parameters<typeof inventoryVisibility>[0], privileged || sceneManager), canManage: privileged };
     },
   );
 }

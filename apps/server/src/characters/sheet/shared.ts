@@ -62,10 +62,10 @@ export const SIZES = ['tiny', 'small', 'medium', 'large', 'huge', 'gargantuan'] 
 export type Size = typeof SIZES[number];
 
 export const CHARACTER_COLUMNS = `id, campaign_id, owner_user_id, name, level, sheet_version, revision,
-       kind, disposition, size, model_asset_id, image_asset_id, image_crop, shared,
+       kind, disposition, size, model_asset_id, image_asset_id, image_open_asset_id, image_crop, shared,
        strength, dexterity, constitution, intelligence, wisdom, charisma,
        hp_current, hp_max, hp_temp, armor_class, damage_threshold,
-       speed_feet::float8 AS speed_feet, sheet_extra, death_successes, death_failures,
+       speed_feet::float8 AS speed_feet, sheet_extra, death_successes, death_failures, auto_death_saves,
        damage_resistances, damage_immunities, damage_vulnerabilities, spellcasting_ability,
        hit_die, hit_dice_spent, hit_dice_spent_by_die, pact_slots_max, pact_slots_current, pact_slot_level,
        experience, challenge_rating::float8 AS challenge_rating, xp_award, inspiration,
@@ -78,7 +78,8 @@ export const DAMAGE_TYPES = [
   'acid', 'bludgeoning', 'cold', 'fire', 'force', 'lightning', 'necrotic',
   'piercing', 'poison', 'psychic', 'radiant', 'slashing', 'thunder',
 ] as const;
-export const DAMAGE_TYPE_LIST = { type: 'array', maxItems: 13, uniqueItems: true, items: { type: 'string', enum: [...DAMAGE_TYPES] } };
+// A defense list may also hold «nonmagical»: bludgeoning, piercing and slashing damage from nonmagical attacks.
+export const DAMAGE_TYPE_LIST = { type: 'array', maxItems: 14, uniqueItems: true, items: { type: 'string', enum: [...DAMAGE_TYPES, 'nonmagical'] } };
 
 export const ABILITY_NAMES = new Set(['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma']);
 

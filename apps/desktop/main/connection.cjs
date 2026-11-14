@@ -1,7 +1,7 @@
 const os = require('node:os');
 const path = require('node:path');
 const fs = require('node:fs/promises');
-const { app, ipcMain, net } = require('electron');
+const { app, ipcMain, net } = require('../bridge/runtime.cjs');
 const { getStatus } = require('../host/server.cjs');
 const { describeNetworkError, pointsToThisComputer } = require('../host/network.cjs');
 const { inspectServerCertificate, isPinned, trustServer, sameFingerprint } = require('../host/tls.cjs');

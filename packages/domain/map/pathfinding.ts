@@ -1,6 +1,8 @@
 import { pathBlocked, cellCutByWall } from './blockers.ts';
 import type { WallSegment } from './los.ts';
 import type { DiagonalRule } from './measure.ts';
+import { climbCells } from './relief.ts';
+import { indexWalls, type WallIndex } from './wall-index.ts';
 
 export type PathCell = { col: number; row: number };
 export type PathGrid = {
@@ -12,6 +14,11 @@ export type PathGrid = {
   edges: WallSegment[];
   walls: WallSegment[];
   isDifficult?: (cell: PathCell) => boolean;
+  isDeepWater?: (cell: PathCell) => boolean;
+  swims?: boolean;
+  groundAt?: (cell: PathCell) => number;
+  feetPerCell?: number;
+  climbs?: boolean;
   blockedCells?: Set<string>;
   hostileCells?: Set<string>;
 };
@@ -68,28 +75,56 @@ function footprint(grid: PathGrid, cell: PathCell): PathCell[] {
 
 const cellCenter = (grid: PathGrid, cell: PathCell) => ({ x: cell.col - grid.widthCells / 2 + 0.5, z: cell.row - grid.heightCells / 2 + 0.5 });
 
-function standable(grid: PathGrid, cell: PathCell) {
+// The walls and edges near a cell or a step (wall-index.ts): a search asks about thousands of steps on a board of
+// thousands of walls, and each question used to read them all.
+type Near = { walls: WallIndex; edges: WallIndex };
+
+function nearOf(grid: PathGrid): Near {
+  const edges = indexWalls(grid.edges);
+  return { edges, walls: grid.walls === grid.edges ? edges : indexWalls(grid.walls) };
+}
+
+function standable(grid: PathGrid, cell: PathCell, near: Near) {
   if (cell.col < 0 || cell.row < 0 || cell.col + grid.size > grid.widthCells || cell.row + grid.size > grid.heightCells) return false;
   const parts = footprint(grid, cell);
-  if (!parts.every(part => !grid.blockedCells?.has(key(part.col, part.row)) && !grid.hostileCells?.has(key(part.col, part.row)) && !cellCutByWall(cellCenter(grid, part).x, cellCenter(grid, part).z, grid.walls))) return false;
+  const open = (part: PathCell) => {
+    if (grid.blockedCells?.has(key(part.col, part.row)) || grid.hostileCells?.has(key(part.col, part.row))) return false;
+    const centre = cellCenter(grid, part);
+    return !cellCutByWall(centre.x, centre.z, near.walls.inBox(centre.x - 0.5, centre.z - 0.5, centre.x + 0.5, centre.z + 0.5));
+  };
+  if (!parts.every(open)) return false;
   // A large creature must not straddle a wall: the seams between its own cells must be open too.
   if (grid.size > 1) {
     for (const part of parts) {
       for (const [dc, dr] of [[1, 0], [0, 1]] as const) {
         const next = { col: part.col + dc, row: part.row + dr };
         if (next.col >= cell.col + grid.size || next.row >= cell.row + grid.size) continue;
-        if (pathBlocked(cellCenter(grid, part), cellCenter(grid, next), grid.edges)) return false;
+        const a = cellCenter(grid, part), b = cellCenter(grid, next);
+        if (pathBlocked(a, b, near.edges.alongSegment(a.x, a.z, b.x, b.z))) return false;
       }
     }
   }
   return true;
 }
 
-function stepCost(grid: PathGrid, to: PathCell, diagonal: boolean, diagonalsSoFar: number) {
+// Each costly kind under the figure adds one more cell per step: difficult terrain, swimming without a swimming speed, or both.
+export function costlyCell(grid: PathGrid, cell: PathCell) {
+  return Boolean(grid.isDifficult?.(cell) || (!grid.swims && grid.isDeepWater?.(cell)));
+}
+
+export function groundOf(grid: PathGrid, cell: PathCell) {
+  return grid.groundAt ? Math.max(...footprint(grid, cell).map(part => grid.groundAt!(part))) : 0;
+}
+
+function stepCost(grid: PathGrid, from: PathCell, to: PathCell, diagonal: boolean, diagonalsSoFar: number) {
   let cost = 1;
   if (diagonal && grid.rule === '5-10-5' && (diagonalsSoFar + 1) % 2 === 0) cost = 2;
-  if (grid.isDifficult && footprint(grid, to).some(part => grid.isDifficult!(part))) cost *= 2;
-  return cost;
+  const parts = footprint(grid, to);
+  let extra = 0;
+  if (grid.isDifficult && parts.some(part => grid.isDifficult!(part))) extra += 1;
+  if (!grid.swims && grid.isDeepWater && parts.some(part => grid.isDeepWater!(part))) extra += 1;
+  const climb = grid.groundAt ? climbCells(groundOf(grid, from), groundOf(grid, to), grid.feetPerCell ?? 5, grid.climbs === true) : 0;
+  return cost * (1 + extra) + climb;
 }
 
 class Heap<T> {
@@ -129,8 +164,16 @@ class Heap<T> {
 
 type Node = { cell: PathCell; cost: number; diagonals: number; previous: string | null };
 
-function search(grid: PathGrid, from: PathCell, target: PathCell | null, maxCost: number) {
+function search(grid: PathGrid, from: PathCell, target: PathCell | null, maxCost: number, near = nearOf(grid)) {
   const parityMatters = grid.rule === '5-10-5';
+  // Whether a cell can be stood on does not change during a search; its eight neighbours ask about it again and again.
+  const fits = new Int8Array(grid.widthCells * grid.heightCells);
+  const canStand = (cell: PathCell) => {
+    if (cell.col < 0 || cell.row < 0 || cell.col >= grid.widthCells || cell.row >= grid.heightCells) return false;
+    const index = cell.row * grid.widthCells + cell.col;
+    if (!fits[index]) fits[index] = standable(grid, cell, near) ? 1 : 2;
+    return fits[index] === 1;
+  };
   const stateKey = (cell: PathCell, diagonals: number) => `${cell.col}:${cell.row}${parityMatters ? `:${diagonals % 2}` : ''}`;
   const before = grid.diagonalsBefore ?? 0;
   const start: Node = { cell: from, cost: 0, diagonals: before, previous: null };
@@ -149,10 +192,11 @@ function search(grid: PathGrid, from: PathCell, target: PathCell | null, maxCost
     const fromCenter = centerOf(grid, node.cell);
     for (const [dc, dr] of STEPS) {
       const next = { col: node.cell.col + dc, row: node.cell.row + dr };
-      if (!standable(grid, next)) continue;
-      if (stepBlocked(fromCenter, centerOf(grid, next), grid.edges, junctions)) continue;
+      if (!canStand(next)) continue;
+      const toCenter = centerOf(grid, next);
+      if (stepBlocked(fromCenter, toCenter, near.edges.alongSegment(fromCenter.x, fromCenter.z, toCenter.x, toCenter.z), junctions)) continue;
       const diagonal = dc !== 0 && dr !== 0;
-      const cost = node.cost + stepCost(grid, next, diagonal, node.diagonals);
+      const cost = node.cost + stepCost(grid, node.cell, next, diagonal, node.diagonals);
       if (cost > maxCost + 1e-9) continue;
       const diagonals = node.diagonals + (diagonal ? 1 : 0);
       const nextId = stateKey(next, diagonals);
@@ -167,8 +211,9 @@ function search(grid: PathGrid, from: PathCell, target: PathCell | null, maxCost
 
 export function shortestPath(grid: PathGrid, from: PathCell, to: PathCell, maxCost = Infinity): PathResult | null {
   if (from.col === to.col && from.row === to.row) return { cost: 0, diagonals: 0, cells: [from] };
-  if (!standable(grid, to)) return null;
-  const { best, end } = search(grid, from, to, maxCost);
+  const near = nearOf(grid);
+  if (!standable(grid, to, near)) return null;
+  const { best, end } = search(grid, from, to, maxCost, near);
   if (!end) return null;
   const cells: PathCell[] = [];
   let id: string | null = end;

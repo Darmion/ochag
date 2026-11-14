@@ -44,13 +44,11 @@ test('Russian spell text comes from the data file; the old translation routes an
   await request('POST', `/campaigns/${campaignId}/characters/${hero.id}/spells`, gm.token, {source: 'srd', srdIndex: 'fire-bolt'});
   const own = (await request('GET', `/campaigns/${campaignId}/characters/${hero.id}/spells`, gm.token)).json().spells[0];
   assert.equal(own.spell.nameRu, ru['fire-bolt'].name);
+  assert.deepEqual([own.spell.castTime, own.spell.concentration], ['action', false], 'an SRD spell tells the cast summary its time and concentration');
 
-  for (const [method, url] of [['POST', '/srd/spells/fire-bolt/translation'], ['POST', '/srd/spells/fire-bolt/flag'], ['DELETE', '/srd/spells/fire-bolt/flag']] as const) {
+  for (const [method, url] of [['POST', '/srd/spells/fire-bolt/translation'], ['POST', '/srd/spells/fire-bolt/flag'], ['DELETE', '/srd/spells/fire-bolt/flag'], ['POST', '/srd/spells/spike-growth/mechanics']] as const) {
     assert.equal((await request(method, url, gm.token, method === 'POST' && url.endsWith('translation') ? {nameRu: 'x', descRu: 'y'} : undefined)).statusCode, 404, url);
   }
   assert.equal((await pg.query<{table: string | null}>(`SELECT to_regclass('public.srd_spell_translations') AS table`)).rows[0]!.table, null);
 
-  const saved = await request('POST', '/srd/spells/spike-growth/mechanics', gm.token, {damageFormula: '2d4'});
-  assert.equal(saved.statusCode, 200, saved.body);
-  assert.equal(saved.json().damageFormula, '2d4');
 });

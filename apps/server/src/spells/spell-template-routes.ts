@@ -29,7 +29,7 @@ function reject(statusCode: number, message: string, details?: unknown): never {
   throw Object.assign(new Error(message), { statusCode, ...(details !== undefined ? { details } : {}) });
 }
 
-function flatColumns(t: SpellTemplate) {
+export function flatColumns(t: SpellTemplate) {
   const c = t.casting;
   return {
     name: t.passport.name,

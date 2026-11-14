@@ -1,5 +1,5 @@
-// Runs migrate.ts, provision.ts and the server as children of Electron's own Node (ELECTRON_RUN_AS_NODE): no separate Node.js install.
-const {app, net, safeStorage} = require('electron');
+// Runs migrate.ts, provision.ts and the server as children of the host's own Node (the node.exe the installer ships).
+const {app, net, safeStorage} = require('../bridge/runtime.cjs');
 const path = require('node:path');
 const {spawn} = require('node:child_process');
 const {listAddresses} = require('./network.cjs');
@@ -36,7 +36,7 @@ function appRoot() {
   return app.getAppPath();
 }
 
-// Uploads go to userData: the default next to the server source is inside read-only app.asar once packaged.
+// Uploads go to userData: the program folder may be read-only once installed.
 function assetsDir() {
   return path.join(app.getPath('userData'), 'assets');
 }
@@ -47,7 +47,7 @@ function runNodeScript(relativePath, env, args = []) {
     let stderr = '';
 
     const proc = spawn(process.execPath, [entry, ...args], {
-      env: {...process.env, ELECTRON_RUN_AS_NODE: '1', ...env},
+      env: {...process.env, ...env},
       windowsHide: true,
     });
 
@@ -186,7 +186,7 @@ async function startServerOnce(config) {
       let stderr = '';
 
       child = spawn(process.execPath, [entry], {
-        env: {...process.env, ELECTRON_RUN_AS_NODE: '1', ...serverEnv},
+        env: {...process.env, ...serverEnv},
         windowsHide: true,
       });
 
@@ -211,7 +211,6 @@ async function startServerOnce(config) {
 
       // Poll /health on loopback (reachable even with HOST=0.0.0.0) instead of parsing the logs.
       (async () => {
-        // Electron as Node takes noticeably longer than plain node to start listening.
         for (let attempt = 0; attempt < 60 && !settled; attempt++) {
           try {
             const response = await localFetch(config, '/health', {signal: AbortSignal.timeout(1000)});

@@ -1,4 +1,4 @@
-const { ipcMain, net, safeStorage } = require('electron');
+const { ipcMain, net, safeStorage } = require('../bridge/runtime.cjs');
 const { saveHostConfig } = require('../host/config.cjs');
 const { startServer, stopServer, getStatus, applyNetwork, checkPublic, getHostSettings, setHostSettings } = require('../host/server.cjs');
 const tunnel = require('../host/tunnel.cjs');

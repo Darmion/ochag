@@ -19,7 +19,7 @@ test('a table must cover every result of its die exactly once', () => {
 test('monsters in a row: from the bestiary, 1 to 20 of them', () => {
   const row = (monsters: any) => [{from: 1, to: 4, text: 'Волки', monsters}];
   assert.deepEqual(tableProblems('1d4', row([{index: 'wolf', count: '1d4+1'}])), []);
-  assert.deepEqual(tableProblems('1d4', row([{index: 'tarrasque', count: '1'}])), ['Строка 1–4: в бестиарии нет «tarrasque».']);
+  assert.deepEqual(tableProblems('1d4', row([{index: 'beholder', count: '1'}])), ['Строка 1–4: в бестиарии нет «beholder».']);
   assert.match(tableProblems('1d4', row([{index: 'wolf', count: '3d10'}]))[0]!, /от 1 до 20/);
   assert.deepEqual(parseCount('3'), {min: 3, max: 3});
   assert.deepEqual(parseCount('1d4+1'), {min: 2, max: 5});

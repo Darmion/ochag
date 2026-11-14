@@ -36,7 +36,7 @@ test('campaign rules: flags, numbers, formulas and text', async t => {
 
     const list = await request('GET', rulesPath(), player.token);
     assert.equal(list.statusCode, 200);
-    assert.deepEqual(list.json(), {canManage: false, rules: []});
+    assert.deepEqual(list.json(), {canManage: false, rules: [], modRules: []});
   });
 
   await t.test('the GM creates a flag, a number, a formula and a text rule', async () => {

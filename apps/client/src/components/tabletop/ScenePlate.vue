@@ -43,7 +43,7 @@ onBeforeUnmount(() => {
         <span class="sync-dot" :class="{ ok: status.startsWith('Синхронизация подключена') }" :aria-label="status" />
       </button>
       <button
-        v-if="canSetClock" type="button" class="location-clock"
+        v-if="canSetClock" type="button" class="location-clock icon-only"
         :aria-expanded="clockOpen" title="Время и погода: +10 мин, +1 ч, утро, вечер, дождь…" aria-label="Время и погода" @click="clockOpen = !clockOpen"
       ><GameIcon name="clock" :size="17" /></button>
     </div>

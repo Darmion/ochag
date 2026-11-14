@@ -27,7 +27,7 @@ const wizard = useHeroBuilder(props, { onCreated: character => emit('created', c
       <header class="wizard-head">
         <h2>Новый герой</h2>
         <span class="muted step-count">Шаг {{ wizard.stepIndex + 1 }} из {{ wizard.STEPS.length }}</span>
-        <button type="button" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button class="icon-only" type="button" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
       <p v-if="wizard.error" class="error" role="alert">{{ wizard.error }}</p>
       <p v-if="!wizard.heroes && !wizard.error" class="muted">Загружаю справочник…</p>
@@ -80,31 +80,4 @@ const wizard = useHeroBuilder(props, { onCreated: character => emit('created', c
 
 <style scoped src="./wizard/wizardKit.css"></style>
 
-<style scoped>
-.modal-overlay{position:fixed;inset:0;z-index:3500;display:flex;align-items:center;justify-content:center;padding:18px;background:#0b0704cc}
-.modal-card{width:min(1200px,100%);max-height:94vh;overflow-y:auto;padding:16px 20px;background:var(--parchment-background);color:var(--ink);border:1px solid var(--brass);border-radius:6px;box-shadow:0 16px 40px #000a;display:flex;flex-direction:column;gap:10px}
-.wizard-head{display:flex;align-items:center;gap:12px}
-.wizard-head h2{margin:0;font:700 24px var(--heading-font)}
-.step-count{margin-right:auto}
-.wizard-head button{min-height:30px;width:30px;padding:0}
-.wizard-grid{display:grid;grid-template-columns:210px minmax(0,1fr) 250px;gap:14px;align-items:start}
-.hero-path{display:flex;flex-direction:column;gap:4px;position:sticky;top:0}
-.hero-path button{display:flex;align-items:center;gap:8px;text-align:left;padding:6px 8px;min-height:48px;justify-content:flex-start}
-.hero-path button[data-state="current"]{border-color:var(--burgundy,#7a2e2e);box-shadow:inset 3px 0 0 var(--burgundy,#7a2e2e);background:#7a2e2e1f}
-.path-dot{display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;width:24px;height:24px;border-radius:50%;border:1px solid var(--brass-light,#0003);font-weight:700;font-size:13px}
-.hero-path button[data-state="done"] .path-dot{background:#3f8a4e;border-color:#3f8a4e;color:#fff}
-.hero-path button[data-state="current"] .path-dot{background:var(--burgundy,#7a2e2e);color:#fff}
-.path-text{display:flex;flex-direction:column;min-width:0}
-.path-text strong{display:flex;align-items:center;gap:5px;font-size:13px}
-.path-text small{font-size:11px;font-weight:400;opacity:.8;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.wizard-body{display:flex;flex-direction:column;gap:10px;min-height:360px;font-size:13px}
-.todo{margin:6px 0 0;padding:6px 10px;border-left:3px solid #a8742c;background:#a8742c14}
-.wizard-foot{display:flex;justify-content:space-between;gap:8px}
-.error{color:#c0392b;margin:0}
-.muted{margin:0}
-@media (max-width:980px){
-  .wizard-grid{grid-template-columns:minmax(0,1fr)}
-  .hero-path{position:static;flex-direction:row;overflow-x:auto}
-  .hero-path button{flex:0 0 auto}
-}
-</style>
+<style scoped src="./wizard/wizardShell.css"></style>

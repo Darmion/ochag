@@ -1,12 +1,11 @@
-// Copies the TomMusic SFX pack into apps/client/public/sfx; --ambience also re-encodes the ambience loops via encode-ambience.cjs.
+// Copies the TomMusic SFX pack into apps/client/public/sfx; --ambience also re-encodes the ambience loops via encode-ambience.mjs.
 //   node scripts/build-sfx.mjs [--ambience]
 
-import { copyFileSync, existsSync, mkdirSync, writeFileSync } from 'node:fs';
-import { spawnSync } from 'node:child_process';
-import { createRequire } from 'node:module';
+import { copyFileSync, existsSync, mkdirSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
+
+import { encodeAmbience } from './encode-ambience.mjs';
 
 const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PACK = join(ROOT, 'assets', 'Free Fantasy SFX Pack By TomMusic', 'OGG Files');
@@ -91,13 +90,6 @@ if (import.meta.url === new URL(`file:///${process.argv[1].replace(/\\/g, '/')}`
   if (process.argv.includes('--ambience')) {
     const jobs = AMBIENCE.map(([to, from]) => ({ from: join(PACK, from), to: join(OUT, to), bitrate: 64000 }));
     for (const job of jobs) mkdirSync(dirname(job.to), { recursive: true });
-    const jobsFile = join(tmpdir(), `ochag-ambience-${process.pid}.json`);
-    writeFileSync(jobsFile, JSON.stringify(jobs));
-    const require = createRequire(join(ROOT, 'package.json'));
-    const electron = require('electron');
-    const env = { ...process.env };
-    delete env.ELECTRON_RUN_AS_NODE;
-    const result = spawnSync(electron, [join(ROOT, 'scripts', 'encode-ambience.cjs'), jobsFile], { stdio: 'inherit', env });
-    process.exit(result.status ?? 1);
+    process.exit(await encodeAmbience(jobs) ? 1 : 0);
   }
 }

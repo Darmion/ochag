@@ -1,6 +1,7 @@
 @import './styles/fantasy.css';
 @import './styles/game.css';
 @import './styles/skins.css';
+@import './styles/skinsGlow.css';
 
 .inline-icon {
   display: inline-block;
@@ -12,6 +13,13 @@
   display: inline-block;
   flex: none;
   vertical-align: -.18em;
+}
+
+/* A button holding only an icon: the icon in the exact centre, not on the text baseline. */
+.icon-only {
+  display: inline-grid;
+  place-items: center;
+  place-content: center;
 }
 
 .sr-only {

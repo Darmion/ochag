@@ -7,7 +7,7 @@ import BrandLogo from '../common/BrandLogo.vue';
 import GameIcon from './GameIcon.vue';
 import type { GameIconName } from '../../ui/gameIcons';
 
-export type GameTab = 'book' | 'table' | 'characters' | 'rules' | 'look' | 'server';
+export type GameTab = 'book' | 'table' | 'characters' | 'rules' | 'conditions' | 'look' | 'server';
 
 const props = defineProps<{
   loggedIn: boolean;
@@ -71,6 +71,7 @@ const TABS: Array<{ id: GameTab; label: string; icon: GameIconName; needsCampaig
   { id: 'table', label: tr('Стол'), icon: 'map', needsCampaign: true },
   { id: 'characters', label: tr('Отряд'), icon: 'group', needsCampaign: true },
   { id: 'rules', label: tr('Правила'), icon: 'tome', needsCampaign: true },
+  { id: 'conditions', label: tr('Состояния'), icon: 'spiral', needsCampaign: true },
   { id: 'look', label: tr('Облик'), icon: 'palette', needsCampaign: false },
   { id: 'server', label: '', icon: 'tower', needsCampaign: false },
 ];
@@ -122,7 +123,7 @@ const TABS: Array<{ id: GameTab; label: string; icon: GameIconName; needsCampaig
         v{{ props.version }}<template v-if="props.updateAvailable"> · {{ t('обновить') }}</template><small v-else class="topbar-edition">{{ branding.edition }}</small>
       </button>
       <div ref="helpRoot" class="topbar-help">
-        <button type="button" class="g-gem small" :title="t('Помощь: справка, горячие клавиши, что нового')" :aria-label="t('Помощь')" :aria-expanded="helpOpen" @click="helpOpen = !helpOpen">
+        <button type="button" class="g-gem small icon-only" :title="t('Помощь: справка, горячие клавиши, что нового')" :aria-label="t('Помощь')" :aria-expanded="helpOpen" @click="helpOpen = !helpOpen">
           <GameIcon name="question" :size="18" />
         </button>
         <div v-if="helpOpen" class="topbar-help-menu g-frame" role="menu" :aria-label="t('Помощь')">
@@ -130,13 +131,13 @@ const TABS: Array<{ id: GameTab; label: string; icon: GameIconName; needsCampaig
           <button v-if="props.atTable" type="button" role="menuitem" @click="helpPick('hotkeys')"><GameIcon name="keyboard" :size="16" />{{ t('Горячие клавиши и мышь') }} <small>?</small></button>
           <button v-if="props.version" type="button" role="menuitem" @click="helpPick('updates')"><GameIcon name="sparkle" :size="16" />{{ t('Версия {version}: что нового, обновления', { version: props.version }) }}</button>
           <button type="button" role="menuitem" @click="helpPick('credits')"><GameIcon name="question" :size="16" />{{ t('Авторы и благодарности') }}</button>
-          <button type="button" role="menuitem" :title="t('Откроет страницу ошибок проекта на GitHub в браузере')" @click="reportBug"><GameIcon name="quill" :size="16" />{{ t('Сообщить об ошибке') }}</button>
+          <button type="button" role="menuitem" :title="t('Откроет страницу ошибок проекта на GitHub в браузере')" @click="reportBug"><GameIcon name="bug" :size="16" />{{ t('Сообщить об ошибке') }}</button>
         </div>
       </div>
-      <button type="button" class="g-gem small" :title="t('Моды: механика, картинки, оформление')" :aria-label="t('Моды')" @click="emit('mods')">
+      <button type="button" class="g-gem small icon-only" :title="t('Моды: механика, картинки, оформление')" :aria-label="t('Моды')" @click="emit('mods')">
         <GameIcon name="puzzle" :size="18" />
       </button>
-      <button type="button" class="g-gem small" :title="t('Настройки')" :aria-label="t('Настройки')" @click="emit('options')">
+      <button type="button" class="g-gem small icon-only" :title="t('Настройки')" :aria-label="t('Настройки')" @click="emit('options')">
         <GameIcon name="gear" :size="18" />
       </button>
     </div>

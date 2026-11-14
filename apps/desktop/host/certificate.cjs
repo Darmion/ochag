@@ -1,4 +1,4 @@
-// No Electron dependency: tested in apps/desktop/test.
+// Does not take bridge/runtime.cjs: tested in apps/server/test/system/tls.test.ts.
 const crypto = require('node:crypto');
 const tls = require('node:tls');
 

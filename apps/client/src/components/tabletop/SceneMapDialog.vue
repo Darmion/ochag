@@ -64,7 +64,7 @@ onMounted(async () => {
     <div class="map-card">
       <header class="map-header">
         <h3>Настройки карты <small>«{{ sceneName }}»</small></h3>
-        <button type="button" class="map-close" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="map-close icon-only" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
 
       <section ref="sizeSection" class="map-section" :class="{ focused: focus !== 'picture' }">

@@ -1,7 +1,7 @@
 import type { Queryable } from '../../db.ts';
 import { pathBlocked } from '../../../../../packages/domain/map/blockers.ts';
 import { loadConditionState } from '../../rules/conditions.ts';
-import { conditionState } from '../../../../../packages/domain/combat/conditions.ts';
+import { type ConditionState, withoutCodes } from '../../../../../packages/domain/combat/conditions.ts';
 import type { WallSegment } from '../../../../../packages/domain/map/los.ts';
 import { DEVILS_SIGHT_FEET, seenThrough, type LightLevel, type SeenLight } from '../../../../../packages/domain/map/light.ts';
 import { weatherRules } from '../../../../../packages/domain/world/clock.ts';
@@ -105,7 +105,7 @@ export async function perceivesInvisible(q: Queryable, campaignId: string, sight
   return senses.see && seenFrom(sight, observer, target.world_x, target.world_z) !== null;
 }
 
-export async function invisibilitySeen<S extends ReturnType<typeof conditionState>>(
+export async function invisibilitySeen<S extends ConditionState>(
   q: Queryable, campaignId: string, sceneId: string | null, attackerId: string, targetId: string, own: S, target: S | null,
 ): Promise<{ own: S; target: S | null }> {
   const ownInvisible = own.codes.has('invisible');
@@ -117,7 +117,7 @@ export async function invisibilitySeen<S extends ReturnType<typeof conditionStat
   const attacker = pick(attackerId);
   const defender = pick(targetId);
   if (!attacker || !defender) return { own, target };
-  const strip = (state: S) => conditionState([...state.codes].filter(code => code !== 'invisible')) as S;
+  const strip = (state: S) => withoutCodes(state, ['invisible']) as S;
   return {
     own: ownInvisible && (await perceivesInvisible(q, campaignId, sight, defender, attacker)) ? strip(own) : own,
     target: target && targetInvisible && (await perceivesInvisible(q, campaignId, sight, attacker, defender)) ? strip(target) : target,

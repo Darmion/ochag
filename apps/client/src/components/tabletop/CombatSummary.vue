@@ -44,8 +44,8 @@ const unrolledText = computed(() => {
   <div class="modal-overlay" role="dialog" aria-modal="true" aria-label="Итоги боя" @click.self="emit('close')">
     <div class="modal-card combat-summary">
       <header class="modal-header">
-        <h3><GameIcon class="inline-icon" name="swords" :size="18" /> Итоги боя</h3>
-        <button type="button" class="modal-close" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <h3><GameIcon class="inline-icon" name="combatSummary" :size="18" /> Итоги боя</h3>
+        <button type="button" class="modal-close icon-only" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
       <p class="muted">Раундов: {{ summary.rounds }} · около {{ minutes }} мин.</p>
       <template v-for="group in [{ title: 'Отряд', rows: party }, { title: 'Противники и прочие', rows: others }]" :key="group.title">

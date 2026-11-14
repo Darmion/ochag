@@ -38,7 +38,7 @@ test('encounter difficulty for this party', async t => {
   await t.test('only whoever builds encounters sees the difficulty', async () => {
     assert.equal((await difficulty({sceneId}, alice.token)).statusCode, 403);
     assert.equal((await difficulty({})).statusCode, 400);
-    assert.equal((await difficulty({monsters: [{index: 'tarrasque', count: 1}]})).statusCode, 400);
+    assert.equal((await difficulty({monsters: [{index: 'beholder', count: 1}]})).statusCode, 400);
   });
 
   await t.test('a bestiary pick against the heroes on the scene: an owlbear is deadly for two', async () => {

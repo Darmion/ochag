@@ -16,6 +16,7 @@ export type InitiativeMedal = {
   side: string;
   legendary?: { max: number; used: number } | null;
   dead?: boolean;
+  event?: string | null;
 };
 
 const props = defineProps<{
@@ -165,11 +166,12 @@ onBeforeUnmount(() => {
           type="button"
           class="medal"
           :class="[`side-${entry.side}`, { current: entry.isCurrent, dead: entry.dead }]"
-          :title="`${entry.name}${entry.dead ? ' — мёртв' : ''} — инициатива ${entry.score}`"
+          :title="`${entry.name}${entry.dead ? ' — мёртв' : ''}${entry.event ? ' — ход логова' : ''} — инициатива ${entry.score}`"
           :disabled="!entry.characterId"
           @click="entry.characterId && emit('focus', entry.characterId)"
         >
-          <HudPortrait :name="entry.name" :image-url="entry.imageUrl" :image-crop="entry.imageCrop" :crest="entry.crest" />
+          <GameIcon v-if="entry.event" class="event-icon" name="castle" :size="22" />
+          <HudPortrait v-else :name="entry.name" :image-url="entry.imageUrl" :image-crop="entry.imageCrop" :crest="entry.crest" round />
           <span class="score">{{ entry.score }}</span>
           <span v-if="entry.dead" class="dead-mark" aria-label="Мёртв"><GameIcon name="skull" :size="14" /></span>
         </button>
@@ -195,8 +197,8 @@ onBeforeUnmount(() => {
         <option value="single">По одному</option>
         <option value="group">Группами</option>
       </select>
-      <button type="button" :disabled="props.busy" title="Следующий ход" @click="emit('advance')"><GameIcon name="hourglass" :size="16" /><span class="gm-label"> Дальше</span></button>
-      <button type="button" :disabled="props.busy" title="Завершить бой" @click="emit('end')"><GameIcon name="close" :size="16" /></button>
+      <button type="button" :disabled="props.busy" title="Следующий ход" @click="emit('advance')"><GameIcon name="turnNext" :size="16" /><span class="gm-label"> Дальше</span></button>
+      <button class="icon-only" type="button" :disabled="props.busy" title="Завершить бой" @click="emit('end')"><GameIcon name="endCombat" :size="16" /></button>
     </div>
   </div>
 </template>
@@ -206,13 +208,14 @@ onBeforeUnmount(() => {
 .round-plate{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;padding:3px 12px;line-height:1.05}
 .round-plate small,.turn-name small{margin:0;white-space:nowrap;font:600 11px var(--g-body-font);letter-spacing:.12em;text-transform:uppercase;color:var(--g-text-dim)}
 .round-plate strong{font:400 22px var(--g-title-font);color:var(--g-gold-hi)}
-/* Own scrollbar track: scrollbar-width:none alone does not hide the scrollbar in Chromium/Electron. */
+/* Own scrollbar track: scrollbar-width:none alone does not hide the scrollbar in Chromium. */
 .medals{flex:0 1 auto;min-width:82px;display:flex;align-items:center;gap:12px;margin:-10px 0;padding:12px 12px;list-style:none;overflow-x:auto;scroll-behavior:smooth;scrollbar-width:none}
 .edge-arrow{flex:none;display:grid;place-items:center;width:26px;height:26px;min-height:0;padding:0;border-radius:50%;font:700 18px/1 var(--g-title-font)}
 .medals::-webkit-scrollbar{display:none}
 .medal{position:relative;display:grid;place-items:center;width:44px;height:44px;min-height:0;padding:0;border-radius:50%;overflow:visible;background:radial-gradient(circle,var(--g-stone-1),var(--g-stone-3));box-shadow:inset 0 0 0 1px #000,0 0 0 1px var(--g-gold),0 0 0 2px var(--g-gold-lo),0 0 0 3px #000}
+.medal .event-icon{color:var(--g-gold-hi)}
 .medal img{width:100%;height:100%;border-radius:50%;object-fit:cover;object-position:top}
-.medal.dead img,.medal.dead .monogram,.medal.dead .hud-portrait-crest{filter:grayscale(1) brightness(.45)}
+.medal.dead :deep(img),.medal.dead .monogram,.medal.dead :deep(.hud-portrait-crest){filter:grayscale(1) brightness(.45)}
 .medal :deep(.hud-portrait-letter){display:none}
 .medal :deep(.hud-portrait-crest img){width:80%;height:80%}
 .dead-mark{position:absolute;inset:0;display:grid;place-items:center;font-size:24px;color:#ff6b5e;text-shadow:0 0 4px #000,0 0 2px #000;pointer-events:none}

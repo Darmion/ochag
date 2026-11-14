@@ -43,6 +43,28 @@ defineProps<{ appearance: Appearance; character: CharacterDTO; readOnly: boolean
         @save="appearance.savePortraitCrop"
         @close="appearance.closePortraitCrop"
       />
+      <div v-if="!isCreature" class="open-look">
+        <h4>Открытым</h4>
+        <img v-if="appearance.openPreview" :src="appearance.openPreview" alt="Как предмет выглядит открытым" class="appearance-preview" />
+        <p class="muted">{{ character.image_open_asset_id ? 'Открытый предмет показывает эту картинку.' : 'Открытый предмет выглядит так же, как закрытый. Для сундука или двери выберите вторую картинку.' }}</p>
+        <div class="open-buttons">
+          <button type="button" :disabled="appearance.busy" @click="appearance.openArtPickerShown = true">Картинка «открыто» из библиотеки…</button>
+          <label class="file-button">
+            Загрузить картинку «открыто»
+            <input type="file" accept="image/png,image/jpeg,image/webp" :disabled="appearance.busy" @change="appearance.onOpenImageChosen" />
+          </label>
+          <button v-if="character.image_open_asset_id" type="button" :disabled="appearance.busy" @click="appearance.clearOpenImage">Убрать картинку «открыто»</button>
+        </div>
+        <ArtPickerDialog
+          v-if="appearance.openArtPickerShown"
+          title="Картинка «открыто»"
+          :sections="[]"
+          :suggested="appearance.openArtSuggested"
+          :busy="appearance.busy"
+          @pick="appearance.onOpenArtPicked"
+          @close="appearance.openArtPickerShown = false"
+        />
+      </div>
       <ArtPickerDialog
         v-if="appearance.artPickerOpen"
         :title="isCreature ? 'Портрет из библиотеки' : 'Картинка из библиотеки'"
@@ -73,4 +95,9 @@ defineProps<{ appearance: Appearance; character: CharacterDTO; readOnly: boolean
 .appearance{margin-top:20px;padding-top:12px;border-top:1px solid var(--brass-light);display:flex;flex-direction:column;gap:8px}
 .appearance-preview{max-width:140px;max-height:180px;object-fit:contain;border:1px solid var(--brass-light);background:#0002}
 .muted{font-size:13px}
+.open-look{display:flex;flex-direction:column;gap:6px;padding-top:8px;border-top:1px dashed var(--brass-light)}
+.open-look h4{margin:0;font-size:14px}
+.open-buttons{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.file-button{position:relative;display:inline-flex;align-items:center;min-height:32px;padding:4px 12px;border:1px solid var(--brass);border-radius:4px;cursor:pointer;font-size:13px}
+.file-button input{position:absolute;inset:0;opacity:0;cursor:pointer}
 </style>

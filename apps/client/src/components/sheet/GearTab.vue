@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import VisibilityControl, { type VisibilitySetting } from '../common/VisibilityControl.vue';
 import WeaponsPanel from './WeaponsPanel.vue';
-import WalletPanel from './WalletPanel.vue';
+import EquipmentWorkspace from './inventory/EquipmentWorkspace.vue';
 import CharacterItems from './CharacterItems.vue';
 import ItemCard from '../rpg/ItemCard.vue';
 import ResourceBar from '../rpg/ResourceBar.vue';
@@ -25,6 +25,8 @@ defineProps<{
   request: SheetRequest;
   campaignMembers: CampaignMember[];
   visibilityFor: (fieldKey: string) => VisibilitySetting;
+  portraitUrl: string | null;
+  portraitCropped: boolean;
 }>();
 const emit = defineEmits<{ changed: []; attack: [weaponId: string]; visibility: [fieldKey: string, setting: VisibilitySetting] }>();
 const onVisibilityChange = (fieldKey: string, setting: VisibilitySetting) => emit('visibility', fieldKey, setting);
@@ -35,8 +37,18 @@ const onVisibilityChange = (fieldKey: string, setting: VisibilitySetting) => emi
     <div class="sheet-section-lead">
       <span class="section-kicker">Арсенал и имущество</span>
       <h3>Снаряжение</h3>
-      <p>Оружие готово к броску, а имущество собрано в каталог с быстрым поиском и подробностями предмета.</p>
+      <p>Перетащите вещь на куклу, чтобы надеть; щелчок по вещи открывает её карточку с действиями.</p>
     </div>
+
+    <section v-if="isCreature" class="gear-block gear-inventory" aria-labelledby="gear-inventory-title">
+      <div class="gear-block-head">
+        <span><small>Кукла и сумка</small><h4 id="gear-inventory-title">Вещи героя</h4></span>
+      </div>
+      <EquipmentWorkspace
+        :campaign-id="campaignId" :character-id="characterId" :revision="character.revision" :read-only="readOnly"
+        :portrait-url="portraitUrl" :portrait-cropped="portraitCropped" :request="request" @changed="emit('changed')"
+      />
+    </section>
 
     <section v-if="isCreature" class="gear-block gear-weapons" aria-labelledby="gear-weapons-title">
       <div class="gear-block-head">
@@ -65,20 +77,6 @@ const onVisibilityChange = (fieldKey: string, setting: VisibilitySetting) => emi
       </details>
     </section>
 
-    <section v-if="isCreature" class="gear-block gear-inventory" aria-labelledby="gear-inventory-title">
-      <div class="gear-block-head">
-        <span><small>Имущество</small><h4 id="gear-inventory-title">Кошелёк и инвентарь</h4></span>
-      </div>
-      <WalletPanel
-        :campaign-id="campaignId"
-        :character-id="characterId"
-        :wallet="{ cp: character.cp ?? 0, sp: character.sp ?? 0, ep: character.ep ?? 0, gp: character.gp ?? 0, pp: character.pp ?? 0 }"
-        :revision="character.revision"
-        :read-only="readOnly"
-        :request="request"
-        @changed="emit('changed')"
-      />
-    </section>
 
     <section v-if="isCreature && !readOnly" class="gear-block gear-magic" aria-labelledby="gear-magic-title">
       <div class="gear-block-head">

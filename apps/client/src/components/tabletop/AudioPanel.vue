@@ -241,13 +241,13 @@ onMounted(() => { if (props.canManage) emit('needRecipients'); });
         </label>
 
         <div class="controls">
-          <button v-if="queue.length > 1" type="button" :disabled="busy" title="Предыдущий трек" @click="emit('control', { action: 'previous' })"><GameIcon name="skipBack" :size="16" /></button>
+          <button class="icon-only" v-if="queue.length > 1" type="button" :disabled="busy" title="Предыдущий трек" @click="emit('control', { action: 'previous' })"><GameIcon name="skipBack" :size="16" /></button>
           <button type="button" class="primary" :disabled="busy || (!chosenTrack && !state?.asset_id)" :title="mainTitle" @click="mainAction"><GameIcon class="inline-icon" :name="state?.playing && !chosenIsOther ? 'pause' : 'play'" :size="16" /> {{ mainLabel }}</button>
           <button
             type="button" :disabled="busy || !state?.asset_id || (!state.playing && !paused)"
             title="Стоп: остановить и вернуть трек к началу" @click="emit('control', { action: 'stop' })"
           ><GameIcon class="inline-icon" name="stop" :size="16" /> Стоп</button>
-          <button v-if="queue.length > 1" type="button" :disabled="busy" title="Следующий трек" @click="emit('control', { action: 'next' })"><GameIcon name="skipForward" :size="16" /></button>
+          <button class="icon-only" v-if="queue.length > 1" type="button" :disabled="busy" title="Следующий трек" @click="emit('control', { action: 'next' })"><GameIcon name="skipForward" :size="16" /></button>
         </div>
 
         <label class="checkbox-label">
@@ -271,9 +271,9 @@ onMounted(() => { if (props.canManage) emit('needRecipients'); });
         <ol v-if="playlist.length" class="playlist">
           <li v-for="(assetId, index) in playlist" :key="assetId">
             <span class="playlist-name">{{ trackName(assetId) }}</span>
-            <button type="button" :disabled="busy || index === 0" aria-label="Выше" @click="movePlaylistTrack(index, -1)">↑</button>
-            <button type="button" :disabled="busy || index === playlist.length - 1" aria-label="Ниже" @click="movePlaylistTrack(index, 1)">↓</button>
-            <button type="button" :disabled="busy" aria-label="Убрать из плейлиста" @click="emitList(playlist.filter(id => id !== assetId))">×</button>
+            <button class="icon-only" type="button" :disabled="busy || index === 0" aria-label="Выше" @click="movePlaylistTrack(index, -1)"><GameIcon name="arrowUp" :size="14" /></button>
+            <button class="icon-only" type="button" :disabled="busy || index === playlist.length - 1" aria-label="Ниже" @click="movePlaylistTrack(index, 1)"><GameIcon name="arrowDown" :size="14" /></button>
+            <button type="button" class="remove-track icon-only" :disabled="busy" aria-label="Убрать из плейлиста" @click="emitList(playlist.filter(id => id !== assetId))"><GameIcon name="close" :size="14" /></button>
           </li>
         </ol>
         <p v-else class="muted">Треки «{{ MOOD_LABELS[moodTab].toLowerCase() }}» для этой сцены — по порядку; включаются одной кнопкой.</p>
@@ -313,7 +313,7 @@ onMounted(() => { if (props.canManage) emit('needRecipients'); });
                 <option v-for="asset in others" :key="asset.id" :value="asset.id">{{ asset.original_filename || asset.id }}</option>
               </optgroup>
             </select>
-            <button type="button" :disabled="!effectId" :title="isFavorite ? 'Убрать из избранных' : 'В избранные — кнопкой над списком'" @click="toggleFavorite"><GameIcon class="inline-icon" :name="isFavorite ? 'starFilled' : 'star'" :size="16" /></button>
+            <button class="icon-only" type="button" :disabled="!effectId" :title="isFavorite ? 'Убрать из избранных' : 'В избранные — кнопкой над списком'" @click="toggleFavorite"><GameIcon class="inline-icon" :name="isFavorite ? 'starFilled' : 'star'" :size="16" /></button>
           </div>
           <label>
             Громкость этого звука: {{ Math.round(prefs.volume * 100) }}%
@@ -371,6 +371,7 @@ legend{font-weight:700;padding:0 4px}
 .mood-tabs button{min-height:26px;padding:2px 10px;font-size:12px}
 .mood-tabs button[aria-pressed="true"]{background:var(--burgundy);color:var(--burgundy-text,#fff)}
 .playlist li{font-size:13px}
+.remove-track{display:inline-grid;place-items:center;place-content:center;vertical-align:middle;}
 .playlist-name{display:inline-block;max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:middle;margin-right:4px}
 .playlist button{min-height:24px;min-width:24px;padding:0 4px}
 input[type="range"]{width:100%}

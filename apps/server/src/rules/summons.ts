@@ -38,7 +38,7 @@ export async function purgeGoneSummons(q: Queryable, campaignId: string) {
   )).rows as Array<{ id: string }>;
   for (const { id } of gone) {
     const params = [campaignId, id];
-    await q.query('UPDATE characters SET container_id=NULL WHERE campaign_id=$1 AND container_id=$2', params);
+    await q.query('UPDATE characters SET equipped_slot=NULL, container_id=NULL WHERE campaign_id=$1 AND container_id=$2', params);
     for (const table of OWN_TABLES) await q.query(`DELETE FROM ${table} WHERE campaign_id=$1 AND character_id=$2`, params);
     await q.query('DELETE FROM scene_opportunities WHERE campaign_id=$1 AND (reactor_id=$2 OR mover_id=$2)', params);
     await q.query('DELETE FROM initiative_entries WHERE campaign_id=$1 AND reflex_of=$2', params);

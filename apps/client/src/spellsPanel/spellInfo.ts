@@ -5,8 +5,8 @@ import type { CampaignSpell } from './types';
 import type { GameIconName } from '../ui/gameIcons';
 
 const SCHOOL_ICONS: Record<string, GameIconName> = {
-  Abjuration: 'shield', Conjuration: 'summon', Divination: 'orb', Enchantment: 'spiral',
-  Evocation: 'flame', Illusion: 'mask', Necromancy: 'skull', Transmutation: 'flask',
+  Abjuration: 'schoolAbjuration', Conjuration: 'schoolConjuration', Divination: 'schoolDivination', Enchantment: 'schoolEnchantment',
+  Evocation: 'schoolEvocation', Illusion: 'schoolIllusion', Necromancy: 'schoolNecromancy', Transmutation: 'schoolTransmutation',
 };
 export function schoolIcon(school: string): GameIconName {
   return SCHOOL_ICONS[school] ?? 'sparkle';
@@ -17,9 +17,9 @@ export const schoolLabel = (school: string) => SCHOOL_LABELS[school] ?? school;
 export function spellFacts(spell: SrdSpell | CampaignSpell): Array<{ icon: GameIconName; text: string }> {
   const facts: Array<{ icon: GameIconName; text: string } | null> = [
     spell.castingTime ? { icon: 'clock', text: spellTextRu(spell.castingTime) } : null,
-    spell.range ? { icon: 'dash', text: spellTextRu(spell.range) } : null,
+    spell.range ? { icon: 'range', text: spellTextRu(spell.range) } : null,
     spell.duration ? { icon: 'hourglass', text: `${spell.concentration ? 'концентрация, ' : ''}${spellTextRu(spell.duration).toLowerCase()}` } : null,
-    spell.components ? { icon: 'hand', text: `${componentsRu(spell.components)}${spell.ritual ? ' · ритуал' : ''}` } : null,
+    spell.components ? { icon: 'components', text: `${componentsRu(spell.components)}${spell.ritual ? ' · ритуал' : ''}` } : null,
   ];
   return facts.filter(fact => fact !== null);
 }

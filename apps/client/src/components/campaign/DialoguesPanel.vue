@@ -184,7 +184,7 @@ onMounted(async () => {
         <article v-for="(node, nodeIndex) in draft.nodes" :key="node.id" class="node">
           <header>
             <strong>Реплика {{ node.id }}</strong>
-            <button type="button" :disabled="draft.nodes.length <= 1" title="Удалить реплику" @click="removeNode(nodeIndex)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+            <button class="icon-only" type="button" :disabled="draft.nodes.length <= 1" title="Удалить реплику" @click="removeNode(nodeIndex)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
           </header>
           <label>Кто говорит (пусто — собеседник) <input v-model="node.speaker" maxlength="80" /></label>
           <label>Текст <textarea v-model="node.text" rows="3" maxlength="2000" placeholder="Что говорит НПС" /></label>
@@ -211,7 +211,7 @@ onMounted(async () => {
                 <option v-for="id in nodeIds" :key="id" :value="id">провал → {{ nodeLabel(id) }}</option>
               </select>
             </template>
-            <button type="button" title="Убрать ответ" @click="node.options.splice(optionIndex, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+            <button class="icon-only" type="button" title="Убрать ответ" @click="node.options.splice(optionIndex, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
           </div>
           <button type="button" :disabled="node.options.length >= 8" @click="addOption(node)">+ ответ</button>
         </article>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ABILITIES, ABILITY_LABELS, DAMAGE_LABELS, RACE_INFO, bonusText, toggle } from '../../../characterWizard/catalog';
+import { ABILITIES, ABILITY_LABELS, DAMAGE_LABELS, bonusText, raceIcon, raceTagline, toggle } from '../../../characterWizard/catalog';
 import type { HeroBuilder } from '../../../characterWizard/heroBuilder';
 import type { Ability, Heroes } from '../../../characterWizard/types';
 import { SIZE_LABELS, type CreatureSize } from '../../../campaign/objects';
@@ -19,17 +19,21 @@ defineProps<{
         v-for="entry in heroes.races" :key="entry.id" type="button" role="option"
         :aria-selected="wizard.choice.race === entry.id" :class="{ active: wizard.choice.race === entry.id }" @click="wizard.choice.race = entry.id"
       >
-        <span class="pick-icon"><GameIcon :name="RACE_INFO[entry.id]?.icon ?? 'raceCustom'" :size="22" /></span>
-        <span><strong>{{ entry.nameRu }}</strong><small>{{ entry.custom ? '+2 и +1 на выбор' : bonusText(entry.bonuses) }}{{ entry.flexibleBonuses ? ', +1 к двум' : '' }}</small></span>
+        <span class="pick-icon"><GameIcon :name="raceIcon(entry)" :size="22" /></span>
+        <span>
+          <strong :translate="entry.modName ? 'no' : undefined">{{ entry.nameRu }}</strong>
+          <small>{{ entry.custom ? '+2 и +1 на выбор' : bonusText(entry.bonuses) }}{{ entry.flexibleBonuses ? ', +1 к двум' : '' }}</small>
+          <small v-if="entry.modName" class="mod-tag" translate="no">{{ `мод «${entry.modName}»` }}</small>
+        </span>
       </button>
     </div>
     <div v-if="wizard.race" class="pick-detail">
-      <h4><GameIcon class="inline-icon" :name="RACE_INFO[wizard.race.id]?.icon ?? 'raceCustom'" :size="22" /> {{ wizard.race.nameRu }}</h4>
-      <p class="tagline">{{ RACE_INFO[wizard.race.id]?.tagline }}</p>
+      <h4><GameIcon class="inline-icon" :name="raceIcon(wizard.race)" :size="22" /> <span :translate="wizard.race.modName ? 'no' : undefined">{{ wizard.race.nameRu }}</span></h4>
+      <p class="tagline" :translate="wizard.race.modName ? 'no' : undefined">{{ raceTagline(wizard.race) }}</p>
       <div class="facts">
         <span>{{ SIZE_LABELS[wizard.race.size as CreatureSize] }}</span>
-        <span>скорость {{ wizard.race.speed }} фт.</span>
-        <span v-if="wizard.race.darkvision">тёмное зрение {{ wizard.race.darkvision }} фт.</span>
+        <span>скорость {{ wizard.subrace?.speed ?? wizard.race.speed }} фт.</span>
+        <span v-if="wizard.subrace?.darkvision ?? wizard.race.darkvision">тёмное зрение {{ wizard.subrace?.darkvision ?? wizard.race.darkvision }} фт.</span>
         <span v-if="wizard.race.custom">{{ wizard.choice.flexible[0] && wizard.choice.flexible[1] ? `${ABILITY_LABELS[wizard.choice.flexible[0]]} +2, ${ABILITY_LABELS[wizard.choice.flexible[1]]} +1` : '+2 и +1 — выберите ниже' }}</span>
         <span v-else>{{ bonusText(wizard.race.bonuses) }}{{ wizard.race.flexibleBonuses ? ', ещё +1 к двум' : '' }}</span>
       </div>
@@ -37,7 +41,7 @@ defineProps<{
         <span class="label">Подраса</span>
         <div class="segmented">
           <button v-for="entry in wizard.race.subraces" :key="entry.id" type="button" :class="{ active: wizard.choice.subrace === entry.id }" @click="wizard.choice.subrace = entry.id">
-            {{ entry.nameRu }} <small>{{ bonusText(entry.bonuses) }}</small>
+            <span :translate="entry.modName ? 'no' : undefined">{{ entry.nameRu }}</span> <small>{{ bonusText(entry.bonuses) }}</small>
           </button>
         </div>
       </div>
@@ -73,8 +77,9 @@ defineProps<{
         </div>
       </div>
       <ul class="traits">
-        <li v-for="trait in [...wizard.race.traits, ...(wizard.subrace?.traits ?? [])]" :key="trait[0]"><strong>{{ trait[0] }}.</strong> {{ trait[1] }}</li>
-        <li><strong>Языки.</strong> {{ wizard.race.languages }}</li>
+        <li v-for="trait in wizard.race.traits" :key="trait[0]" :translate="wizard.race.modName ? 'no' : undefined"><strong>{{ trait[0] }}.</strong> {{ trait[1] }}</li>
+        <li v-for="trait in wizard.subrace?.traits ?? []" :key="`sub-${trait[0]}`" :translate="wizard.subrace?.modName ? 'no' : undefined"><strong>{{ trait[0] }}.</strong> {{ trait[1] }}</li>
+        <li><strong>Языки.</strong> <span :translate="wizard.race.modName ? 'no' : undefined">{{ wizard.race.languages }}</span></li>
       </ul>
     </div>
   </div>

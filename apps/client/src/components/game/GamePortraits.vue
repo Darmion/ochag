@@ -3,6 +3,7 @@ import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 import HudPortrait from './HudPortrait.vue';
 import GameIcon from './GameIcon.vue';
+import ConditionIcon from '../conditions/ConditionIcon.vue';
 import type { GameIconName } from '../../ui/gameIcons';
 export type PortraitEntry = {
   id: string;
@@ -15,12 +16,13 @@ export type PortraitEntry = {
   hp: { current: number; max: number; temp: number } | null;
   isCurrent: boolean;
   isSelected: boolean;
-  conditions?: Array<{ code: string; label: string; icon: GameIconName }>;
+  conditions?: Array<{ code: string; label: string; icon: GameIconName; image?: string | null }>;
   inspired?: boolean;
+  levelReady?: boolean;
 };
 
 const props = defineProps<{ entries: PortraitEntry[] }>();
-const emit = defineEmits<{ select: [id: string]; open: [characterId: string] }>();
+const emit = defineEmits<{ select: [id: string]; open: [characterId: string]; 'level-up': [characterId: string] }>();
 
 function hpPercent(entry: PortraitEntry) {
   return entry.hp && entry.hp.max > 0 ? Math.max(0, Math.min(100, (entry.hp.current / entry.hp.max) * 100)) : null;
@@ -54,9 +56,8 @@ function hpState(entry: PortraitEntry) {
 
 <template>
   <aside v-if="props.entries.length" ref="root" class="game-portraits" :class="{ overflowing }" aria-label="Отряд">
+    <div v-for="entry in props.entries" :key="entry.id" class="portrait-slot" :class="{ 'level-ready': entry.levelReady }">
     <button
-      v-for="entry in props.entries"
-      :key="entry.id"
       type="button"
       class="portrait"
       :class="[`side-${entry.side}`, hpState(entry), { current: entry.isCurrent, selected: entry.isSelected }]"
@@ -67,21 +68,27 @@ function hpState(entry: PortraitEntry) {
       <span class="portrait-image">
         <HudPortrait :name="entry.name" :image-url="entry.imageUrl" :image-crop="entry.imageCrop" :crest="entry.crest" />
         <span v-if="hpPercent(entry) !== null" class="wound" :style="{ height: `${100 - hpPercent(entry)!}%` }" />
-        <span v-if="entry.isCurrent" class="turn-badge" aria-label="Сейчас ходит"><GameIcon class="inline-icon" name="swords" :size="12" /></span>
+        <span v-if="entry.isCurrent" class="turn-badge" aria-label="Сейчас ходит"><GameIcon class="inline-icon" name="turnCurrent" :size="12" /></span>
         <span v-if="entry.inspired" class="inspired-badge" title="Вдохновение: преимущество в одном броске"><GameIcon class="inline-icon" name="sparkle" :size="12" /></span>
         <span v-if="entry.conditions?.length" class="conditions">
-          <span v-for="condition in entry.conditions.slice(0, 4)" :key="condition.code" class="condition" :title="condition.label"><GameIcon class="inline-icon" :name="condition.icon" :size="14" /></span>
+          <span v-for="condition in entry.conditions.slice(0, 4)" :key="condition.code" class="condition" :title="condition.label"><ConditionIcon class="inline-icon" :name="condition.icon" :image="condition.image" :size="14" /></span>
         </span>
       </span>
       <span class="portrait-name">{{ entry.name }}</span>
       <span v-if="hpPercent(entry) !== null" class="hp-bar"><span :style="{ width: `${hpPercent(entry)}%` }" /></span>
     </button>
+    <button
+      v-if="entry.levelReady" type="button" class="level-badge icon-only"
+      :title="`${entry.name}: опыта хватает на новый уровень. Щелчок — выбрать улучшения`" :aria-label="`Новый уровень: ${entry.name}`"
+      @click="emit('level-up', entry.characterId)"
+    ><GameIcon name="levelUp" :size="16" /></button>
+    </div>
   </aside>
 </template>
 
 <style scoped>
-.game-portraits{position:fixed;right:2px;top:calc(var(--game-top,54px) + 10px);bottom:calc(var(--game-bottom,150px) + 10px);z-index:2090;display:flex;flex-direction:column;gap:12px;width:106px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;padding:8px 12px 14px;scrollbar-width:none}
-/* scrollbar-width:none is ignored by Chromium/Electron; ::-webkit-scrollbar hides it. */
+.game-portraits{position:fixed;right:2px;top:calc(var(--game-top,54px) + 10px);bottom:calc(var(--game-bottom,150px) + 10px);z-index:2090;display:flex;flex-direction:column;gap:12px;width:106px;box-sizing:border-box;overflow-y:auto;overflow-x:hidden;padding:12px 12px 14px;scrollbar-width:none}
+/* scrollbar-width:none is ignored by Chromium; ::-webkit-scrollbar hides it. */
 .game-portraits::-webkit-scrollbar{display:none}
 @media (max-height:700px){
   .game-portraits{gap:8px}
@@ -92,6 +99,14 @@ function hpState(entry: PortraitEntry) {
   .portrait-name{font-size:11px}
 }
 .game-portraits.overflowing{scrollbar-width:thin;scrollbar-color:var(--g-gold-lo,#6b5233) transparent}
+.portrait-slot{position:relative;flex-shrink:0}
+.level-badge{position:absolute;top:-4px;left:-4px;z-index:2;display:grid;place-items:center;width:30px;height:30px;min-height:0;padding:0;border:0;border-radius:50%;color:var(--g-stone-3);background:radial-gradient(circle at 50% 28%,var(--g-gold-hi),var(--g-gold) 52%,var(--g-gold-lo));box-shadow:0 0 0 1px #000,0 0 0 2px var(--g-gold-hi),0 0 0 3px #000,0 2px 4px #0009,0 0 4px var(--g-glow)}
+.level-badge :deep(svg){animation:level-nudge 3.2s ease-in-out 3;filter:drop-shadow(0 1px 0 color-mix(in srgb,var(--g-gold-hi) 55%,transparent))}
+.level-badge:hover:not(:disabled){color:var(--g-stone-3);background:radial-gradient(circle at 50% 28%,#fff,var(--g-gold-hi) 45%,var(--g-gold));box-shadow:0 0 0 1px #000,0 0 0 2px #fff,0 0 0 3px #000,0 0 6px var(--g-glow)}
+.level-badge:focus-visible{outline:2px solid var(--g-gold-hi);outline-offset:3px}
+@keyframes level-nudge{0%,65%,100%{transform:none}35%{transform:translateY(-2px)}}
+.portrait-slot.level-ready .inspired-badge{top:24px}
+@media (prefers-reduced-motion:reduce){.level-badge,.level-badge :deep(svg){animation:none}}
 .portrait{display:flex;flex-direction:column;align-items:stretch;gap:3px;width:82px;min-height:0;padding:0;background:none;border:0;box-shadow:none;flex-shrink:0}
 .portrait:hover:not(:disabled){box-shadow:none;background:none}
 .portrait-image{position:relative;display:grid;place-items:center;height:96px;border-radius:4px;overflow:hidden;background:radial-gradient(circle at 50% 35%,var(--g-stone-1),var(--g-stone-3));box-shadow:inset 0 0 0 1px #000,0 0 0 1px var(--g-gold-hi),0 0 0 3px var(--g-gold),0 0 0 4px var(--g-gold-lo),0 0 0 5px #000,0 6px 12px #000c;transition:box-shadow .15s ease}

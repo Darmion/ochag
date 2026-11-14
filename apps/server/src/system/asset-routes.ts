@@ -11,6 +11,7 @@ import { fileURLToPath } from 'node:url';
 
 import type { Database, Queryable } from '../db.ts';
 import { canManageScenes } from '../tabletop/scene/scene-permissions.ts';
+import { assetUsage, detachAsset } from './asset-usage.ts';
 
 type Options = {
   db: Database;
@@ -84,7 +85,24 @@ const ASSET_KINDS = [
 ] as const;
 type AssetKind = typeof ASSET_KINDS[number];
 
-const MAX_BYTES: Record<AssetKind, number> = {
+// Pictures no list offers again: once nothing uses them, they are only taking space. Models, music and sprites stay in
+// their libraries until deleted one by one.
+export const CLEANUP_KINDS: readonly AssetKind[] = ['scene_background', 'object_image', 'campaign_avatar', 'campaign_banner'];
+
+const IN_USE = 'Файл ещё используется. Уберите его оттуда, где он нужен, и удалите снова.';
+
+// A foreign key set while this request ran answers the same as a use found beforehand.
+async function deleteRows(q: Queryable, campaignId: string, ids: string[]) {
+  if (!ids.length) return;
+  try {
+    await q.query('DELETE FROM assets WHERE campaign_id=$1 AND id=ANY($2::uuid[])', [campaignId, ids]);
+  } catch (error) {
+    if ((error as { code?: string }).code === '23503') reject(409, IN_USE);
+    throw error;
+  }
+}
+
+export const ASSET_MAX_BYTES: Record<AssetKind, number> = {
   scene_background: MAX_BACKGROUND_BYTES,
   object_model: MAX_MODEL_BYTES,
   object_image: MAX_OBJECT_IMAGE_BYTES,
@@ -249,7 +267,7 @@ async (app, options) => {
       if (!file) reject(400, 'Файл не передан.');
 
       const buffer = await file.toBuffer();
-      const maxBytes = MAX_BYTES[kind];
+      const maxBytes = ASSET_MAX_BYTES[kind];
 
       if (buffer.length > maxBytes) {
         reject(400, `Файл больше ${maxBytes / 1024 / 1024} МБ — выберите файл поменьше.`);
@@ -298,6 +316,99 @@ async (app, options) => {
       }
 
       return reply.code(201).send({ id: assetId });
+    },
+  );
+
+  app.get<{ Params: CampaignParams }>(
+    '/campaigns/:campaignId/assets/usage',
+    { schema: { params: objectSchema({ campaignId: uuid }) } },
+    async request => {
+      const userId = await auth(request);
+      const { campaignId } = request.params;
+
+      const member = await membership(db, campaignId, userId);
+      if (!(await canManageScenes(db, member, userId))) reject(403, 'Файлы кампании видит мастер.');
+
+      const uses = await assetUsage(db, campaignId);
+      const { rows } = await db.query(
+        `SELECT a.id, a.kind, a.content_type, a.byte_size, a.original_filename, a.created_at,
+                u.display_name AS uploaded_by_name
+         FROM assets a LEFT JOIN users u ON u.id = a.uploaded_by
+         WHERE a.campaign_id=$1
+         ORDER BY a.created_at DESC`,
+        [campaignId],
+      );
+
+      return {
+        assets: rows.map(row => ({ ...row, uses: uses.get(String(row.id).toLowerCase()) ?? [] })),
+        cleanupKinds: CLEANUP_KINDS,
+      };
+    },
+  );
+
+  // ?everywhere=1 (scene managers only) first takes the file out of every place that uses it (detachAsset).
+  app.delete<{ Params: AssetParams; Querystring: { everywhere?: string } }>(
+    '/campaigns/:campaignId/assets/:assetId',
+    {
+      schema: {
+        params: objectSchema({ campaignId: uuid, assetId: uuid }),
+        querystring: objectSchema({ everywhere: { type: 'string', enum: ['1'] } }, []),
+      },
+    },
+    async (request, reply) => {
+      const userId = await auth(request);
+      const { campaignId, assetId } = request.params;
+      const everywhere = request.query.everywhere === '1';
+
+      const storageKey = await db.transaction(async q => {
+        const member = await membership(q, campaignId, userId);
+        const asset = (await q.query(
+          'SELECT storage_key, uploaded_by FROM assets WHERE campaign_id=$1 AND id=$2 FOR UPDATE',
+          [campaignId, assetId],
+        )).rows[0];
+
+        if (!asset) reject(404, 'Файл не найден.');
+        const manager = await canManageScenes(q, member, userId);
+        if (everywhere && !manager) reject(403, 'Удалить файл там, где он используется, может мастер.');
+        if (asset.uploaded_by !== userId && !manager) {
+          reject(403, 'Удалить файл может мастер или тот, кто его загрузил.');
+        }
+        if (everywhere) await detachAsset(q, campaignId, assetId);
+        else if ((await assetUsage(q, campaignId)).has(assetId.toLowerCase())) reject(409, IN_USE);
+
+        await deleteRows(q, campaignId, [assetId]);
+        return String(asset.storage_key);
+      });
+
+      await unlink(path.join(ASSETS_DIR, storageKey)).catch(() => {});
+      return reply.code(204).send();
+    },
+  );
+
+  app.post<{ Params: CampaignParams }>(
+    '/campaigns/:campaignId/assets/cleanup',
+    { schema: { params: objectSchema({ campaignId: uuid }) } },
+    async request => {
+      const userId = await auth(request);
+      const { campaignId } = request.params;
+
+      const removed = await db.transaction(async q => {
+        const member = await membership(q, campaignId, userId);
+        if (!(await canManageScenes(q, member, userId))) reject(403, 'Удалять неиспользуемые картинки может мастер.');
+
+        const uses = await assetUsage(q, campaignId);
+        const { rows } = await q.query(
+          'SELECT id, storage_key, byte_size FROM assets WHERE campaign_id=$1 AND kind=ANY($2::text[]) FOR UPDATE',
+          [campaignId, CLEANUP_KINDS],
+        );
+        const unused = rows.filter(row => !uses.has(String(row.id).toLowerCase()));
+
+        await deleteRows(q, campaignId, unused.map(row => String(row.id)));
+        return unused;
+      });
+
+      for (const row of removed) await unlink(path.join(ASSETS_DIR, String(row.storage_key))).catch(() => {});
+      return { deleted: removed.length, bytes: removed.reduce((sum, row) => sum + Number(row.byte_size), 0) };
     },
   );
 

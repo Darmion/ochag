@@ -3,13 +3,27 @@ import { mergeSpellMechanics } from '../../../../packages/domain/spells/spell-me
 import { aimedSpellArea } from '../../../../packages/domain/map/area-placement.ts';
 import { DAMAGE_TYPES, describeTemplate, normalizeTemplate } from '../../../../packages/domain/spells/spell-template.ts';
 import { templateCastPlan } from '../../../../packages/domain/spells/spell-template-engine.ts';
+import { srdTemplateOf } from '../../../../packages/domain/spells/srd-spell-templates.ts';
 
 import { characterAccessLevel, requireCharacterAccess } from '../characters/sheet/access.ts';
 import { characterParams, type CharacterParams, reject, uuid } from '../characters/sheet/shared.ts';
 import { loadVisibleSet } from '../characters/sheet/visibility.ts';
 import { customSpellColumns } from './campaign-spells.ts';
-import { MECHANICS_COLUMNS, srdEffective, textMechanics } from './mechanics.ts';
+import { srdEffective, textMechanics } from './mechanics.ts';
+import { loadItemSpells } from './item-spells.ts';
 import type { RouteContext } from '../system/route-context.ts';
+
+// How long an SRD spell takes and whether it holds concentration, read once from its table template (the cast summary shows both).
+const SRD_TIMING = new Map<string, { castTime?: string; concentration?: boolean }>();
+function srdTiming(index: string) {
+  let timing = SRD_TIMING.get(index);
+  if (!timing) {
+    const template = srdTemplateOf(index);
+    timing = template ? { castTime: template.casting.time, concentration: template.duration.concentration } : {};
+    SRD_TIMING.set(index, timing);
+  }
+  return timing;
+}
 
 type CharacterSpellParams = CharacterParams & { spellId: string };
 
@@ -57,7 +71,13 @@ export function registerCharacterSpellRoutes(ctx: RouteContext) {
           )
         ).rows;
         const hidden = privileged ? null : await loadVisibleSet(q, campaignId, characterId, 'spell', userId);
-        const rows = allRows.filter(r => !hidden?.has(`spell:${r.id}`));
+        // Spells of worn wands, staffs and rings and of scrolls in the pack come as rows of their own, marked with the item.
+        const fromItems = privileged ? await loadItemSpells(q, campaignId, characterId) : [];
+        const itemOf = new Map(fromItems.map(entry => [entry.id, entry]));
+        const rows = [
+          ...allRows.filter(r => !hidden?.has(`spell:${r.id}`)),
+          ...fromItems.map(entry => ({ id: entry.id, source: 'srd', srd_index: entry.spell, custom_spell_id: null, prepared: true, granted: true, slotless: true })),
+        ];
 
         const customIds = rows.filter(r => r.source === 'custom').map(r => r.custom_spell_id);
         const customRows = customIds.length
@@ -70,14 +90,6 @@ export function registerCharacterSpellRoutes(ctx: RouteContext) {
         const characterLevel = Number((await q.query('SELECT level FROM characters WHERE campaign_id=$1 AND id=$2', [campaignId, characterId])).rows[0]?.level ?? 1);
 
         const srdIndices = rows.filter(r => r.source === 'srd').map(r => r.srd_index);
-        const mechanicsRows = srdIndices.length
-          ? (await q.query(
-              `SELECT srd_index, damage_formula, healing_formula, upcast_formula, ${MECHANICS_COLUMNS.join(', ')}
-               FROM srd_spell_mechanics WHERE srd_index = ANY($1::text[])`,
-              [srdIndices],
-            )).rows
-          : [];
-        const mechanicsByIndex = new Map(mechanicsRows.map(r => [r.srd_index, r]));
         const overrideRows = srdIndices.length
           ? (await q.query('SELECT srd_index, template FROM campaign_srd_templates WHERE campaign_id=$1 AND srd_index = ANY($2::text[])', [campaignId, srdIndices])).rows
           : [];
@@ -95,6 +107,8 @@ export function registerCharacterSpellRoutes(ctx: RouteContext) {
             singleTarget: plan.single,
             needsTarget: plan.needsTarget,
             teleport: plan.teleportFeet ? { rangeFeet: plan.teleportFeet } : null,
+            castTime: t.casting.time,
+            concentration: t.duration.concentration,
             element: damageParam ? (damageParam.options.length ? damageParam.options : DAMAGE_TYPES.map(([key]) => key)) : null,
             modes: t.options.modes.map(mode => ({ id: mode.id, name: mode.name })),
             summary: describeTemplate(t),
@@ -107,16 +121,15 @@ export function registerCharacterSpellRoutes(ctx: RouteContext) {
         const spells = rows.map(row => {
           const resolved = resolveCharacterSpell(row, customById);
           if (resolved.source === 'srd' && resolved.spell) {
-            const m = mechanicsByIndex.get(row.srd_index);
             return {
               ...resolved,
               spell: {
                 ...resolved.spell,
                 ...srdSpellRuFields(row.srd_index),
-                damageFormula: m?.damage_formula ?? null, healingFormula: m?.healing_formula ?? null,
-                upcastFormula: m?.upcast_formula ?? null,
-                mechanics: srdEffective(resolved.spell, m),
+                damageFormula: null, healingFormula: null, upcastFormula: null,
+                mechanics: srdEffective(resolved.spell, null),
                 ...textMechanics(resolved.spell),
+                ...srdTiming(row.srd_index),
                 ...(overrideByIndex.has(row.srd_index) ? { ...planView(overrideByIndex.get(row.srd_index)), summon: null, shape: null } : {}),
               },
             };
@@ -142,6 +155,9 @@ export function registerCharacterSpellRoutes(ctx: RouteContext) {
             };
           }
           return resolved;
+        }).map(entry => {
+          const item = itemOf.get((entry as { id: string }).id);
+          return item ? { ...entry, item: { itemId: item.itemId, name: item.itemName, levels: item.levels, charges: item.charges, dc: item.dc, attack: item.attack, scroll: item.scroll } } : entry;
         });
 
         return { spells };

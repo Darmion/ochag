@@ -12,7 +12,7 @@ defineProps<{
   <h3>Как зовут героя?</h3>
   <div class="name-row">
     <input v-model="wizard.choice.name" maxlength="200" placeholder="Имя героя" aria-label="Имя героя" />
-    <button type="button" @click="wizard.randomName"><GameIcon class="inline-icon" name="d20" :size="16" /> Случайное имя</button>
+    <button type="button" @click="wizard.randomName"><GameIcon class="inline-icon" name="random" :size="16" /> Случайное имя</button>
   </div>
   <ul v-if="wizard.preview?.problems.length" class="problems" role="alert">
     <li v-for="problem in wizard.preview.problems" :key="problem">{{ problem }}</li>

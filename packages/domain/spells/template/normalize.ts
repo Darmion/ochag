@@ -220,7 +220,7 @@ export function normalizeTemplate(raw: unknown): SpellTemplate {
     targeting: {
       kind: pickOption(targeting.kind, TARGETING_KINDS, b.kind),
       count: pickNumber(targeting.count, b.count, 1, 100),
-      countMode: targeting.countMode === 'up-to' ? 'up-to' : 'exact',
+      countMode: targeting.countMode === 'up-to' || targeting.countMode === 'any' ? targeting.countMode : 'exact',
       side: pickOption(targeting.side, SIDES, b.side),
       includeSelf: pickBool(targeting.includeSelf, b.includeSelf),
       distinct: pickBool(targeting.distinct, b.distinct),

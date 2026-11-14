@@ -143,7 +143,7 @@ function toggleMember(userId: string) {
     <button
       ref="trigger"
       type="button"
-      class="visibility-trigger"
+      class="visibility-trigger icon-only"
       :class="mode"
       :title="triggerTitle"
       :aria-label="triggerTitle"

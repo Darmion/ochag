@@ -102,7 +102,7 @@ test('ki, lay on hands, wild shape, ready reactions, control spells, more spell 
     await pg.query(`INSERT INTO character_effects (campaign_id, character_id, effect_code, parameters) VALUES ($1,$2,'poisoned','{}')`, [campaignId, friend.id]);
     await pg.query('UPDATE initiative_entries SET action_used=false WHERE character_id=$1', [paladin.id]);
     const cured = await feature(paladin.id, 'lay-on-hands', {sceneId, targetId: friend.id, amount: 1, cure: true});
-    assert.match(cured.json().message, /яд снят/);
+    assert.match(cured.json().message, /снято: отравлен/);
     assert.equal(await effect(friend.id, 'poisoned'), null);
     assert.equal((await resource(paladin.id, 'Наложение рук')).current, 2);
     await pg.query('UPDATE initiative_entries SET action_used=false WHERE character_id=$1', [paladin.id]);

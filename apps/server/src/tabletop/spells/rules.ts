@@ -1,7 +1,9 @@
 import type { Queryable } from '../../db.ts';
 import { startOf } from '../../campaign/encounter-routes.ts';
 import { type CreatureType, creatureTypeFromText, spellTargetRules, targetTypeProblem, CREATURE_TYPE_LABELS } from '../../../../../packages/domain/spells/spell-targets.ts';
-import type { CastPlan } from '../../../../../packages/domain/spells/spell-template-engine.ts';
+import { type CastPlan, templateCastPlan } from '../../../../../packages/domain/spells/spell-template-engine.ts';
+import { normalizeTemplate } from '../../../../../packages/domain/spells/spell-template.ts';
+import { srdTemplateOf } from '../../../../../packages/domain/spells/srd-spell-templates.ts';
 import { spellModsOf } from '../../../../../packages/domain/spells/spell-mods.ts';
 import { findMonster } from '../../../../../packages/domain/world/bestiary.ts';
 import { type ParsedFormula, parseFormula, rollDice } from '../../../../../packages/domain/dice/dice.ts';
@@ -91,29 +93,16 @@ export async function assertSpellTargets(
   }
 }
 
-export const SPELL_EFFECTS: Record<string, { code: string; rounds: number; self?: boolean; parameters?: Record<string, unknown> }> = {
-  invisibility: { code: 'invisible', rounds: 600, parameters: { endsOnAttack: true } },
-  'greater-invisibility': { code: 'invisible', rounds: 10 },
-  'see-invisibility': { code: 'see_invisibility', rounds: 600, self: true },
-  'true-seeing': { code: 'truesight', rounds: 600, parameters: { feet: 120 } },
-  guidance: { code: 'guidance', rounds: 10 },
-  resistance: { code: 'resistance_die', rounds: 10 },
-  'true-strike': { code: 'true_strike', rounds: 2, self: true },
-  barkskin: { code: 'barkskin', rounds: 600 },
-  longstrider: { code: 'longstrider', rounds: 600 },
-  'expeditious-retreat': { code: 'expeditious', rounds: 100, self: true },
-  blur: { code: 'blurred', rounds: 10, self: true },
-  'protection-from-energy': { code: 'energy_ward', rounds: 600 },
-  stoneskin: { code: 'stoneskin', rounds: 600 },
-  'death-ward': { code: 'death_ward', rounds: 4800 },
-  'mirror-image': { code: 'mirror_images', rounds: 10, self: true, parameters: { images: 3 } },
-  shillelagh: { code: 'shillelagh', rounds: 10, self: true },
-  'magic-weapon': { code: 'magic_weapon', rounds: 600 },
-  'warding-bond': { code: 'warding_bond', rounds: 600 },
-  'beacon-of-hope': { code: 'beacon_of_hope', rounds: 10 },
-  darkvision: { code: 'darkvision_spell', rounds: 4800 },
-};
-export const ENERGY_TYPES = ['acid', 'cold', 'fire', 'lightning', 'thunder'] as const;
+export async function srdTablePlan(q: Queryable, campaignId: string, index: string, slotLevel: number, characterLevel: number) {
+  const edited = (await q.query('SELECT template FROM campaign_srd_templates WHERE campaign_id=$1 AND srd_index=$2', [campaignId, index])).rows[0];
+  const table = edited ? normalizeTemplate(edited.template) : srdTemplateOf(index);
+  return table ? templateCastPlan(table, { slotLevel, characterLevel, mode: null }) : null;
+}
+
+export type ModSpellEffect = { code: string; rounds: number; self?: boolean; parameters?: Record<string, unknown> };
+
+// Filled only by mechanics mods (api.spellEffect); a mod's effect replaces the ready-made effect of the spell's table.
+export const SPELL_EFFECTS: Record<string, ModSpellEffect> = {};
 
 export async function spellModsFor(q: Queryable, campaignId: string, characterId: string) {
   return spellModsOf((await q.query(

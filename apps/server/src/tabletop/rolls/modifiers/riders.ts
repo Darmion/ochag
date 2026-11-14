@@ -2,33 +2,42 @@ import type { Queryable } from '../../../db.ts';
 import { classFeaturesFor } from '../../../../../../packages/domain/character/class-features.ts';
 import { characterClassLevels } from '../../../../../../packages/domain/character/classes.ts';
 import { factionBonusOf } from '../../../campaign/factions.ts';
+import { characterTraitEffects } from '../../../../../../packages/domain/character/hero-traits.ts';
+import { traitRollBonus } from '../../../../../../packages/domain/character/traits.ts';
 import { rollMods } from '../../../../../../packages/domain/spells/spell-mods.ts';
 import { loadConditionState } from '../../../rules/conditions.ts';
-import { incapacitatedReason, conditionState, type Ability as ConditionAbility } from '../../../../../../packages/domain/combat/conditions.ts';
+import { conditionRollBonus, incapacitatedReason, type Ability as ConditionAbility, type ConditionState, type D20Kind } from '../../../../../../packages/domain/combat/conditions.ts';
+import { ruleOf } from '../../../../../../packages/domain/combat/condition-rules.ts';
 import { protectionAura } from '../../combat/auras.ts';
 import { rollDie } from '../dice.ts';
 import { fearSourceInSight } from '../../scene/movement.ts';
 import { reject, type SaveBonus } from '../../shared.ts';
 import { spellModsFor } from '../../spells/rules.ts';
 
+// A clause that holds only while the source is in sight rests while every source of that condition is out of it.
 export async function ownRollState(q: Queryable, campaignId: string, characterId: string) {
   const state = await loadConditionState(q, campaignId, characterId);
-  if (!state.codes.has('frightened')) return state;
-  const sources = (
-    await q.query(
-      `SELECT parameters->>'sourceCharacterId' AS source_id FROM character_effects
-         WHERE campaign_id=$1 AND character_id=$2 AND effect_code='frightened' AND active`,
-      [campaignId, characterId],
-    )
-  ).rows.map(row => row.source_id as string | null);
-  if (!sources.length || sources.some(source => !source)) return state;
-  if (!(await fearSourceInSight(q, campaignId, characterId, sources as string[], state.codes.has('blinded')))) {
-    return { ...conditionState([...state.codes].filter(code => code !== 'frightened')), exhaustion: state.exhaustion };
+  const watched = [...state.codes].filter(code => ruleOf(state.rules, code)?.clauses.some(clause => clause.values.whileSourceSeen === true));
+  if (!watched.length) return state;
+  const outOfSight = new Set<string>();
+  for (const code of watched) {
+    const sources = (
+      await q.query(
+        `SELECT parameters->>'sourceCharacterId' AS source_id FROM character_effects
+           WHERE campaign_id=$1 AND character_id=$2 AND effect_code=$3 AND active`,
+        [campaignId, characterId, code],
+      )
+    ).rows.map(row => row.source_id as string | null);
+    if (!sources.length || sources.some(source => !source)) continue;
+    if (!(await fearSourceInSight(q, campaignId, characterId, sources as string[], state.codes.has('blinded')))) outOfSight.add(code);
   }
-  return state;
+  return outOfSight.size ? { ...state, outOfSight } : state;
 }
 
-export async function rollRiders(q: Queryable, campaignId: string, characterId: string, kind: string, bardic: boolean, ability: string | null = null, skill: string | null = null) {
+export async function rollRiders(
+  q: Queryable, campaignId: string, characterId: string, kind: string, bardic: boolean, ability: string | null = null, skill: string | null = null,
+  sense: 'sight' | 'hearing' | null = null,
+) {
   const effects = (
     await q.query(
       `SELECT id, effect_code, parameters FROM character_effects
@@ -62,6 +71,14 @@ export async function rollRiders(q: Queryable, campaignId: string, characterId: 
   for (const die of templated.dice) list.push({ label: die.label, die: `${die.sign > 0 ? '+' : '−'}к${die.sides}`, value: die.sign * rollDie(die.sides) });
   if (templated.flat) list.push({ label: 'заклинание', die: `${templated.flat > 0 ? '+' : '−'}${Math.abs(templated.flat)}`, value: templated.flat });
   if (templated.spentDice.length) await q.query('DELETE FROM character_effects WHERE id = ANY($1::uuid[])', [templated.spentDice]);
+  const d20Kind: D20Kind | null = kind === 'attack' || kind === 'save' || kind === 'ability' || kind === 'skill' ? kind : null;
+  const held = d20Kind ? conditionRollBonus(await loadConditionState(q, campaignId, characterId), d20Kind, ability as ConditionAbility | null, sense) : null;
+  if (held?.value) list.push({ label: held.reasons.join(', '), die: `${held.value > 0 ? '+' : '−'}${Math.abs(held.value)}`, value: held.value });
+  if (d20Kind) {
+    const owner = (await q.query(`SELECT sheet_extra FROM characters WHERE campaign_id=$1 AND id=$2 AND kind <> 'object'`, [campaignId, characterId])).rows[0];
+    const traits = owner ? traitRollBonus(characterTraitEffects(owner), d20Kind, ability) : null;
+    if (traits?.value) list.push({ label: traits.reasons.map(reason => reason.replace(/ [+−]\d+$/, '')).join(', '), die: `${traits.value > 0 ? '+' : '−'}${Math.abs(traits.value)}`, value: traits.value });
+  }
   const value = list.reduce((sum, entry) => sum + entry.value, 0);
   const formula = list.filter(entry => entry.die.includes('к')).map(entry => `${entry.die.startsWith('−') ? '-' : '+'}1d${entry.die.replace(/^[+−]к/, '')}`).join('');
   const reasons = list.map(entry => `${entry.label} ${entry.die}: ${entry.value >= 0 ? '+' : ''}${entry.value}`);
@@ -82,7 +99,7 @@ export async function bardicOnFailedSave(q: Queryable, campaignId: string, chara
 }
 
 export async function saveAids(
-  q: Queryable, campaignId: string, characterId: string, ability: ConditionAbility, own: ReturnType<typeof conditionState>,
+  q: Queryable, campaignId: string, characterId: string, ability: ConditionAbility, own: ConditionState,
 ): Promise<{ bonus: SaveBonus | null; advantages: string[] }> {
   const advantages: string[] = [];
   if (ability === 'dexterity' && !own.codes.has('blinded') && !own.codes.has('deafened') && !incapacitatedReason(own)) {

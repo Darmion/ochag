@@ -63,13 +63,13 @@ export default function (api) {
     const good = byId['stronger-wind@1.0.0']!;
     assert.ok(good.changes.some(change => /second-wind.*своя версия/.test(change)), good.changes.join('; '));
     assert.ok(good.changes.some(change => /Боевой клич.*новое/.test(change)), good.changes.join('; '));
-    assert.ok(good.changes.some(change => /longstrider.*заменён/.test(change)));
+    assert.ok(good.changes.some(change => /longstrider.*заменяет готовый эффект таблицы/.test(change)), good.changes.join('; '));
     assert.match(byId['broken@0.1.0']!.error!, /я сломан/);
     assert.match(byId['stronger-wind@2.0.0']!.error!, /уже подключён/);
     assert.match(byId['no-export@1.0.0']!.error!, /export default/);
     assert.equal(FEATURE_ACTIONS['broken-move'], undefined, 'the broken mod left no action behind');
     assert.notEqual(SPELL_EFFECTS.fireball?.code, 'nonsense', 'nor a spell effect');
-    assert.equal(SPELL_EFFECTS.longstrider?.rounds, 6000, 'the good mod’s effect wins over the built-in');
+    assert.equal(SPELL_EFFECTS.longstrider?.rounds, 6000, 'the good mod’s effect is registered; it replaces the table’s ready-made effect');
     assert.ok(logged.some(line => /подключён/.test(line)) && logged.some(line => /не подключён: я сломан/.test(line)));
   });
 
@@ -125,6 +125,7 @@ export default function (api) {
 });
 
 test('mods: no folder — nothing loaded, nothing breaks', async () => {
-  assert.deepEqual(await loadMods(undefined), {list: [], routes: []});
-  assert.deepEqual(await loadMods(path.join(tmpdir(), 'ochag-no-such-mods-folder')), {list: [], routes: []});
+  assert.deepEqual(await loadMods(undefined), {list: [], routes: [], forms: [], dirs: {user: null, bundled: null}});
+  const missing = path.join(tmpdir(), 'ochag-no-such-mods-folder');
+  assert.deepEqual(await loadMods(missing), {list: [], routes: [], forms: [], dirs: {user: missing, bundled: null}});
 });

@@ -1,7 +1,7 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {centerOf, positionOf, reachablePositions, shortestPath, type PathGrid} from './pathfinding.ts';
-import {pathCostCells} from './measure.ts';
+import {gridDistanceCells} from './measure.ts';
 
 const open = (extra: Partial<PathGrid> = {}): PathGrid => ({widthCells: 10, heightCells: 10, size: 1, rule: 'phb', edges: [], walls: [], ...extra});
 
@@ -9,7 +9,7 @@ test('without walls the path costs the same as the straight count, both diagonal
   for (const rule of ['phb', '5-10-5'] as const) {
     const grid = open({rule});
     for (const [to, from] of [[{col: 7, row: 3}, {col: 1, row: 1}], [{col: 0, row: 9}, {col: 5, row: 5}], [{col: 9, row: 9}, {col: 0, row: 0}]] as const) {
-      assert.equal(shortestPath(grid, from, to)!.cost, pathCostCells(from, to, rule), `${rule} ${JSON.stringify(from)}→${JSON.stringify(to)}`);
+      assert.equal(shortestPath(grid, from, to)!.cost, gridDistanceCells({x: from.col, z: from.row}, {x: to.col, z: to.row}, rule), `${rule} ${JSON.stringify(from)}→${JSON.stringify(to)}`);
     }
   }
 });
@@ -56,4 +56,24 @@ test('reachable positions within a budget, and blockers', () => {
   assert.equal(shortestPath(big, positionOf(big, -2, 0), positionOf(big, 2, 0)), null);
   const small = open({edges: gapWalls, walls: gapWalls});
   assert.ok(shortestPath(small, positionOf(small, -1.5, 0.5), positionOf(small, 1.5, 0.5)), 'a medium creature fits through');
+});
+
+test('deep water: swimming costs double without a swimming speed, triple in difficult terrain too; shallow water is difficult terrain', () => {
+  const lake = new Set(['1:0', '2:0']);
+  const mud = new Set(['2:0']);
+  const deep = (cell: {col: number; row: number}) => lake.has(`${cell.col}:${cell.row}`);
+  const from = {col: 0, row: 0}, to = {col: 3, row: 0};
+  const narrow = {heightCells: 1};
+  assert.equal(shortestPath(open({...narrow, isDeepWater: deep}), from, to)!.cost, 5);
+  assert.equal(shortestPath(open({...narrow, isDeepWater: deep, swims: true}), from, to)!.cost, 3);
+  assert.equal(shortestPath(open({...narrow, isDeepWater: deep, isDifficult: cell => mud.has(`${cell.col}:${cell.row}`)}), from, to)!.cost, 6);
+  assert.equal(shortestPath(open({...narrow, isDeepWater: deep, isDifficult: cell => mud.has(`${cell.col}:${cell.row}`), swims: true}), from, to)!.cost, 4);
+});
+
+test('a walker goes round a lake when that is cheaper than swimming across', () => {
+  const lake = new Set(['1:0', '1:1', '1:2']);
+  const grid = open({widthCells: 3, heightCells: 4, isDeepWater: cell => lake.has(`${cell.col}:${cell.row}`)});
+  const path = shortestPath(grid, {col: 0, row: 0}, {col: 2, row: 0})!;
+  assert.ok(path.cost <= 4, `cost ${path.cost}`);
+  assert.equal(shortestPath({...grid, swims: true}, {col: 0, row: 0}, {col: 2, row: 0})!.cost, 2);
 });

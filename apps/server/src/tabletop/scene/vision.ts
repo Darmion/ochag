@@ -1,6 +1,7 @@
 import type { Queryable } from '../../db.ts';
 import { knownInvocations } from '../../../../../packages/domain/character/class-features.ts';
 import { loadStates, lightOf } from './object-states.ts';
+import { loadHeld } from './held.ts';
 import { placementRelations, placementFactions, viewerRights } from '../../campaign/factions.ts';
 import { type WallSegment, visibleCells } from '../../../../../packages/domain/map/los.ts';
 import { resolveVision } from '../../../../../packages/domain/map/vision.ts';
@@ -8,7 +9,8 @@ import { type SeenLight, betterSeen, DEVILS_SIGHT_FEET, seenThrough, type LightL
 import { weatherRules } from '../../../../../packages/domain/world/clock.ts';
 import { occupiedCells, footprintCells } from '../../../../../packages/domain/map/footprint.ts';
 
-import { type CellSet, packCell } from './board.ts';
+import { type CellSet, groundOfPlacement, packCell } from './board.ts';
+import { overlooks } from '../../../../../packages/domain/map/relief.ts';
 import { blockingPlacements } from './placements.ts';
 import type { Illumination, Placement } from '../shared.ts';
 
@@ -125,6 +127,12 @@ export async function computeVisibleIndexSet(
 
   const blockers = await blockingPlacements(q, campaignId, scene, placements, 'sight');
   const sightWalls = [...walls, ...blockers.flatMap(blocker => blocker.edges)];
+  const blockerGround = new Map(blockers.map(blocker => [blocker.id, groundOfPlacement(scene, blocker.placement)]));
+  const sightFor = (source: Placement) => {
+    const eye = groundOfPlacement(scene, source) + Number(source.altitude_feet ?? 0);
+    const hiding = blockers.filter(blocker => !overlooks(eye, blockerGround.get(blocker.id)!));
+    return hiding.length === blockers.length ? sightWalls : [...walls, ...hiding.flatMap(blocker => blocker.edges)];
+  };
 
   const senses = new Map(
     (
@@ -167,7 +175,7 @@ export async function computeVisibleIndexSet(
     const devilsSightFeet = devilish.has(source.character_id) ? DEVILS_SIGHT_FEET : 0;
     const blind = isBlindSource(campaign, member, row);
 
-    for (const cell of visibleCells({ x: source.world_x, z: source.world_z }, radiusFeet, scene.feet_per_unit, dims, sightWalls)) {
+    for (const cell of visibleCells({ x: source.world_x, z: source.world_z }, radiusFeet, scene.feet_per_unit, dims, sightFor(source))) {
       const index = packCell(scene, cell.x, cell.z);
       if (blind) {
         see(index, 'dim');
@@ -212,11 +220,8 @@ export async function illuminationOf(q: Queryable, campaignId: string, scene: an
   };
   if (base === 2) return withDarkness();
 
-  const states = await loadStates(q, campaignId, placements.map(placement => placement.character_id));
-  for (const placement of placements) {
-    const light = lightOf(states.get(placement.character_id));
-    if (!light) continue;
-
+  const lightUp = (placement: Placement, light: { bright: number; dim: number; cone: boolean }) => {
+    if (light.bright + light.dim <= 0) return;
     const origin = { x: placement.world_x, z: placement.world_z };
     const direction = light.cone ? facingOf(placement, placements) : null;
     for (const cell of visibleCells(
@@ -231,6 +236,17 @@ export async function illuminationOf(q: Queryable, campaignId: string, scene: an
       const level = lightFrom(Math.hypot(cell.x - origin.x, cell.z - origin.z) * scene.feet_per_unit, light);
       if (level !== null && Math.min(level, cap) > levels[index]!) levels[index] = Math.min(level, cap);
     }
+  };
+
+  const states = await loadStates(q, campaignId, placements.map(placement => placement.character_id));
+  for (const placement of placements) {
+    const light = lightOf(states.get(placement.character_id));
+    if (light) lightUp(placement, light);
+  }
+  const held = await loadHeld(q, campaignId, placements.filter(placement => placement.kind !== 'object').map(placement => placement.character_id));
+  for (const placement of placements) {
+    const light = held.get(placement.character_id)?.light;
+    if (light) lightUp(placement, light);
   }
   const glows = new Map<string, { bright: number; dim: number }>();
   for (const row of (await q.query(
@@ -243,14 +259,7 @@ export async function illuminationOf(q: Queryable, campaignId: string, scene: an
   }
   for (const placement of placements) {
     const glow = glows.get(placement.character_id);
-    if (!glow || glow.bright + glow.dim <= 0) continue;
-    const origin = { x: placement.world_x, z: placement.world_z };
-    const shine = { ...glow, cone: false };
-    for (const cell of visibleCells(origin, glow.bright + glow.dim, scene.feet_per_unit, { widthCells: scene.width_cells, heightCells: scene.height_cells }, sightWalls)) {
-      const index = packCell(scene, cell.x, cell.z);
-      const level = lightFrom(Math.hypot(cell.x - origin.x, cell.z - origin.z) * scene.feet_per_unit, shine);
-      if (level !== null && Math.min(level, cap) > levels[index]!) levels[index] = Math.min(level, cap);
-    }
+    if (glow) lightUp(placement, { ...glow, cone: false });
   }
 
   return withDarkness();

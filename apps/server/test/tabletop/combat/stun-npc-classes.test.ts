@@ -164,12 +164,12 @@ test('stunning strike, deflect missiles, aid, mage armor, NPC class features, dr
     const victim = await hero('Добыча', 'Воин', 3, {hpMax: 300, hpCurrent: 300, armorClass: 1});
     const {auto} = await arena('Лес', [[gm.token, druid.id, 0.5, 0.5, 30], [alice.token, victim.id, 4.5, 0.5, 5]]);
     const first = await auto();
-    assert.match(first.summary, /оборачивается: Пантера/, first.summary);
-    assert.equal((await row(druid.id)).hp_max, 13);
+    assert.match(first.summary, /оборачивается: Топороклюв/, first.summary);
+    assert.equal((await row(druid.id)).hp_max, 19, 'the axe beak: 19 hit points, the sturdiest beast of challenge 1/4');
     await pg.query('UPDATE initiative_entries SET action_used=false, attacks_made=0, moved_feet=0 WHERE character_id=$1', [druid.id]);
     const second = await auto();
     assert.ok(second.attacks.length >= 1, second.summary);
-    assert.match(second.attacks[0].weaponName, /\(Пантера\)/);
+    assert.match(second.attacks[0].weaponName, /\(Топороклюв\)/);
   });
 
   await t.test('while concentrating, an NPC caster stands as far from its foes as it can and still strike', async () => {

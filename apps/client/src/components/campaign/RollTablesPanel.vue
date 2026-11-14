@@ -148,7 +148,7 @@ const sortedMonsters = computed(() => [...monsters.value].sort((a, b) => a.cr - 
           <div class="table-actions">
             <button type="button" class="primary" :disabled="working" :title="table.secret ? 'Результат увидят только мастера' : 'Результат увидят все в журнале'" @click="roll(table)"><GameIcon class="inline-icon" name="d20" :size="16" /> Бросить</button>
             <button type="button" :disabled="working" @click="edit(table)">Править</button>
-            <button type="button" :disabled="working" aria-label="Удалить" @click="remove(table)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+            <button class="icon-only" type="button" :disabled="working" aria-label="Удалить" @click="remove(table)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
           </div>
           <div v-if="results[table.id]" class="rolled" role="status">
             <span class="total">{{ results[table.id]!.total }}</span>
@@ -175,7 +175,7 @@ const sortedMonsters = computed(() => [...monsters.value].sort((a, b) => a.cr - 
           <span>–</span>
           <input v-model.number="entry.to" type="number" min="1" max="1000" aria-label="До" />
           <input v-model="entry.text" class="entry-text" maxlength="500" placeholder="Что выпало" aria-label="Текст" />
-          <button type="button" aria-label="Убрать строку" @click="draft.entries.splice(index, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+          <button class="icon-only" type="button" aria-label="Убрать строку" @click="draft.entries.splice(index, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
         </div>
         <div class="entry-monsters">
           <span v-for="(monster, mIndex) in entry.monsters" :key="mIndex" class="monster-pick">
@@ -184,7 +184,7 @@ const sortedMonsters = computed(() => [...monsters.value].sort((a, b) => a.cr - 
               <option v-for="option in sortedMonsters" :key="option.index" :value="option.index">{{ option.nameRu }} ({{ option.crText }})</option>
             </select>
             <input v-model="monster.count" maxlength="12" placeholder="1d4" aria-label="Сколько" title="Сколько: число или кости, например 1d4+1" />
-            <button type="button" :aria-label="`Убрать: ${monsterName(monster.index)}`" @click="entry.monsters.splice(mIndex, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+            <button class="icon-only" type="button" :aria-label="`Убрать: ${monsterName(monster.index)}`" @click="entry.monsters.splice(mIndex, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
           </span>
           <button v-if="entry.monsters.length < 4" type="button" class="link-button" @click="entry.monsters.push({ index: '', count: '1' })">+ монстры из бестиария</button>
         </div>

@@ -5,7 +5,7 @@ import { createHistory, type HistoryEntry, type TableHistory } from '../history'
 import type { AreaShape } from '../areas';
 import type { SceneObjectDTO, ObjectSave, WallGroupEntry, WallCoords, DrawingData, SceneSize, TabletopProps, SceneDetail, TemplateDTO } from './types';
 
-export type TemplateData = { shape: AreaShape; x: number; z: number; direction: number; sizeFeet: number; widthFeet?: number; color: string; label?: string };
+export type TemplateData = { shape: AreaShape; x: number; z: number; direction: number; sizeFeet: number; widthFeet?: number; heightFeet?: number | null; color: string; label?: string };
 export type TrapData = { shape: AreaShape; x: number; z: number; direction: number; sizeFeet: number };
 
 export type MapHistoryDeps = {
@@ -237,6 +237,7 @@ export function useMapHistory({ props, sceneId, sceneDetail, objects, activeObje
       shape: template.shape, x: Number(template.x), z: Number(template.z), direction: Number(template.direction ?? 0),
       sizeFeet: Number(template.size_feet), color: template.color,
       ...(template.width_feet != null ? { widthFeet: Number(template.width_feet) } : {}),
+      ...(template.shape === 'circle' ? { heightFeet: template.height_feet == null ? null : Number(template.height_feet) } : {}),
       ...(template.label ? { label: template.label } : {}),
     };
   }

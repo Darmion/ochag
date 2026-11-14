@@ -52,7 +52,7 @@ const FRAME_LABEL = { avatar: 'Аватар — кружок в списке к�
     <div class="crop-card">
       <header class="crop-header">
         <h3>{{ title }}</h3>
-        <button type="button" class="crop-close" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="crop-close icon-only" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
       <p class="hint">{{ FRAME_LABEL[shape] }}. Тащите картинку мышью, приближайте колесом или ползунком; стрелки — точнее. Картинка остаётся целой.</p>
 

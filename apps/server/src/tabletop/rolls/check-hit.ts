@@ -10,7 +10,8 @@ import { rollDie, campaignFlag, insertRoll } from './dice.ts';
 import { spendLuckPoint, luckyDefense, markTurnFlags, savageAttackerFor } from './modifiers.ts';
 import { notifyCampaign } from '../live/notify.ts';
 import { isMeleeWeapon, FLAG_GREAT_WEAPON } from '../../../../../packages/domain/combat/attack-economy.ts';
-import { hasFeat, greatWeaponReroll } from '../../../../../packages/domain/character/feats.ts';
+import { GREAT_WEAPON_REROLL, hasFeat } from '../../../../../packages/domain/character/feats.ts';
+import { rerollDice } from '../../../../../packages/domain/dice/expression.ts';
 import { addCondition } from '../../rules/conditions.ts';
 import { sheetContext } from '../scene/placements.ts';
 import { resolveFormula } from '../../../../../packages/domain/dice/formula.ts';
@@ -255,7 +256,7 @@ export async function applyHitDamage(run: CheckRun, state: HitDamageState) {
     const strike = async (rolled: NonNullable<ReturnType<typeof rollDamage>>, damageType: string | null, label: string) => {
       const change = await applyHpChange(ctx, q, campaignId, userId, target!.id, {
         mode: 'damage', amount: rolled.total, damageType, critical: hitResult!.critical, sourceId: characterId,
-        magical: Boolean(check.enchant.shillelagh || check.enchant.bonus || check.enchant.die),
+        magical: Boolean(check.enchant.shillelagh || check.enchant.bonus || check.enchant.die) || character.sheet_extra?.magicWeapons === true,
       });
       if (change.dropped) {
         const blessing = await darkOnesBlessing(q, campaignId, characterId, target!.id);
@@ -280,13 +281,13 @@ export async function applyHitDamage(run: CheckRun, state: HitDamageState) {
     const offhandStripped = Boolean(styles?.offhandNoMod && /@mod\b/.test(damageText)
       && abilityModifier(character[check.ability === 'strength' ? 'strength' : 'dexterity']) > 0);
     const main = rollDamage(styles?.butt ? '1d4+@mod' : offhandStripped ? damageText.replace(/@mod\b/g, '0') : damageText);
-    let greatRerolled = 0;
+    let greatRerolled: Array<[number, number]> = [];
     if (main && styles?.greatWeapon) {
-      const again = greatWeaponReroll(main.dice, () => rollDie(main.sides));
-      if (again.rerolled) {
+      const again = rerollDice(main.dice, main.sides, GREAT_WEAPON_REROLL, rollDie);
+      if (again.changes.length) {
         main.total += again.dice.reduce((sum, value) => sum + value, 0) - main.dice.reduce((sum, value) => sum + value, 0);
         main.dice = again.dice;
-        greatRerolled = again.rerolled;
+        greatRerolled = again.changes;
       }
     }
     let savage = false;
@@ -400,7 +401,7 @@ export async function applyHitDamage(run: CheckRun, state: HitDamageState) {
     if (main) {
       const extras = [
         sneak ? 'скрытая атака' : '', rage ? 'ярость' : '', factionDamage?.value ? factionDamage.reasons.join(', ') : '', foeSlayer ? `убийца врагов +${foeSlayer}` : '', brutal ? 'сокрушительный крит' : '', markDice ? 'метка охотника' : '', colossus ? 'убийца колоссов' : '',
-        greatRerolled ? `большое оружие: переброс ${greatRerolled}` : '', savage ? 'дикарь: лучший из двух бросков' : '', styles?.dueling ? 'дуэлянт' : '', styles?.powerBy ? `${styles.powerBy} +10` : '',
+        greatRerolled.length ? `большое оружие, переброс ro<3: ${greatRerolled.map(([from, to]) => `${from} → ${to}`).join(', ')}` : '', savage ? 'дикарь: лучший из двух бросков' : '', styles?.dueling ? 'дуэлянт' : '', styles?.powerBy ? `${styles.powerBy} +10` : '',
         offhandStripped ? 'второе оружие — без модификатора' : '',
         deflect ? `отражено ${deflect.value}` : '', parry ? `парировано ${parry.value}` : '', dodge ? 'уклонение: вдвое' : '', internal.riposte ? 'ответный удар' : '',
       ].filter(Boolean).join(', ');

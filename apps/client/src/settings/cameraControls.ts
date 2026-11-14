@@ -5,8 +5,8 @@ export type CameraScheme = 'tts' | 'classic';
 export type AltMode = 'both' | 'rail' | 'rotate' | 'off';
 
 export const CAMERA_SCHEMES: Array<{ id: CameraScheme; label: string; hint: string }> = [
-  { id: 'tts', label: tr('Вращение средней кнопкой'), hint: tr('вращать — средней кнопкой, сдвигать — правой, WASD и стрелки — камера, протяжка левой по пустому месту — рамка выделения') },
-  { id: 'classic', label: tr('Вращение левой кнопкой'), hint: tr('вращать — левой по пустому месту, сдвигать — правой, WASD — камера, стрелки вращают, рамка — Shift+протяжка') },
+  { id: 'tts', label: tr('Вращение средней кнопкой'), hint: tr('вращать — средней кнопкой, сдвигать — правой, WASD и стрелки — камера (с Shift быстрее), колесо — к курсору, протяжка левой по пустому месту — рамка выделения') },
+  { id: 'classic', label: tr('Вращение левой кнопкой'), hint: tr('вращать — левой по пустому месту, сдвигать — правой, WASD — камера (с Shift быстрее), колесо — к курсору, стрелки вращают, рамка — Shift+протяжка') },
 ];
 
 export const ALT_MODES: Array<{ id: AltMode; label: string }> = [

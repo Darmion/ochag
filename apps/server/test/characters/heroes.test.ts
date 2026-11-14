@@ -63,6 +63,16 @@ test('character creation wizard', async t => {
     assert.equal(bow.ammo_resource_id, sheet.resources.find((r: any) => r.name === 'Болты').id);
     const contents = (await request('GET', `${base}/characters/${character.id}/contents`, alice.token)).json().contents.map((item: any) => item.name);
     assert.ok(contents.includes('Кольчуга') && contents.includes('Щит') && contents.includes('Рюкзак'), contents.join(', '));
+    const bag = (await request('GET', `${base}/characters/${character.id}/inventory`, alice.token)).json();
+    const slotOf = (name: string) => bag.items.find((item: any) => item.name === name)?.slot ?? null;
+    assert.deepEqual(
+      [slotOf('Длинный меч'), slotOf('Лёгкий арбалет'), slotOf('Кольчуга'), slotOf('Щит'), slotOf('Арбалетные болты')],
+      ['main_hand', null, 'body', 'off_hand', 'ammo'],
+      'the kit weapons are in the bag, the first one in hand, armour and shield worn',
+    );
+    assert.ok(bag.items.filter((item: any) => item.category === 'weapon').every((item: any) => item.attackId), 'every kit weapon is tied to its attack');
+    assert.equal(bag.items.find((item: any) => item.name === 'Арбалетные болты').quantity, 20);
+    assert.deepEqual([bag.holder.acMode, bag.holder.armorClass, bag.gearAc.value], ['gear', 19, 19], 'chain mail 16 + shield 2 + Defense 1');
     const saves = (await pg.query<any>('SELECT ability FROM character_saves WHERE character_id=$1 AND proficient ORDER BY ability', [character.id])).rows.map(row => row.ability);
     assert.deepEqual(saves, ['constitution', 'strength']);
     const roster = (await request('GET', `${base}/characters`, gm.token)).json().characters;
@@ -128,5 +138,8 @@ test('character creation wizard', async t => {
     const sheet = (await request('GET', `${base}/characters/${id}`, alice.token)).json();
     assert.deepEqual(sheet.damage_resistances, ['fire']);
     assert.equal(sheet.spellcasting_ability, 'intelligence');
+    const bag = (await request('GET', `${base}/characters/${id}/inventory`, alice.token)).json();
+    assert.equal(bag.items.find((item: any) => item.name === 'Кинжал')?.slot, 'main_hand');
+    assert.deepEqual([bag.holder.acMode, bag.holder.armorClass], ['gear', sheet.armor_class]);
   });
 });

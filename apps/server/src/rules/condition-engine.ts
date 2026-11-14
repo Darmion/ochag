@@ -3,9 +3,12 @@ import { reject, type SceneFeatureContext } from '../tabletop/scene-feature.ts';
 import { vanishSummon } from './summons.ts';
 import { concentrationDc, damageAtZero, deathSaveOutcome } from '../../../../packages/domain/combat/conditions.ts';
 import { classFeaturesFor, rageEndsEarly, survivorHeal } from '../../../../packages/domain/character/class-features.ts';
-import { abilityModifier } from '../../../../packages/domain/dice/dice.ts';
+import { abilityModifier, parseFormula, rollDice } from '../../../../packages/domain/dice/dice.ts';
 import { characterClassLevels } from '../../../../packages/domain/character/classes.ts';
-import { ABILITIES, ABILITY_GENITIVE, ABILITY_SHORT, addCondition, addExhaustion, conditionLabel, hasFeature, loadConditionState, loadEffects, type Notice, releaseGrapples, releaseNotices, removeCondition, resumeAfterRage } from './conditions.ts';
+import { ABILITIES, ABILITY_GENITIVE, ABILITY_SHORT, addCondition, addExhaustion, hasFeature, incapacitates, loadConditionState, loadEffects, lowerExhaustion, type Notice, releaseGrapples, releaseNotices, removeCondition, resumeAfterRage, spellsEnded } from './conditions.ts';
+import { campaignConditionRules, conditionName } from './condition-rules.ts';
+import { describeStage, repeatSaveOf, stageIndex, type ConditionRule, type RepeatSave } from '../../../../packages/domain/combat/condition-rules.ts';
+import { DAMAGE_TYPES } from '../../../../packages/domain/spells/template/options.ts';
 
 type InsertRoll = (
   q: Queryable, campaignId: string, userId: string, characterId: string | null, label: string | null,
@@ -24,7 +27,20 @@ export type ConditionContext = SceneFeatureContext & {
     bonus?: { value: number; reason: string } | null, disadvantages?: string[],
     against?: { condition?: string | null; magic?: boolean; damageType?: string | null; concentration?: boolean } | null,
   ) => Promise<SaveRoll>;
+  // Damage a course deals on a failed save (a poison that keeps burning); resistances and immunities apply.
+  hurt?: (q: Queryable, campaignId: string, userId: string, characterId: string, amount: number, damageType: string) => Promise<{ applied: number; blocked: string | null }>;
 };
+
+type Course = Notice & { short: string };
+
+function courseDamage(formula: string, rollDie: (sides: number) => number): { total: number; text: string } | null {
+  const clean = formula.replace(/\s+/g, '').replace(/к/gi, 'd');
+  if (/^\d{1,3}$/.test(clean)) return { total: Number(clean), text: clean };
+  const parsed = parseFormula(clean);
+  if (!parsed) return null;
+  const rolled = rollDice(parsed, rollDie);
+  return { total: Math.max(0, rolled.total), text: `${clean}: ${rolled.total}` };
+}
 
 type Creature = { id: string; name: string; kind: string; owner_user_id: string | null; hp_max: number };
 
@@ -87,8 +103,9 @@ export function createConditionEngine(ctx: ConditionContext) {
       )
     ).rows as Array<{ effect_code: string; source_name: string | null }>;
     for (const effect of broken) {
+      const label = await conditionName(q, campaignId, effect.effect_code);
       notices.push({
-        title: `${target.name}: «${conditionLabel(effect.effect_code)}» снято`,
+        title: `${target.name}: «${label}» снято`,
         detail: `Урон обрывает${effect.source_name ? ` «${effect.source_name}»` : ''}.`,
         characterId: target.id,
       });
@@ -160,12 +177,9 @@ export function createConditionEngine(ctx: ConditionContext) {
       await q.query(
         `SELECT ie.id, ie.is_current, ie.turn_flags FROM initiative_entries ie
          WHERE ie.campaign_id=$1 AND ie.character_id=$2
-           -- Бой там, где стоит его фигура (старая запись на другой сцене — не в счёт);
-           -- фигуры нигде нет — любая запись.
+           -- The fight where the figure stands (an old entry on another scene does not count); no figure anywhere: any entry.
            AND (COALESCE(ie.id = $3::uuid, false)
-                -- бросок со стола сцены — только её бой;
                 OR ($4::uuid IS NOT NULL AND ie.scene_id = $4::uuid)
-                -- иначе (лист, состояния) — бой там, где стоит фигура, или любой, если её нет нигде.
                 OR ($4::uuid IS NULL AND (
                   EXISTS (SELECT 1 FROM scene_objects so WHERE so.campaign_id = ie.campaign_id AND so.scene_id = ie.scene_id AND so.character_id = ie.character_id)
                   OR NOT EXISTS (SELECT 1 FROM scene_objects so WHERE so.campaign_id = ie.campaign_id AND so.character_id = ie.character_id))))
@@ -226,8 +240,29 @@ export function createConditionEngine(ctx: ConditionContext) {
     return { roll, result, notice: { title: `${row.name}: спасбросок от смерти — ${natural}`, detail, characterId } as Notice };
   }
 
-  async function endOfTurn(q: Queryable, campaignId: string, userId: string, characterId: string): Promise<Notice[]> {
-    return [...await expireAt(q, campaignId, characterId, 'end'), ...await turnBoundary(q, campaignId, userId, characterId, 'end')];
+  async function dyingWithoutSave(q: Queryable, campaignId: string, characterId: string) {
+    const row = await creature(q, campaignId, characterId);
+    const state = await loadConditionState(q, campaignId, characterId);
+    return row.kind === 'character' && row.hp_current === 0 && state.codes.has('unconscious') && !state.codes.has('stable') && !state.codes.has('dead');
+  }
+
+  async function rollsForItself(q: Queryable, campaignId: string, characterId: string) {
+    return (await q.query('SELECT auto_death_saves FROM characters WHERE campaign_id=$1 AND id=$2', [campaignId, characterId])).rows[0]?.auto_death_saves !== false;
+  }
+
+  async function endOfTurn(q: Queryable, campaignId: string, userId: string, characterId: string, entryId: string | null = null): Promise<Notice[]> {
+    const notices = [
+      ...await expireAt(q, campaignId, characterId, 'end'), ...await turnBoundary(q, campaignId, userId, characterId, 'end'),
+      ...await ruledSaves(q, campaignId, userId, characterId, 'turn-end'),
+    ];
+    if (entryId && !(await rollsForItself(q, campaignId, characterId)) && await dyingWithoutSave(q, campaignId, characterId)) {
+      const rolled = (await q.query(`SELECT 1 FROM initiative_entries WHERE id=$1 AND 'death-save' = ANY(turn_flags)`, [entryId])).rows[0];
+      if (!rolled) {
+        const save = await deathSave(q, campaignId, userId, characterId, true, false, false, entryId);
+        notices.push({ ...save.notice, detail: `${save.notice.detail} Ход передан без броска — приложение бросило само.` });
+      }
+    }
+    return notices;
   }
 
   async function expireAt(q: Queryable, campaignId: string, characterId: string, at: 'start' | 'end'): Promise<Notice[]> {
@@ -237,26 +272,160 @@ export function createConditionEngine(ctx: ConditionContext) {
          WHERE e.campaign_id=$1 AND e.active AND e.parameters->'expires'->>'of' = $2 AND e.parameters->'expires'->>'at' = $3
            AND COALESCE((e.parameters->'expires'->>'skip')::int, 0) <= 0
            AND c.campaign_id = e.campaign_id AND c.id = e.character_id
-         RETURNING c.id, c.name, e.effect_code, e.parameters->>'sourceName' AS source_name`,
+         RETURNING c.id, c.name, e.effect_code, e.parameters->>'sourceName' AS source_name, e.parameters`,
         [campaignId, characterId, at],
       )
-    ).rows as Array<{ id: string; name: string; effect_code: string; source_name: string | null }>;
+    ).rows as Array<{ id: string; name: string; effect_code: string; source_name: string | null; parameters: any }>;
+    await spellsEnded(q, campaignId, gone.filter(entry => entry.effect_code === 'spell_cast').map(entry => ({ character_id: entry.id, parameters: entry.parameters })));
     await q.query(
       `UPDATE character_effects SET parameters = jsonb_set(parameters, '{expires,skip}', to_jsonb((parameters->'expires'->>'skip')::int - 1))
        WHERE campaign_id=$1 AND active AND parameters->'expires'->>'of' = $2 AND parameters->'expires'->>'at' = $3
          AND COALESCE((parameters->'expires'->>'skip')::int, 0) > 0`,
       [campaignId, characterId, at],
     );
-    return gone.map(entry => ({
-      title: `${entry.name}: «${conditionLabel(entry.effect_code)}» закончилось`,
-      detail: entry.source_name ? `«${entry.source_name}» больше не действует.` : 'Длительность вышла.',
-      characterId: entry.id,
-    }));
+    const notices: Notice[] = [];
+    for (const entry of gone) {
+      const label = await conditionName(q, campaignId, entry.effect_code);
+      notices.push({
+        title: `${entry.name}: «${label}» закончилось`,
+        detail: entry.source_name ? `«${entry.source_name}» больше не действует.` : 'Длительность вышла.',
+        characterId: entry.id,
+      });
+    }
+    return notices;
+  }
+
+  // A clause «repeat save» of the campaign's rules: the creature tries to shake the condition off; the GM decides what a success
+  // and a failure do — end it after N wins, ease its stage or its DC, add exhaustion, worsen the stage, deal damage.
+  async function ruledSave(
+    q: Queryable, campaignId: string, userId: string, row: { name: string }, characterId: string,
+    effect: { id: string; effect_code: string; parameters: any }, save: RepeatSave, rule: ConditionRule | undefined,
+  ): Promise<Course[]> {
+    const label = await conditionName(q, campaignId, effect.effect_code);
+    const stages = rule?.stages ?? [];
+    const stage = stageIndex(rule, effect.parameters?.stage);
+    const dc = save.onWin === 'easier' && Number(effect.parameters?.courseDc) > 0 ? Number(effect.parameters.courseDc) : save.dc;
+    let success = false;
+    let throwText = 'Без спасброска: болезнь идёт своим ходом.';
+    if (save.ability !== 'none') {
+      const ability = ABILITIES.find(entry => entry === save.ability) ?? 'constitution';
+      const rolled = await rollSaveAgainst(
+        q, campaignId, userId, characterId, ability, dc,
+        `Спасбросок ${ABILITY_SHORT[ability]} (СЛ ${dc}) против «${label}» — ${row.name}`, false, null, [], { condition: effect.effect_code },
+      );
+      success = rolled.success;
+      throwText = `Спасбросок ${ABILITY_GENITIVE[ability]} ${rolled.total} против СЛ ${dc}${rolled.autoFail ? ' — автопровал' : ''}.`;
+    }
+    const merge = (patch: Record<string, unknown>) =>
+      q.query(`UPDATE character_effects SET parameters = COALESCE(parameters, '{}'::jsonb) || $2::jsonb WHERE id=$1`, [effect.id, JSON.stringify(patch)]);
+    const one = (title: string, detail: string, short: string): Course[] => [{ title, detail, characterId, short }];
+    const gone = async (): Promise<Course[]> => {
+      await removeCondition(q, campaignId, characterId, effect.effect_code);
+      return one(`${row.name}: «${label}» снято`, throwText, `«${label}» прошло`);
+    };
+
+    if (success) {
+      if (save.onWin === 'better') {
+        if (!stages.length || stage === 0) return gone();
+        await merge({ stage: stage - 1 });
+        return one(`${row.name}: «${label}» — легче, стадия ${stage}`, `${throwText} ${describeStage(stages[stage - 1]!, stage - 1)}`, `«${label}»: стадия ${stage}`);
+      }
+      if (save.onWin === 'easier') {
+        const ease = rollDie(save.ease);
+        const next = dc - ease;
+        if (next <= 0) return gone();
+        await merge({ courseDc: next });
+        return one(`${row.name}: «${label}» — СЛ ${next}`, `${throwText} СЛ ниже на ${ease}.`, `«${label}»: СЛ ${next}`);
+      }
+      if (save.onWin === 'exhaustion-down') {
+        const level = await lowerExhaustion(q, campaignId, characterId);
+        if (level <= 0) return gone();
+        return one(`${row.name}: «${label}» отступает, истощение ${level}`, throwText, `«${label}» отступает, истощение ${level}`);
+      }
+      const wins = Number(effect.parameters?.saveWins ?? 0) + 1;
+      const need = save.wins;
+      if (wins >= need) return gone();
+      await merge({ saveWins: wins });
+      return one(`${row.name}: «${label}» — успех ${wins} из ${need}`, throwText, `«${label}»: успех ${wins} из ${need}`);
+    }
+    if (save.onFail === 'exhaustion') {
+      const level = await addExhaustion(q, campaignId, characterId);
+      return one(`${row.name}: «${label}» держится, истощение ${level}`, throwText, `«${label}» держится, истощение ${level}`);
+    }
+    if (save.onFail === 'worse' && stages.length && stage < stages.length - 1) {
+      await merge({ stage: stage + 1 });
+      const out = one(`${row.name}: «${label}» — тяжелее, стадия ${stage + 2}`, `${throwText} ${describeStage(stages[stage + 1]!, stage + 1)}`, `«${label}»: стадия ${stage + 2}`);
+      if (incapacitates(effect.effect_code, await campaignConditionRules(q, campaignId), stage + 1)) {
+        out.push(...releaseNotices(row.name, await releaseGrapples(q, campaignId, characterId), `«${label}»`).map(notice => ({ ...notice, short: notice.title })));
+      }
+      return out;
+    }
+    if (save.onFail === 'damage') {
+      const damage = courseDamage(save.damage, rollDie);
+      if (!damage || !ctx.hurt) return one(`${row.name}: «${label}» держится`, `${throwText} Урон «${save.damage}» бросает мастер.`, `«${label}» держится`);
+      const type = DAMAGE_TYPES.find(([value]) => value === save.damageType)?.[1] ?? save.damageType;
+      const dealt = await ctx.hurt(q, campaignId, userId, characterId, damage.total, save.damageType);
+      const taken = dealt.blocked === 'immune' ? 'иммунитет' : `${dealt.applied} урона, ${type}`;
+      return one(`${row.name}: «${label}» — ${taken}`, `${throwText} Урон ${damage.text}.`, `«${label}»: ${taken}`);
+    }
+    return one(`${row.name}: «${label}» держится`, throwText, `«${label}» держится`);
+  }
+
+  async function ruledSaves(q: Queryable, campaignId: string, userId: string, characterId: string, when: RepeatSave['when']) {
+    const rules = await campaignConditionRules(q, campaignId);
+    const row = await creature(q, campaignId, characterId);
+    const out: Course[] = [];
+    for (const effect of await loadEffects(q, campaignId, characterId)) {
+      if (effect.parameters?.save) continue;
+      const rule = rules.get(effect.effect_code);
+      const save = repeatSaveOf(rule, effect.parameters?.stage);
+      if (save?.when === when) out.push(...await ruledSave(q, campaignId, userId, row, characterId, effect, save, rule));
+    }
+    return out;
+  }
+
+  // The campaign clock moved: lasting conditions run out, and hourly and daily courses roll once per hour or day boundary crossed.
+  async function timePassed(q: Queryable, campaignId: string, userId: string, before: number, after: number): Promise<Notice[]> {
+    if (after <= before) return [];
+    const notices: Notice[] = [];
+    const expired = (await q.query(
+      `SELECT e.character_id, e.effect_code, c.name FROM character_effects e JOIN characters c ON c.campaign_id=e.campaign_id AND c.id=e.character_id
+       WHERE e.campaign_id=$1 AND e.active AND e.parameters ? 'untilMinute' AND (e.parameters->>'untilMinute')::numeric <= $2`,
+      [campaignId, after],
+    )).rows as Array<{ character_id: string; effect_code: string; name: string }>;
+    for (const row of expired) {
+      if (!(await removeCondition(q, campaignId, row.character_id, row.effect_code))) continue;
+      notices.push({ title: `${row.name}: «${await conditionName(q, campaignId, row.effect_code)}» прошло`, detail: 'Время вышло по часам кампании.', characterId: row.character_id });
+    }
+    const hours = Math.min(48, Math.floor(after / 60) - Math.floor(before / 60));
+    const days = Math.min(30, Math.floor(after / 1440) - Math.floor(before / 1440));
+    if (hours <= 0 && days <= 0) return notices;
+    const rules = await campaignConditionRules(q, campaignId);
+    const held = (await q.query(
+      'SELECT id, character_id, effect_code, parameters FROM character_effects WHERE campaign_id=$1 AND active ORDER BY character_id, effect_code, id',
+      [campaignId],
+    )).rows as Array<{ id: string; character_id: string; effect_code: string; parameters: any }>;
+    for (const effect of held) {
+      const rule = rules.get(effect.effect_code);
+      const when = repeatSaveOf(rule, effect.parameters?.stage)?.when;
+      if ((when !== 'hour' && when !== 'day') || effect.parameters?.save) continue;
+      const row = await creature(q, campaignId, effect.character_id);
+      for (let tick = 0; tick < (when === 'hour' ? hours : days); tick += 1) {
+        const fresh = (await q.query('SELECT id, effect_code, parameters FROM character_effects WHERE id=$1 AND active', [effect.id])).rows[0] as typeof effect | undefined;
+        const save = fresh ? repeatSaveOf(rule, fresh.parameters?.stage) : null;
+        if (!fresh || save?.when !== when) break;
+        notices.push(...await ruledSave(q, campaignId, userId, row, effect.character_id, fresh, save, rule));
+      }
+    }
+    return notices;
   }
 
   async function startOfTurn(q: Queryable, campaignId: string, userId: string, characterId: string, entryId: string | null = null): Promise<Notice[]> {
     await q.query(`UPDATE character_effects SET active=false WHERE campaign_id=$1 AND character_id=$2 AND effect_code='shield_spell' AND active`, [campaignId, characterId]);
-    const notices = [...await expireAt(q, campaignId, characterId, 'start'), ...await turnBoundary(q, campaignId, userId, characterId, 'start')];
+    const notices = [
+      ...await expireAt(q, campaignId, characterId, 'start'), ...await turnBoundary(q, campaignId, userId, characterId, 'start'),
+      ...await ruledSaves(q, campaignId, userId, characterId, 'turn-start'),
+    ];
     await q.query(
       `UPDATE characters c SET hp_temp = GREATEST(c.hp_temp, (e.parameters->>'temp')::int), revision = c.revision + 1
        FROM character_effects e
@@ -274,10 +443,12 @@ export function createConditionEngine(ctx: ConditionContext) {
         notices.push({ title: `${champion.name}: «Выживший»`, detail: `+${amount} хит. в начале хода (хитов было не больше половины).`, characterId });
       }
     }
-    const row = await creature(q, campaignId, characterId);
-    const state = await loadConditionState(q, campaignId, characterId);
-    if (row.kind === 'character' && row.hp_current === 0 && state.codes.has('unconscious') && !state.codes.has('stable') && !state.codes.has('dead')) {
-      notices.push((await deathSave(q, campaignId, userId, characterId, true, false, false, entryId)).notice);
+    if (await dyingWithoutSave(q, campaignId, characterId)) {
+      if (await rollsForItself(q, campaignId, characterId)) notices.push((await deathSave(q, campaignId, userId, characterId, true, false, false, entryId)).notice);
+      else {
+        const name = (await creature(q, campaignId, characterId)).name;
+        notices.push({ title: `${name}: спасбросок от смерти`, detail: 'Бросьте сами — кнопка «Не умереть» на панели. Передадите ход без броска — приложение бросит за вас.', characterId });
+      }
     }
     return notices;
   }
@@ -299,7 +470,7 @@ export function createConditionEngine(ctx: ConditionContext) {
 
     for (const effect of await loadEffects(q, campaignId, characterId)) {
       const parameters = effect.parameters ?? {};
-      const label = conditionLabel(effect.effect_code);
+      const label = await conditionName(q, campaignId, effect.effect_code);
 
       if (parameters.repeatSave === moment && parameters.save && ABILITIES.includes(parameters.save.ability)) {
         const { ability, dc } = parameters.save;
@@ -329,6 +500,7 @@ export function createConditionEngine(ctx: ConditionContext) {
           else {
             await q.query('DELETE FROM character_effects WHERE id=$1', [effect.id]);
             notices.push({ title: `${row.name}: «${label}» закончилось`, detail: 'Длительность вышла.', characterId });
+            if (effect.effect_code === 'spell_cast') await spellsEnded(q, campaignId, [{ character_id: characterId, parameters }]);
           }
         } else {
           const next = { ...parameters, remainingRounds: remaining, ...(effect.effect_code === 'raging' ? { kept: false } : {}) };
@@ -339,7 +511,7 @@ export function createConditionEngine(ctx: ConditionContext) {
     return notices;
   }
 
-  return { afterHpChange, deathSave, endOfTurn, startOfTurn };
+  return { afterHpChange, deathSave, endOfTurn, startOfTurn, dyingWithoutSave, ruledSaves, timePassed };
 }
 
 export type ConditionEngine = ReturnType<typeof createConditionEngine>;

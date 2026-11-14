@@ -1,5 +1,5 @@
 import { computed, ref, watch } from 'vue';
-import { gameSkin } from './uiMode';
+import { gameSkin, type GameSkin } from './uiMode';
 import { tr } from '../i18n/i18n';
 
 export type BodyFont = 'book' | 'clear' | 'wide' | 'serif';
@@ -87,11 +87,15 @@ function register(family: string, faces: Faces, sizeAdjust: string) {
   }
 }
 
+const THEME_FONTS: Partial<Record<GameSkin, BodyFont>> = {
+  crystal: 'clear', neon: 'clear', astral: 'serif', crimson: 'serif', abyss: 'serif', spectral: 'serif', gems: 'serif', opal: 'serif',
+};
+
 export function applyTextSettings() {
   if (typeof document === 'undefined' || !('fonts' in document)) return;
   for (const face of added) document.fonts.delete(face);
   added = [];
-  const themeFont: BodyFont = gameSkin.value === 'crystal' ? 'clear' : gameSkin.value === 'astral' || gameSkin.value === 'crimson' ? 'serif' : 'book';
+  const themeFont: BodyFont = THEME_FONTS[gameSkin.value] ?? 'book';
   const effectiveFont = bodyFont.value === 'book' ? themeFont : bodyFont.value;
   const font = BODY_FONTS.find(entry => entry.id === effectiveFont) ?? BODY_FONTS[0]!;
   const sizeAdjust = `${textSize.value}%`;

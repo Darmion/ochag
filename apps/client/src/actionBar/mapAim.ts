@@ -32,12 +32,12 @@ export function useMapAim({ props, popover, working, actionError, weapons, casti
   const armedWeapon = ref<Weapon | null>(null);
   const aimArt = computed(() => {
     if (popover.value === 'attack') return (armedWeapon.value ? itemArt(armedWeapon.value.name) : null) ?? libraryArt('ui/symbols/sword');
-    if (popover.value === 'features') return featureAim.value?.art ?? libraryArt('ui/symbols/target');
+    if (featureAim.value) return featureAim.value.art ?? libraryArt('ui/symbols/target');
     const mechanics = castingEntry.value?.spell?.mechanics;
     return mechanics?.healingFormula && !mechanics.damageFormula ? libraryArt('ui/symbols/heart') : libraryArt('ui/symbols/magic-wand');
   });
-  const aimName = computed(() => popover.value === 'attack' ? armedWeapon.value?.name ?? ''
-    : popover.value === 'features' ? featureAim.value?.label ?? ''
+  const aimName = computed(() => featureAim.value ? featureAim.value.label
+    : popover.value === 'attack' ? armedWeapon.value?.name ?? ''
     : castingEntry.value ? spellName(castingEntry.value) : '');
 
   const featureAim = ref<FeatureAim | null>(null);
@@ -70,7 +70,7 @@ export function useMapAim({ props, popover, working, actionError, weapons, casti
 
   const targetingActive = computed(() => mapAiming.value &&
     ((popover.value === 'attack' && armedWeapon.value !== null) || (popover.value === 'spell' && castingEntry.value !== null)
-      || (popover.value === 'features' && featureAim.value !== null)));
+      || ((popover.value === 'features' || popover.value === 'spell') && featureAim.value !== null)));
 
   const AREA_COLORS: Record<string, string> = {
     fire: '#ff7a3d', cold: '#7fc8ff', lightning: '#c9a7ff', thunder: '#9fb4ff', acid: '#a6e05a', poison: '#7bd36a',
@@ -85,9 +85,12 @@ export function useMapAim({ props, popover, working, actionError, weapons, casti
     if (popover.value === 'attack') {
       return { rangeFeet: armedWeapon.value ? weaponLimit(armedWeapon.value) : null, walls: true, area: null, chosen: [] as string[], self: false, only: null as string[] | null, living: true };
     }
-    if (popover.value === 'features') {
-      const spec = featureAim.value!;
-      return { rangeFeet: spec.rangeFeet, walls: false, area: null, chosen: [] as string[], self: spec.self, only: spec.only ?? null, living: true };
+    if (featureAim.value) {
+      const spec = featureAim.value;
+      return {
+        rangeFeet: spec.rangeFeet, walls: false, area: null, chosen: [] as string[], self: spec.self, only: spec.only ?? null, living: !spec.place,
+        ...(spec.place ? { place: { size: 'medium', count: 1 } } : {}),
+      };
     }
     const entry = castingEntry.value!;
     const area = entry.spell?.area ?? null;
@@ -147,10 +150,19 @@ export function useMapAim({ props, popover, working, actionError, weapons, casti
     const result = await cast(entry, templateId);
     const remove = () => void props.request(`${base}/${templateId}`, 'DELETE').catch(() => undefined);
     if (!result) remove();
-    else if (!result.pending) setTimeout(remove, 1500);
+    // A zone keeps the aimed area as its drawn area until the spell ends; a held cast's area is cleared by the server.
+    else if (!result.pending && !result.areaKept) setTimeout(remove, 1500);
   }
 
   function setMapPlace(point: { x: number; z: number }): boolean {
+    if (targetingActive.value && featureAim.value?.place) {
+      const spec = featureAim.value;
+      if (!working.value && !props.busy) {
+        mapAiming.value = false;
+        void spec.runPlace?.(point);
+      }
+      return true;
+    }
     const entry = castingEntry.value;
     if (targetingActive.value && popover.value === 'spell' && entry?.spell?.teleport) {
       if (!working.value && !props.busy) void cast(entry, '', { place: { x: point.x, z: point.z } });
@@ -180,8 +192,9 @@ export function useMapAim({ props, popover, working, actionError, weapons, casti
 
   function setMapTarget(characterId: string): boolean {
     if (!targetingActive.value) return false;
-    if (popover.value === 'features' && featureAim.value) {
+    if (featureAim.value) {
       const spec = featureAim.value;
+      if (spec.place) return true;
       if (working.value || props.busy) return true;
       const self = props.actor?.characterId === characterId;
       const target = props.targets.find(item => item.characterId === characterId);
@@ -224,7 +237,9 @@ export function useMapAim({ props, popover, working, actionError, weapons, casti
 
   const aimHint = computed(() => {
     if (popover.value === 'attack') return 'Щёлкните по фигуре, предмету, стене или двери, чтобы атаковать.';
-    if (popover.value === 'features') return featureAim.value?.self ? 'Щёлкните по фигуре (или по себе), чтобы применить умение.' : featureAim.value?.only ? 'Щёлкните по одной из отмеченных фигур.' : 'Щёлкните по фигуре, чтобы применить умение.';
+    if (featureAim.value?.hint) return featureAim.value.hint;
+    if (featureAim.value?.place) return 'Щёлкните по клетке на карте.';
+    if (featureAim.value) return featureAim.value.self ? 'Щёлкните по фигуре (или по себе), чтобы применить умение.' : featureAim.value.only ? 'Щёлкните по одной из отмеченных фигур.' : 'Щёлкните по фигуре, чтобы применить умение.';
     const entry = castingEntry.value;
     if (entry?.spell?.summon) return `Щёлкните по клетке рядом — туда встанет ${chosenBeast.value?.name ?? 'зверь'}${aimState.value && 'place' in aimState.value && (aimState.value.place?.count ?? 1) > 1 ? ` ×${aimState.value.place!.count}` : ''}.`;
     if (entry?.spell?.teleport) return `Щёлкните по свободной клетке в ${entry.spell.teleport.rangeFeet} фт., которую видно, — туда перенесётесь.`;

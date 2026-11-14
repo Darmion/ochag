@@ -35,9 +35,10 @@ test('a backup of an older schema is upgraded by the missing migrations and rest
   });
   const keeper = (await call(oldApp, 'POST', '/auth/register', undefined, {username: 'keeper_old', password: 'x'})).json();
   const campaignId = (await call(oldApp, 'POST', '/campaigns', keeper.token, {name: 'Старая кампания'})).json().id as string;
-  const hero = (await call(oldApp, 'POST', `/campaigns/${campaignId}/characters`, keeper.token, {kind: 'character', name: 'Летописец', hpMax: 12, hpCurrent: 12})).json();
+  // The current code may already read columns the previous schema lacks: rows of the old campaign are written directly.
+  const hero = (await old.query<{id: string}>(`INSERT INTO characters (campaign_id, owner_user_id, name, kind, hp_max, hp_current) VALUES ($1,$2,'Летописец','character',12,12) RETURNING id`, [campaignId, keeper.user.id])).rows[0]!;
   const sceneId = (await call(oldApp, 'POST', `/campaigns/${campaignId}/scenes`, keeper.token, {name: 'Старый зал', widthCells: 10, heightCells: 10})).json().id as string;
-  assert.equal((await call(oldApp, 'POST', `/campaigns/${campaignId}/scenes/${sceneId}/objects`, keeper.token, {characterId: hero.id, x: 1.5, z: 1.5})).statusCode, 201);
+  await old.query('INSERT INTO scene_objects (campaign_id, scene_id, character_id, x, z, created_by) VALUES ($1,$2,$3,1.5,1.5,$4)', [campaignId, sceneId, hero.id, keeper.user.id]);
 
   const oldTables = new Set((await old.query<any>(`SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'`)).rows.map(row => row.table_name as string));
   const dumped: Record<string, unknown[]> = {};
@@ -76,8 +77,13 @@ test('a backup of an older schema is upgraded by the missing migrations and rest
   await t.test('a backup from before the factions migration gets the party and the enemies from the migration itself', async () => {
     const older = JSON.parse(JSON.stringify(stored, replacer), reviver);
     for (const table of ['factions', 'faction_members', 'faction_relations']) delete older[table];
-    for (const row of older.characters) delete row.factions_explicit;
+    const later = ['factions_explicit', 'level_steps', 'auto_death_saves', 'quantity', 'item_category', 'item_srd', 'item_wear', 'equipped_slot', 'item_grip', 'infinite', 'item_note', 'doll', 'ac_mode', 'image_open_asset_id', 'turn_events'];
+    for (const row of older.characters) for (const column of later) delete row[column];
+    for (const row of older.character_weapons ?? []) for (const column of ['source_item_id', 'source_auto']) delete row[column];
     for (const row of older.scene_triggers ?? []) delete row.fall_feet;
+    for (const row of older.scene_templates ?? []) delete row.height_feet;
+    for (const row of older.scenes ?? []) for (const column of ['water_cells', 'elevation_cells']) delete row[column];
+    for (const row of older.combat_records ?? []) delete row.scene_name;
     await restore(migrations, older, 93);
     const factions = (await pg.query<any>('SELECT id, system FROM factions WHERE campaign_id=$1 ORDER BY sort', [campaignId])).rows;
     assert.deepEqual(factions.map(row => row.system), ['party', 'enemies']);

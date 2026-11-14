@@ -1,4 +1,5 @@
 import type { Queryable } from '../../../db.ts';
+import { approachBans } from '../../../../../../packages/domain/combat/conditions.ts';
 import { pathBlocked } from '../../../../../../packages/domain/map/blockers.ts';
 import { dragSlows, movesTowardFear } from '../../../../../../packages/domain/combat/grapple-fear.ts';
 import type { Notice } from '../scene-triggers.ts';
@@ -80,27 +81,26 @@ export async function assertNotTowardFear(
   mover: { character_id: string; name: string; size: string; world_x: number; world_z: number }, to: { x: number; z: number },
 ) {
   if (mover.world_x === to.x && mover.world_z === to.z) return;
-  const sources = (
-    await q.query(
-      `SELECT DISTINCT parameters->>'sourceCharacterId' AS source_id FROM character_effects
-         WHERE campaign_id=$1 AND character_id=$2 AND effect_code='frightened' AND active AND parameters->>'sourceCharacterId' IS NOT NULL`,
-      [campaignId, mover.character_id],
-    )
-  ).rows.map(row => row.source_id as string);
-  if (!sources.length) return;
-  if ((await loadConditionState(q, campaignId, mover.character_id)).codes.has('blinded')) return;
+  const state = await loadConditionState(q, campaignId, mover.character_id);
+  const bans = approachBans(state).flatMap(ban => [...(state.sources?.get(ban.code) ?? [])].map(sourceId => ({ ...ban, sourceId })));
+  if (!bans.length) return;
   const placements = await loadPlacements(q, campaignId, scene.id);
   const walls = await sceneWalls(q, campaignId, scene.id, 'sight');
-  for (const sourceId of sources) {
-    const source = placements.find(entry => entry.character_id === sourceId && !entry.parent_object_id);
+  for (const ban of bans) {
+    const source = placements.find(entry => entry.character_id === ban.sourceId && !entry.parent_object_id);
     if (!source) continue;
-    if ((await loadConditionState(q, campaignId, sourceId)).codes.has('invisible')) continue;
-    if (pathBlocked({ x: mover.world_x, z: mover.world_z }, { x: source.world_x, z: source.world_z }, walls)) continue;
+    if (ban.whileSeen) {
+      if (state.codes.has('blinded')) continue;
+      if ((await loadConditionState(q, campaignId, ban.sourceId)).codes.has('invisible')) continue;
+      if (pathBlocked({ x: mover.world_x, z: mover.world_z }, { x: source.world_x, z: source.world_z }, walls)) continue;
+    }
     const self = mover as unknown as Placement;
     const before = feetBetween(scene, self, source);
     const after = feetBetween(scene, { ...self, world_x: to.x, world_z: to.z }, source);
     if (movesTowardFear(before, after)) {
-      reject(400, `${mover.name} в страхе перед «${source.name}» — ближе к нему не подойти, пока его видно (отойти или обойти — можно).`);
+      reject(400, ban.code === 'frightened'
+        ? `${mover.name} в страхе перед «${source.name}» — ближе к нему не подойти, пока его видно (отойти или обойти — можно).`
+        : `${mover.name}: «${ban.name}» — ближе к «${source.name}» не подойти (отойти или обойти — можно).`);
     }
   }
 }

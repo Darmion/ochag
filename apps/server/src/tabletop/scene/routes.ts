@@ -5,6 +5,8 @@ import { registerSceneViewRoute } from './routes/view.ts';
 import { registerSceneUpdateRoute } from './routes/update.ts';
 import { registerCampaignFogRoute } from './routes/fog.ts';
 import { registerSceneTerrainRoute } from './routes/terrain.ts';
+import { registerSceneManageRoutes } from './routes/manage.ts';
+import { registerSceneFileRoutes } from './routes/file.ts';
 
 export function registerSceneRoutes(ctx: TableContext) {
   registerSceneListRoute(ctx);
@@ -13,4 +15,6 @@ export function registerSceneRoutes(ctx: TableContext) {
   registerSceneUpdateRoute(ctx);
   registerCampaignFogRoute(ctx);
   registerSceneTerrainRoute(ctx);
+  registerSceneManageRoutes(ctx);
+  registerSceneFileRoutes(ctx);
 }

@@ -1,8 +1,11 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
 import {
-  SRD_MAGIC_ITEMS, applyBonuses, bonusProblems, bonusText, dawnCount, itemActive, revertBonuses, type SheetNumbers,
+  SRD_MAGIC_ITEMS, applyBonuses, bonusProblems, bonusText, dawnCount, findSrdMagicItem, itemActive, magicUseLabel, revertBonuses, type SheetNumbers,
 } from './magic-items.ts';
+import {magicBaseOptions, magicItemBase, magicItemCategory} from './magic-item-base.ts';
+import {itemSpellId, itemSpellLevels, parseItemSpellId} from './item-spells.ts';
 import {parseFormula} from '../dice/dice.ts';
 
 const sheet = (extra: Partial<SheetNumbers> = {}): SheetNumbers => ({
@@ -74,4 +77,67 @@ test('SRD magic items are consistent', () => {
   const wand = SRD_MAGIC_ITEMS.find(item => item.index === 'wand-of-magic-missiles')!;
   assert.deepEqual(wand.charges, {max: 7, recharge: 'dawn', formula: '1d6+1', destroyOnEmpty: true});
   assert.deepEqual(SRD_MAGIC_ITEMS.find(item => item.index === 'ring-of-protection')!.bonuses, {armorClass: 1, saves: 1});
+});
+
+test('new kinds of item bonuses go on and come off: +N up to 20, immunities, spell attacks and DCs', () => {
+  const belt = applyBonuses(sheet({abilities: {...sheet().abilities, constitution: 19}}), {abilityRaise: {constitution: 2}}, 'hero');
+  assert.deepEqual([belt.sheet.abilities.constitution, belt.applied.abilities.constitution], [20, 1], 'capped at 20');
+  assert.equal(revertBonuses(belt.sheet, belt.applied).abilities.constitution, 19);
+  const periapt = applyBonuses(sheet({immunities: ['fire']}), {immunities: ['poison', 'fire']}, 'hero');
+  assert.deepEqual([periapt.sheet.immunities, periapt.applied.immunities], [['fire', 'poison'], ['poison']]);
+  assert.deepEqual(revertBonuses(periapt.sheet, periapt.applied).immunities, ['fire']);
+  const robe = applyBonuses(sheet(), {spellAttack: 2, spellDc: 2}, 'hero');
+  const wand = applyBonuses(robe.sheet, {spellAttack: 1}, 'hero');
+  assert.deepEqual(wand.sheet.spellBonus, {attack: 3, dc: 2});
+  assert.deepEqual(revertBonuses(wand.sheet, robe.applied).spellBonus, {attack: 1, dc: 0});
+  assert.deepEqual(bonusProblems({resistances: ['nonmagical'], weapon: 3, spellDc: 2}), []);
+  assert.equal(bonusText({weapon: 2, abilityRaise: {dexterity: 2}}), 'Ловкость +2 (до 20), атака и урон +2');
+});
+
+test('the full SRD 5.1 list: every item once, old indexes still found, spells the items cast exist', () => {
+  assert.equal(SRD_MAGIC_ITEMS.length, 341);
+  assert.equal(findSrdMagicItem('armor-plus-1')?.index, 'armor-1');
+  assert.equal(findSrdMagicItem('ring-of-resistance')?.nameRu, 'Кольцо сопротивления огню');
+  assert.equal(findSrdMagicItem('nope'), null);
+  const spells = JSON.parse(readFileSync(new URL('../srd/spells.ru.json', import.meta.url), 'utf8'));
+  for (const item of SRD_MAGIC_ITEMS) {
+    for (const cast of item.castable ?? []) assert.ok(spells[cast.spell], `${item.index}: ${cast.spell}`);
+    for (const spell of item.spells) assert.ok(spells[spell], `${item.index}: ${spell}`);
+    assert.doesNotMatch(item.description, /@/, item.index);
+  }
+  assert.deepEqual(findSrdMagicItem('wand-of-fireballs')?.castable, [{spell: 'fireball', charges: 1, perCharge: true, dc: 15}]);
+  assert.deepEqual(findSrdMagicItem('spell-scroll-3rd')?.use, {kind: 'scroll', level: 3, dc: 15, attack: 7});
+  assert.equal(magicUseLabel('potion-of-healing-common'), 'Выпить');
+  assert.equal(magicUseLabel('restorative-ointment'), 'Нанести');
+  assert.equal(magicUseLabel('ring-of-protection'), null);
+});
+
+test('a magic weapon or armor is made from an ordinary one: «+N» items take its name', () => {
+  const plus = findSrdMagicItem('weapon-1')!;
+  assert.deepEqual(magicItemBase(plus, 'weapon:longsword'), {base: {ref: 'weapon:longsword', name: 'Длинный меч', category: 'weapon', weightLb: 3}, name: 'Длинный меч +1'});
+  assert.equal((magicItemBase(findSrdMagicItem('flame-tongue')!, 'weapon:scimitar') as any).name, 'Язык пламени');
+  assert.ok('problem' in magicItemBase(plus, 'gear:chain-mail'));
+  assert.deepEqual(magicItemBase(plus, null), {base: null, name: 'Оружие +1'});
+  assert.equal((magicItemBase(findSrdMagicItem('animated-shield')!, 'gear:shield') as any).base.category, 'shield');
+  assert.ok('problem' in magicItemBase(findSrdMagicItem('animated-shield')!, 'gear:plate'));
+  assert.deepEqual(magicBaseOptions(findSrdMagicItem('ring-of-protection')!), []);
+});
+
+test('item spells: the id names the item and the spell; charges pay for the level', () => {
+  const id = itemSpellId('0b6c1d2e-3f40-4a51-8b62-7c83d94ea5f6', 'fireball');
+  assert.deepEqual(parseItemSpellId(id), {itemId: '0b6c1d2e-3f40-4a51-8b62-7c83d94ea5f6', spell: 'fireball'});
+  assert.equal(parseItemSpellId('fireball'), null);
+  assert.deepEqual(itemSpellLevels({charges: 1, perCharge: true}, 3, 3), [{level: 3, cost: 1}, {level: 4, cost: 2}, {level: 5, cost: 3}]);
+  assert.deepEqual(itemSpellLevels({charges: 1, perCharge: true, maxLevel: 4}, 1, 10).map(option => option.level), [1, 2, 3, 4], 'staff of healing: up to 4th');
+  assert.deepEqual(itemSpellLevels({charges: 5, level: 5}, 3, 5), [{level: 5, cost: 5}], 'staff of power: the 5th-level fireball');
+  assert.deepEqual(itemSpellLevels({charges: 5}, 5, 4), [], 'not enough charges');
+  assert.deepEqual(itemSpellLevels({charges: 0}, 2, null), [{level: 2, cost: 0}], 'at will');
+});
+
+test('a magic item without a base finds its inventory place by its kind, not by its name', () => {
+  assert.equal(magicItemCategory(findSrdMagicItem('wand-of-magic-missiles')!), 'focus', 'not ammunition for its «стрел»');
+  assert.equal(magicItemCategory(findSrdMagicItem('potion-of-healing-common')!), 'consumable');
+  assert.equal(magicItemCategory(findSrdMagicItem('spell-scroll-3rd')!), 'consumable');
+  assert.equal(magicItemCategory(findSrdMagicItem('ammunition-2')!), 'ammo');
+  assert.equal(magicItemCategory(findSrdMagicItem('ring-of-protection')!), null);
 });

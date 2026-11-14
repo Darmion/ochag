@@ -7,11 +7,12 @@ const FIELD_KEY_SEGMENT = '[A-Za-z0-9_:-]+';
 const allowedRoute = new RegExp(
   '^/(?:' +
     'health|me|mods|importers|' +
+    `adventures(?:/${SEGMENT}/campaign)?|` +
     'auth/(?:login|register|logout)|' +
     'srd/(?:skills|weapons|gear|monsters|heroes|magic-items)|' +
-    `srd/spells(?:/${SEGMENT}/(?:translation|flag|mechanics))?|` +
+    `srd/spells|` +
     `campaigns(?:/${SEGMENT})*/visibility/${FIELD_KEY_SEGMENT}|` +
-    `campaigns(?:/${SEGMENT})*(?:\\?(?:kind=(?:scene_background|object_model|object_image|audio|art_sprite|campaign_avatar|campaign_banner)|viewAs=${SEGMENT}|looterId=${SEGMENT}|sceneId=${SEGMENT}|targetId=${SEGMENT}|fogAs=party|fogOf=${SEGMENT}|mode=drag|classId=[a-z]{3,12}))?|` +
+    `campaigns(?:/${SEGMENT})*(?:\\?(?:kind=(?:scene_background|object_model|object_image|audio|art_sprite|campaign_avatar|campaign_banner)|viewAs=${SEGMENT}|looterId=${SEGMENT}|heroId=${SEGMENT}|sceneId=${SEGMENT}|targetId=${SEGMENT}|fogAs=party|fogOf=${SEGMENT}|mode=drag|classId=[a-z]{3,12}|everywhere=1))?|` +
     `campaigns/${SEGMENT}/rolls/attack-preview\\?characterId=${SEGMENT}&key=${SEGMENT}(?:&targetCharacterId=${SEGMENT})?(?:&sceneId=${SEGMENT})?&advantage=(?:none|adv|disadv)(?:&twoHanded=true)?(?:&power=true)?` +
   ')$',
 );

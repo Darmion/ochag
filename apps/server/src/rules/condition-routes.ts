@@ -1,7 +1,9 @@
 import type { Queryable } from '../db.ts';
+import { campaignConditionRules, conditionName, isCustomCode } from './condition-rules.ts';
 import { objectSchema, reject, uuid } from '../tabletop/scene-feature.ts';
 import { CONDITION_CODES, effectiveSpeed, incapacitatedReason } from '../../../../packages/domain/combat/conditions.ts';
-import { ABILITIES, ABILITY_SHORT, addCondition, conditionImmunity, conditionLabel, incapacitates, loadConditionState, type Notice, releaseGrapples, releaseNotices, removeCondition } from './conditions.ts';
+import { MOD_CODE, SRD_CONDITION_RULES, describeStage, ruleOf, stageIndex } from '../../../../packages/domain/combat/condition-rules.ts';
+import { ABILITIES, ABILITY_SHORT, addCondition, conditionImmunity, incapacitates, loadConditionState, type Notice, releaseGrapples, releaseNotices, removeCondition } from './conditions.ts';
 import type { ConditionContext, ConditionEngine } from './condition-engine.ts';
 
 export function registerConditionRoutes(ctx: ConditionContext & {
@@ -17,7 +19,7 @@ export function registerConditionRoutes(ctx: ConditionContext & {
     for (const notice of notices) void notifyCampaign(campaignId, { type: 'notice', title: notice.title, detail: notice.detail });
   }
 
-  const CODES = [...CONDITION_CODES, 'exhaustion'];
+  const CODES = [...new Set([...CONDITION_CODES, ...SRD_CONDITION_RULES.keys(), 'exhaustion'])];
 
   app.post<{
     Params: { campaignId: string };
@@ -31,6 +33,7 @@ export function registerConditionRoutes(ctx: ConditionContext & {
       sourceCharacterId?: string;
       sourceName?: string;
       hidden?: boolean;
+      stage?: number;
     };
   }>(
     '/campaigns/:campaignId/conditions/apply',
@@ -39,7 +42,7 @@ export function registerConditionRoutes(ctx: ConditionContext & {
         params: objectSchema({ campaignId: uuid }),
         body: objectSchema({
           targetIds: { type: 'array', minItems: 1, maxItems: 30, uniqueItems: true, items: uuid },
-          code: { type: 'string', enum: CODES },
+          code: { type: 'string', pattern: `^(${CODES.join('|')}|custom_[a-z0-9]{6,40}|mod_[a-z0-9_]{2,40})$` },
           level: { type: 'integer', minimum: 1, maximum: 6 },
           save: objectSchema({
             ability: { type: 'string', enum: [...ABILITIES] },
@@ -50,13 +53,14 @@ export function registerConditionRoutes(ctx: ConditionContext & {
           sourceCharacterId: uuid,
           sourceName: { type: 'string', minLength: 1, maxLength: 60 },
           hidden: { type: 'boolean' },
+          stage: { type: 'integer', minimum: 0, maximum: 5 },
         }, ['targetIds', 'code']),
       },
     },
     async request => {
       const userId = await auth(request);
       const { campaignId } = request.params;
-      const { targetIds, code, level, save, durationRounds, repeatSave, sourceCharacterId, sourceName, hidden } = request.body;
+      const { targetIds, code, level, save, durationRounds, repeatSave, sourceCharacterId, sourceName, hidden, stage } = request.body;
       if (repeatSave && !save) reject(400, 'Повторный спасбросок — только вместе со спасброском (характеристика и СЛ).');
       if (code === 'exhaustion' && !level) reject(400, 'Укажите уровень истощения (1–6).');
       const effectCode = code === 'exhaustion' ? `exhaustion_${level}` : code;
@@ -64,6 +68,10 @@ export function registerConditionRoutes(ctx: ConditionContext & {
       const notices: Notice[] = [];
       const results = await db.transaction(async q => {
         const member = await membership(q, campaignId, userId, true);
+        const rules = await campaignConditionRules(q, campaignId);
+        if (isCustomCode(effectCode) && !rules.has(effectCode)) reject(404, 'Такого состояния в кампании нет — его создают на вкладке «Состояния».');
+        if (MOD_CODE.test(effectCode) && !rules.has(effectCode)) reject(404, 'Мод с этим состоянием сейчас не подключён.');
+        const startStage = stage ? stageIndex(ruleOf(rules, effectCode), stage) : 0;
         let source: { id: string; name: string } | null = null;
         if (sourceCharacterId) {
           const row = (await q.query('SELECT id, name, owner_user_id FROM characters WHERE campaign_id=$1 AND id=$2', [campaignId, sourceCharacterId])).rows[0] as any;
@@ -81,7 +89,7 @@ export function registerConditionRoutes(ctx: ConditionContext & {
         }
 
         const list: Array<{ characterId: string; name: string; applied: boolean; total: number | null; autoFail: boolean; immune?: string }> = [];
-        const label = conditionLabel(effectCode);
+        const label = await conditionName(q, campaignId, effectCode);
         const released: Notice[] = [];
         for (const targetId of targetIds) {
           const target = (await q.query('SELECT id, name, kind FROM characters WHERE campaign_id=$1 AND id=$2', [campaignId, targetId])).rows[0];
@@ -115,7 +123,7 @@ export function registerConditionRoutes(ctx: ConditionContext & {
               [campaignId, target.id],
             );
           }
-          if (incapacitates(effectCode)) {
+          if (incapacitates(effectCode, rules, startStage)) {
             released.push(...releaseNotices(target.name, await releaseGrapples(q, campaignId, target.id), `«${label}»`));
           }
           await addCondition(q, campaignId, target.id, effectCode, {
@@ -125,6 +133,7 @@ export function registerConditionRoutes(ctx: ConditionContext & {
             ...(durationRounds ? { remainingRounds: durationRounds, durationRounds } : {}),
             ...(save ? { save } : {}),
             ...(repeatSave ? { repeatSave } : {}),
+            ...(startStage ? { stage: startStage } : {}),
           });
           list.push({ characterId: target.id, name: target.name, applied: true, total, autoFail });
         }
@@ -150,6 +159,41 @@ export function registerConditionRoutes(ctx: ConditionContext & {
     },
   );
 
+  app.put<{ Params: { campaignId: string; characterId: string; effectId: string }; Body: { stage: number } }>(
+    '/campaigns/:campaignId/characters/:characterId/effects/:effectId/stage',
+    {
+      schema: {
+        params: objectSchema({ campaignId: uuid, characterId: uuid, effectId: uuid }),
+        body: objectSchema({ stage: { type: 'integer', minimum: 0, maximum: 5 } }, ['stage']),
+      },
+    },
+    async request => {
+      const userId = await auth(request);
+      const { campaignId, characterId, effectId } = request.params;
+      const notices: Notice[] = [];
+      const result = await db.transaction(async q => {
+        const member = await membership(q, campaignId, userId, true);
+        if (!(await canManage(q, member, userId))) reject(403, 'Стадию болезни или яда меняет мастер.');
+        const effect = (await q.query(
+          `SELECT e.effect_code, c.name FROM character_effects e JOIN characters c ON c.campaign_id=e.campaign_id AND c.id=e.character_id
+           WHERE e.campaign_id=$1 AND e.character_id=$2 AND e.id=$3 AND e.active`,
+          [campaignId, characterId, effectId],
+        )).rows[0] as { effect_code: string; name: string } | undefined;
+        if (!effect) reject(404, 'На существе этого состояния уже нет — обновите окно.');
+        const rules = await campaignConditionRules(q, campaignId);
+        const rule = ruleOf(rules, effect!.effect_code);
+        if (!rule?.stages?.length) reject(400, `У «${rule?.name ?? effect!.effect_code}» нет стадий — их добавляют на вкладке «Состояния».`);
+        const stage = stageIndex(rule, request.body.stage);
+        await q.query(`UPDATE character_effects SET parameters = COALESCE(parameters, '{}'::jsonb) || jsonb_build_object('stage', $2::int) WHERE id=$1`, [effectId, stage]);
+        notices.push({ title: `${effect!.name}: «${rule!.name}» — стадия ${stage + 1}`, detail: describeStage(rule!.stages![stage]!, stage) });
+        if (incapacitates(effect!.effect_code, rules, stage)) notices.push(...releaseNotices(effect!.name, await releaseGrapples(q, campaignId, characterId), `«${rule!.name}»`));
+        return { stage, name: rule!.stages![stage]!.name };
+      });
+      await announce(campaignId, notices, [characterId]);
+      return result;
+    },
+  );
+
   app.post<{ Params: { campaignId: string; characterId: string }; Body: { inspiration?: boolean; sceneId?: string } | undefined }>(
     '/campaigns/:campaignId/characters/:characterId/death-save',
     { schema: { params: objectSchema({ campaignId: uuid, characterId: uuid }) } },
@@ -172,6 +216,57 @@ export function registerConditionRoutes(ctx: ConditionContext & {
       await announce(campaignId, [result.notice], [characterId]);
       if (inspiration) void notifyCampaign(campaignId, { type: 'float', characterId, text: 'вдохновение', tone: 'xp' });
       return { roll: result.roll, result: result.result };
+    },
+  );
+
+  app.put<{ Params: { campaignId: string; characterId: string }; Body: { auto: boolean } }>(
+    '/campaigns/:campaignId/characters/:characterId/death-saves',
+    { schema: { params: objectSchema({ campaignId: uuid, characterId: uuid }), body: objectSchema({ auto: { type: 'boolean' } }) } },
+    async request => {
+      const userId = await auth(request);
+      const { campaignId, characterId } = request.params;
+      const auto = request.body.auto;
+      await db.transaction(async q => {
+        const member = await membership(q, campaignId, userId, true);
+        const owner = (await q.query(`SELECT owner_user_id FROM characters WHERE campaign_id=$1 AND id=$2 AND kind='character' FOR UPDATE`, [campaignId, characterId])).rows[0];
+        if (!owner) reject(404, 'Персонаж игрока не найден.');
+        if (!(await canManageCharacter(q, member, userId, owner.owner_user_id, characterId))) reject(403, 'Это решает владелец персонажа или мастер.');
+        await q.query('UPDATE characters SET auto_death_saves=$3, revision=revision+1 WHERE campaign_id=$1 AND id=$2', [campaignId, characterId, auto]);
+      });
+      void notifyCampaign(campaignId, { type: 'character', characterId });
+      void notifyCampaign(campaignId, { type: 'changed' });
+      return { auto };
+    },
+  );
+
+  app.post<{ Params: { campaignId: string }; Body: { sceneId: string } }>(
+    '/campaigns/:campaignId/death-saves',
+    { schema: { params: objectSchema({ campaignId: uuid }), body: objectSchema({ sceneId: uuid }) } },
+    async request => {
+      const userId = await auth(request);
+      const { campaignId } = request.params;
+      const { sceneId } = request.body;
+      const rolled = await db.transaction(async q => {
+        const member = await membership(q, campaignId, userId, true);
+        if (!(await canManage(q, member, userId))) reject(403, 'Бросить всем умирающим может мастер.');
+        const heroes = (
+          await q.query(
+            `SELECT DISTINCT c.id FROM scene_objects so JOIN characters c ON c.campaign_id=so.campaign_id AND c.id=so.character_id
+             WHERE so.campaign_id=$1 AND so.scene_id=$2 AND c.kind='character' AND c.hp_current=0
+               AND NOT EXISTS (SELECT 1 FROM initiative_entries ie WHERE ie.campaign_id=c.campaign_id AND ie.scene_id=so.scene_id AND ie.character_id=c.id)`,
+            [campaignId, sceneId],
+          )
+        ).rows.map(row => row.id as string);
+        const results: Array<{ characterId: string; notice: Notice }> = [];
+        for (const id of heroes) {
+          if (!(await engine.dyingWithoutSave(q, campaignId, id))) continue;
+          const save = await engine.deathSave(q, campaignId, userId, id, true, false, false, null, sceneId);
+          results.push({ characterId: id, notice: save.notice });
+        }
+        return results;
+      });
+      if (rolled.length) await announce(campaignId, rolled.map(entry => entry.notice), rolled.map(entry => entry.characterId));
+      return { rolled: rolled.length };
     },
   );
 

@@ -9,6 +9,7 @@ import type { createTriggerEngine } from './scene/scene-triggers.ts';
 import type { registerClassFeatureRoutes } from '../rules/class-features.ts';
 import type { Options, Subscription } from './shared.ts';
 import type { CounterWindow } from './spells/counterspell.ts';
+import type { WalkPath } from './scene/movement/paths.ts';
 
 export type TableContext = {
   app: FastifyInstance;
@@ -18,6 +19,7 @@ export type TableContext = {
   presence: Options['presence'];
   subscriptions: Set<Subscription>;
   counterWindows: Map<string, CounterWindow>;
+  walkPaths: Map<string, WalkPath>;
   reactionWindowMs: number;
   feature: SceneFeatureContext;
   conditionEngine: ReturnType<typeof createConditionEngine>;

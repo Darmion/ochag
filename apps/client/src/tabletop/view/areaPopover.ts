@@ -30,6 +30,7 @@ export function useAreaPopover({ props, movingTemplateId, areaPopover, tool, pus
     return {
       id: row.id, label: row.label || `${shape} ${row.size_feet} фут.`, affected: row.affected, createdBy: row.created_by,
       shape: row.shape, sizeFeet: Number(row.size_feet), widthFeet: row.width_feet == null ? null : Number(row.width_feet),
+      heightFeet: row.height_feet == null ? null : Number(row.height_feet),
       direction: Number(row.direction ?? 0), color: row.color, customLabel: row.label ?? '',
     };
   });

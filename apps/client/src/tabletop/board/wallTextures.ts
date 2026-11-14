@@ -6,6 +6,99 @@ export type WallTexturesDeps = {
   scene: Scene;
 };
 
+const ROCK_PALETTE = { dark: [58, 55, 51], light: [148, 141, 130], moss: 0.04 } as const;
+
+function periodicNoise(random: () => number, cells: number) {
+  const values = Array.from({ length: cells * cells }, () => random());
+  const at = (i: number, j: number) => values[(((j % cells) + cells) % cells) * cells + (((i % cells) + cells) % cells)]!;
+  return (u: number, v: number) => {
+    const gx = u * cells, gy = v * cells;
+    const x0 = Math.floor(gx), y0 = Math.floor(gy);
+    const fx = gx - x0, fy = gy - y0;
+    const sx = fx * fx * (3 - 2 * fx), sy = fy * fy * (3 - 2 * fy);
+    const top = at(x0, y0) * (1 - sx) + at(x0 + 1, y0) * sx;
+    const bottom = at(x0, y0 + 1) * (1 - sx) + at(x0 + 1, y0 + 1) * sx;
+    return top * (1 - sy) + bottom * sy;
+  };
+}
+
+// Periodic noise and integer strata keep the tile seamless both ways, so long cliffs show no seams.
+function paintRock(ctx: CanvasRenderingContext2D, size: number, random: () => number) {
+  const palette = ROCK_PALETTE;
+  const octaves = [4, 8, 16, 32, 64].map(cells => periodicNoise(random, cells));
+  const weights = [0.4, 0.25, 0.16, 0.11, 0.08];
+  const fbm = (u: number, v: number) => octaves.reduce((sum, noise, index) => sum + noise(u, v) * weights[index]!, 0);
+  const mossNoise = periodicNoise(random, 6);
+  const bands = 4;
+  const height = new Float32Array(size * size);
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const u = x / size, v = y / size;
+      const warp = fbm(u, v);
+      const strata = 0.5 + 0.5 * Math.sin((v + warp * 0.3) * Math.PI * 2 * bands);
+      height[y * size + x] = warp * 0.72 + strata * 0.28;
+    }
+  }
+  const image = ctx.createImageData(size, size);
+  const at = (x: number, y: number) => height[(((y % size) + size) % size) * size + (((x % size) + size) % size)]!;
+  for (let y = 0; y < size; y += 1) {
+    for (let x = 0; x < size; x += 1) {
+      const h = at(x, y);
+      const relief = Math.max(0, Math.min(1, 0.5 + (h - at(x - 3, y - 3)) * 9));
+      const tone = Math.max(0, Math.min(1, (h - 0.25) * 1.7));
+      const lit = 0.62 + relief * 0.62;
+      let r = (palette.dark[0] + (palette.light[0] - palette.dark[0]) * tone) * lit;
+      let g = (palette.dark[1] + (palette.light[1] - palette.dark[1]) * tone) * lit;
+      let b = (palette.dark[2] + (palette.light[2] - palette.dark[2]) * tone) * lit;
+      const low = y / size;
+      const moss = Math.max(0, (mossNoise(x / size, y / size) - (0.86 - palette.moss - low * 0.06)) * 4) * (relief > 0.45 ? 1 : 0.4);
+      if (moss > 0) {
+        const k = Math.min(0.5, moss);
+        r = r * (1 - k) + 70 * k; g = g * (1 - k) + 96 * k; b = b * (1 - k) + 48 * k;
+      }
+      const grain = (random() - 0.5) * 14;
+      const index = (y * size + x) * 4;
+      image.data[index] = Math.max(0, Math.min(255, r + grain));
+      image.data[index + 1] = Math.max(0, Math.min(255, g + grain));
+      image.data[index + 2] = Math.max(0, Math.min(255, b + grain));
+      image.data[index + 3] = 255;
+    }
+  }
+  ctx.putImageData(image, 0, 0);
+  const crack = (points: Array<[number, number]>, width: number) => {
+    for (const shift of [-size, 0, size]) {
+      for (const [color, offset] of [['rgba(255,255,255,0.10)', 1], ['rgba(0,0,0,0.55)', 0]] as const) {
+        ctx.strokeStyle = color;
+        ctx.lineWidth = width;
+        ctx.beginPath();
+        points.forEach(([px, py], index) => ctx[index ? 'lineTo' : 'moveTo'](px + shift + offset, py + offset));
+        ctx.stroke();
+      }
+    }
+  };
+  for (let index = 0; index < 7; index += 1) {
+    let x = random() * size, y = random() * size;
+    const points: Array<[number, number]> = [[x, y]];
+    const steps = 4 + Math.floor(random() * 5);
+    for (let step = 0; step < steps; step += 1) {
+      x += 14 + random() * 34;
+      y += (random() - 0.5) * 18;
+      points.push([x, y]);
+    }
+    crack(points, 1 + random() * 1.4);
+  }
+  for (let index = 0; index < 4; index += 1) {
+    let x = random() * size, y = random() * size * 0.5;
+    const points: Array<[number, number]> = [[x, y]];
+    for (let step = 0; step < 4; step += 1) {
+      x += (random() - 0.5) * 16;
+      y += 18 + random() * 30;
+      points.push([x, y]);
+    }
+    crack(points, 1 + random());
+  }
+}
+
 export function createWallTextures({ options, scene }: WallTexturesDeps) {
   const wallMaterials = new Map<string, StandardMaterial>();
   function seeded(seed: number) {
@@ -23,7 +116,7 @@ export function createWallTextures({ options, scene }: WallTexturesDeps) {
   }
 
   function paintWallTexture(style: Exclude<WallStyle, 'image' | 'plain'>) {
-    const size = 256;
+    const size = style === 'rock' ? 512 : 256;
     const texture = new DynamicTexture(`wall-texture-${style}`, { width: size, height: size }, scene, true);
     const ctx = texture.getContext() as CanvasRenderingContext2D;
     const random = seeded(style.length * 977 + style.charCodeAt(0));
@@ -100,33 +193,7 @@ export function createWallTextures({ options, scene }: WallTexturesDeps) {
       }
       speckle(300, 0.15);
     } else {
-      ctx.fillStyle = '#4c443d';
-      ctx.fillRect(0, 0, size, size);
-      for (let i = 0; i < 40; i += 1) {
-        ctx.fillStyle = shade('#5d544b', (random() - 0.5) * 0.6);
-        ctx.beginPath();
-        const cx = random() * size, cy = random() * size, r = 18 + random() * 34;
-        for (let k = 0; k < 7; k += 1) {
-          const angle = (k / 7) * Math.PI * 2;
-          const rr = r * (0.6 + random() * 0.5);
-          ctx[k ? 'lineTo' : 'moveTo'](cx + Math.cos(angle) * rr, cy + Math.sin(angle) * rr);
-        }
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.strokeStyle = 'rgba(0,0,0,0.35)';
-      for (let i = 0; i < 10; i += 1) {
-        ctx.beginPath();
-        let x = random() * size, y = random() * size;
-        ctx.moveTo(x, y);
-        for (let k = 0; k < 4; k += 1) {
-          x += (random() - 0.5) * 40;
-          y += random() * 30;
-          ctx.lineTo(x, y);
-        }
-        ctx.stroke();
-      }
-      speckle(800, 0.14);
+      paintRock(ctx, size, random);
     }
 
     texture.update();
@@ -157,6 +224,9 @@ export function createWallTextures({ options, scene }: WallTexturesDeps) {
         mat.diffuseTexture = picture;
         placeholder.dispose();
       }).catch(() => undefined);
+    } else if (key === 'rock') {
+      mat.diffuseTexture = paintWallTexture('rock');
+      mat.specularColor = new Color3(0.03, 0.03, 0.03);
     } else {
       mat.diffuseTexture = paintWallTexture(key as Exclude<WallStyle, 'image' | 'plain'>);
     }

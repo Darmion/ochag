@@ -21,5 +21,7 @@ table td:first-child{font-weight:700;text-transform:capitalize;white-space:norma
 .gear-block-head h4,.effects-block-head h4{margin:0;font:700 17px var(--heading-font)}
 .block-help{margin:-7px 0 12px}
 .level-up-button{margin-top:6px;align-self:flex-start}
+.level-down-button{margin-top:6px;align-self:flex-start;display:inline-flex;align-items:center;gap:5px;min-height:28px;padding:2px 10px;font-size:12px;opacity:.85}
+.level-down-button:hover:not(:disabled){opacity:1}
 .xp-bar{height:8px;border:1px solid var(--brass,#8a6a35);border-radius:4px;background:#0003;overflow:hidden}
 .xp-bar span{display:block;height:100%;background:var(--brass)}

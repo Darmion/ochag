@@ -12,6 +12,7 @@ import { spellModsFor } from '../../spells/rules.ts';
 import { diagonalRule, movementGrid } from './grid.ts';
 import { flightSpeed, classSpeedBonus } from './speed.ts';
 import { dragFactor } from './grapple-fear.ts';
+import { loadSlowdown } from '../../../characters/inventory-state.ts';
 
 export async function movementRules(q: Queryable, campaignId: string, scene: any, characterId: string, speedFeet?: number) {
   const own = (await q.query('SELECT speed_feet::float8 AS speed_feet, size, kind, disposition FROM characters WHERE campaign_id=$1 AND id=$2', [campaignId, characterId])).rows[0];
@@ -26,12 +27,13 @@ export async function movementRules(q: Queryable, campaignId: string, scene: any
     `SELECT effect_code FROM character_effects WHERE campaign_id=$1 AND character_id=$2 AND active AND effect_code IN ('hasted', 'slow_spell', 'stupor', 'lethargic')`, [campaignId, characterId],
   )).rows.map(row => row.effect_code as string));
   const templatedSpeed = speedFrom(await spellModsFor(q, campaignId, characterId), Math.max(0, (flying ?? walk) + classBonus.feet + stride - slow));
-  const plain = templatedSpeed.feet;
+  const loaded = await loadSlowdown(campaignFlag, q, campaignId, characterId, templatedSpeed.feet);
+  const plain = loaded.feet;
   const base = tempo.has('stupor') || tempo.has('lethargic') ? 0 : tempo.has('hasted') && !tempo.has('slow_spell') ? plain * 2 : tempo.has('slow_spell') && !tempo.has('hasted') ? Math.floor(plain / 2) : plain;
   const speed = effectiveSpeed(base, await loadConditionState(q, campaignId, characterId));
   if (slow > 0) speed.reasons.push(slow >= 1000 ? 'скорость 0: «Часовой»' : `скорость −${slow} фт.: замедлен`);
   if (stride) speed.reasons.push('скорость +10 фт.: «Скороход»');
-  speed.reasons.push(...templatedSpeed.reasons);
+  speed.reasons.push(...templatedSpeed.reasons, ...loaded.reasons);
   if (tempo.has('stupor')) speed.reasons.push('скорость 0: «Гипнотический узор»');
   else if (tempo.has('lethargic')) speed.reasons.push('скорость 0: вялость после «Ускорения»');
   else if (tempo.has('hasted') && !tempo.has('slow_spell')) speed.reasons.push('скорость вдвое: «Ускорение»');

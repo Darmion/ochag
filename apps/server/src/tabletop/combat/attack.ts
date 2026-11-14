@@ -6,10 +6,9 @@ import { rangeBand, type WeaponRanges, type Cover, COVER_AC } from '../../../../
 import { placementFactions, placementsAllied, placementsHostile } from '../../campaign/factions.ts';
 import { rollMods } from '../../../../../packages/domain/spells/spell-mods.ts';
 import { loadConditionState } from '../../rules/conditions.ts';
-import { conditionState, attackOutcome, incapacitatedReason } from '../../../../../packages/domain/combat/conditions.ts';
+import { type ConditionState, withoutCodes, attackOutcome, incapacitatedReason } from '../../../../../packages/domain/combat/conditions.ts';
 import { abilityModifier } from '../../../../../packages/domain/dice/dice.ts';
 
-import { averageDamage } from '../auto-turn/planner.ts';
 import { hasClassFeature, protectedFromEvil } from './auras.ts';
 import { wallCover } from './cover.ts';
 import { sceneSight, type SceneSight, seesCreature } from './sight.ts';
@@ -94,7 +93,7 @@ export async function foeSlayerBonus(q: Queryable, campaignId: string, attacker:
   return Math.max(0, abilityModifier(Number(row.wisdom ?? 10)));
 }
 
-export async function attackMarks<S extends ReturnType<typeof conditionState>>(
+export async function attackMarks<S extends ConditionState>(
   q: Queryable, campaignId: string, attackerId: string, targetId: string, target: S | null,
 ) {
   const effects = (
@@ -119,7 +118,7 @@ export async function attackMarks<S extends ReturnType<typeof conditionState>>(
       spent.push(effect.id);
     } else if (effect.effect_code === 'outlined') {
       advantages.push('цель очерчена светом');
-      if (state?.codes.has('invisible')) state = { ...conditionState([...state.codes].filter(code => code !== 'invisible')), exhaustion: state.exhaustion } as S;
+      if (state?.codes.has('invisible')) state = withoutCodes(state, ['invisible']) as S;
     } else if (effect.effect_code === 'mocked') {
       disadvantages.push('осмеян');
       spent.push(effect.id);
@@ -155,10 +154,17 @@ export async function weaponEnchantment(q: Queryable, campaignId: string, charac
     [campaignId, characterId, weaponId],
   )).rows as Array<{ effect_code: string; parameters: any }>;
   const club = rows.find(row => row.effect_code === 'shillelagh');
+  // A magic weapon from the inventory adds its own bonus while it works for this character.
+  const item = (await q.query(
+    `SELECT (m.bonuses->>'weapon')::int AS bonus FROM character_weapons w
+     JOIN magic_items m ON m.campaign_id = w.campaign_id AND m.character_id = w.source_item_id
+     WHERE w.campaign_id=$1 AND w.id=$2 AND m.applied->>'characterId' = $3::text AND NOT m.destroyed`,
+    [campaignId, weaponId, characterId],
+  )).rows[0] as { bonus: number | null } | undefined;
   return {
     shillelagh: club && club.parameters?.ability !== null ? String(club.parameters?.ability ?? 'wisdom') : null,
     die: club ? Number(club.parameters?.die ?? 8) || null : null,
-    bonus: Math.max(0, ...rows.filter(row => row.effect_code === 'magic_weapon').map(row => Number(row.parameters?.bonus ?? 1))),
+    bonus: Math.max(0, Number(item?.bonus ?? 0) || 0, ...rows.filter(row => row.effect_code === 'magic_weapon').map(row => Number(row.parameters?.bonus ?? 1))),
   };
 }
 
@@ -167,22 +173,6 @@ export function weaponDamageText(text: string, check: { ability: string; enchant
   if (check.enchant.die) formula = formula.replace(/(\d*)d\d+/, `$1d${check.enchant.die}`);
   if (check.enchant.bonus) formula = `${formula}+${check.enchant.bonus}`;
   return formula;
-}
-
-export async function enchantedWeapon(q: Queryable, campaignId: string, characterId: string, index: string, spellName: string) {
-  const weapons = (await q.query(
-    `SELECT id, name, srd_index, damage_formula, COALESCE(attack_bonus, 0) AS attack_bonus FROM character_weapons WHERE campaign_id=$1 AND character_id=$2`,
-    [campaignId, characterId],
-  )).rows as Array<{ id: string; name: string; srd_index: string | null; damage_formula: string | null; attack_bonus: number }>;
-  if (index === 'shillelagh') {
-    const club = weapons.find(weapon => weapon.srd_index === 'club' || weapon.srd_index === 'quarterstaff' || /дубин|посох|club|quarterstaff/i.test(weapon.name));
-    if (!club) reject(400, `«${spellName}»: нужна дубинка или боевой посох в оружии.`);
-    return club!;
-  }
-  const plain = weapons.filter(weapon => Number(weapon.attack_bonus) === 0 && weapon.name !== 'Безоружный удар')
-    .sort((a, b) => averageDamage(b.damage_formula) - averageDamage(a.damage_formula))[0];
-  if (!plain) reject(400, `«${spellName}»: у цели нет немагического оружия.`);
-  return plain!;
 }
 
 export async function mirrorStrike(q: Queryable, campaignId: string, targetId: string, attackerId: string, kept: number, total: number, critAt: number) {
@@ -220,7 +210,7 @@ export function weaponRanges(weapon: any): WeaponRanges {
 }
 
 export async function allyNearTarget(q: Queryable, campaignId: string, sceneId: string, attackerId: string, targetId: string) {
-  const scene = (await q.query('SELECT id, width_cells, height_cells, feet_per_unit FROM scenes WHERE campaign_id=$1 AND id=$2', [campaignId, sceneId])).rows[0];
+  const scene = (await q.query('SELECT id, width_cells, height_cells, feet_per_unit, elevation_cells FROM scenes WHERE campaign_id=$1 AND id=$2', [campaignId, sceneId])).rows[0];
   if (!scene) return false;
   const placements = await loadPlacements(q, campaignId, sceneId);
   const pick = (id: string) => placements.find(entry => entry.character_id === id && !entry.parent_object_id);
@@ -264,7 +254,7 @@ export async function attackSituation(
   q: Queryable, campaignId: string, sceneId: string, attackerId: string, targetId: string,
   mode: { kind: 'weapon'; name: string; ranges: WeaponRanges; ignoreRange?: boolean } | { kind: 'spell'; name: string; ranged: boolean; rangeFeet: number | null; rangeOnly?: boolean },
 ) {
-  const scene = (await q.query('SELECT id, width_cells, height_cells, feet_per_unit FROM scenes WHERE campaign_id=$1 AND id=$2', [campaignId, sceneId])).rows[0] as any;
+  const scene = (await q.query('SELECT id, width_cells, height_cells, feet_per_unit, elevation_cells FROM scenes WHERE campaign_id=$1 AND id=$2', [campaignId, sceneId])).rows[0] as any;
   if (!scene) return null;
   const placements = await loadPlacements(q, campaignId, sceneId);
   const pick = (id: string) => placements.find(entry => entry.character_id === id && !entry.parent_object_id) ?? placements.find(entry => entry.character_id === id);

@@ -1,4 +1,4 @@
-const { ipcMain, net } = require('electron');
+const { ipcMain, net } = require('../bridge/runtime.cjs');
 const { allowedRoute } = require('./api-routes.cjs');
 const { networkFailure } = require('./connection.cjs');
 const { senderKind } = require('./senders.cjs');

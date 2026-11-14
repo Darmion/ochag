@@ -1,3 +1,5 @@
+import { reactive } from 'vue';
+
 export const RULE_KINDS = ['flag', 'number', 'formula', 'text'] as const;
 export type RuleKind = typeof RULE_KINDS[number];
 
@@ -17,7 +19,10 @@ export const RULE_KIND_HINTS: Record<RuleKind, string> = {
 
 export const KEY_HINT = 'Служебное имя: латинские буквы, цифры и «_», первая — буква (например, flanking). После создания не меняется.';
 
-export const KNOWN_FLAGS: Array<{ key: string; label: string; description: string; enabled: boolean }> = [
+export type KnownFlag = { key: string; label: string; description: string; enabled: boolean; modName?: string; topic?: string | null };
+export type KnownChoice = { key: string; label: string; description: string; options: Array<{ value: string; label: string }>; default: string; modName?: string };
+
+export const KNOWN_FLAGS: KnownFlag[] = [
   { key: 'auto_damage', label: 'Урон оружием сам', description: 'Попадание оружием по цели само бросает и применяет урон.', enabled: true },
   { key: 'crit_doubles_dice', label: 'Крит удваивает кости', description: 'При критическом попадании кости урона бросаются дважды.', enabled: true },
   { key: 'movement_limit', label: 'Скорость за ход', description: 'В бою двигаться можно только в свой ход и не дальше скорости.', enabled: true },
@@ -38,10 +43,13 @@ export const KNOWN_FLAGS: Array<{ key: string; label: string; description: strin
   { key: 'flanking', label: 'Фланкирование', description: 'Атакующий и союзник вплотную к цели с разных её сторон — рукопашной атаке преимущество (дополнительное правило).', enabled: false },
   { key: 'auto_legendary', label: 'Легендарные действия сами', description: 'В конце хода героя босс сам тратит лучшее легендарное действие-атаку по тому, до кого достаёт (бьёт закончившего ход, если может). «Перемещение» и прочее — мастером.', enabled: true },
   { key: 'npc_opportunity', label: 'НПС бьют при уходе сами', description: 'Герой уходит из досягаемости НПС без «Отхода» — НПС сам бьёт реакцией лучшим рукопашным оружием, без кнопки мастера. Персонажам игроков — вопрос, как раньше.', enabled: true },
+  { key: 'encumbrance', label: 'Вес снаряжения', description: 'В листе считается вес вещей и монет (50 монет — фунт) и видно, насколько герой нагружен: до 5×Силы — легко, до 10× — нагрузка, до 15× — тяжёлая, больше — перегрузка (правило Очага по мотивам дополнительного правила о нагрузке).', enabled: false },
+  { key: 'encumbrance_speed', label: 'Вес снижает скорость', description: 'Действует вместе с «Весом снаряжения»: нагрузка — скорость −10 фт., тяжёлая — −20 фт., перегрузка — не больше 5 фт. (правило Очага). Помехи от тяжёлой нагрузки не применяются.', enabled: false },
+  { key: 'ammo_use', label: 'Расход боеприпасов', description: 'Атака луком, арбалетом, пращой или духовой трубкой тратит одну стрелу, болт, снаряд или иглу из снаряжения героя игрока; без них не выстрелить. «Бесконечные» (отмечает мастер) не тратятся.', enabled: false },
   { key: 'spell_effects', label: 'Эффекты заклинаний по тексту', description: 'Лучи, стрелы и заряды — каждый своей цели; замедление, «без реакций», «не лечится», подсветка, насмешка, «Благословение» и «Порча», «Метка охотника», «Огонь фей», отбрасывание, запас хитов «Усыпления» — из текста SRD.', enabled: true },
 ];
 
-export const KNOWN_CHOICES: Array<{ key: string; label: string; description: string; options: Array<{ value: string; label: string }>; default: string }> = [
+export const KNOWN_CHOICES: KnownChoice[] = [
   {
     key: 'pact_slots',
     label: 'Ячейки договора при мультиклассе',
@@ -105,8 +113,27 @@ export const KNOWN_CHOICES: Array<{ key: string; label: string; description: str
   },
 ];
 
+// Rules that mechanics mods bring, from the server: they sit next to the app's own; the app's own keep their keys.
+type ModRuleView = { key: string; label: string; description: string; kind: 'flag' | 'choice'; default: boolean | string; options: Array<{ value: string; label: string }>; modName: string; topic?: string | null };
+const modCatalog = reactive<{ flags: KnownFlag[]; choices: KnownChoice[] }>({ flags: [], choices: [] });
+
+export function setModRules(list: ModRuleView[]) {
+  modCatalog.flags = list.filter(rule => rule.kind === 'flag' && !KNOWN_FLAGS.some(flag => flag.key === rule.key))
+    .map(rule => ({ key: rule.key, label: rule.label, description: rule.description, enabled: rule.default === true, modName: rule.modName, topic: rule.topic ?? null }));
+  modCatalog.choices = list.filter(rule => rule.kind === 'choice' && !KNOWN_CHOICES.some(choice => choice.key === rule.key))
+    .map(rule => ({ key: rule.key, label: rule.label, description: rule.description, options: rule.options, default: String(rule.default), modName: rule.modName }));
+}
+
+export function knownFlags(): KnownFlag[] {
+  return [...KNOWN_FLAGS, ...modCatalog.flags];
+}
+
+export function knownChoices(): KnownChoice[] {
+  return [...KNOWN_CHOICES, ...modCatalog.choices];
+}
+
 export function knownChoice(key: string) {
-  return KNOWN_CHOICES.find(choice => choice.key === key) ?? null;
+  return knownChoices().find(choice => choice.key === key) ?? null;
 }
 
 export type CampaignRule = {
@@ -124,7 +151,9 @@ export type CampaignRule = {
 type RequestFn = (path: string, method?: string, body?: unknown) => Promise<any>;
 
 export async function loadRules(request: RequestFn, campaignId: string): Promise<{ canManage: boolean; rules: CampaignRule[] }> {
-  return request(`/campaigns/${campaignId}/rules`);
+  const data = await request(`/campaigns/${campaignId}/rules`);
+  setModRules(Array.isArray(data?.modRules) ? data.modRules : []);
+  return data;
 }
 
 export function createRule(

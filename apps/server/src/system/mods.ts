@@ -14,8 +14,19 @@ import { insertRoll, rollDie } from '../tabletop/rolls/dice.ts';
 import { applyHpChange } from '../tabletop/combat/hp.ts';
 import { objectSchema, reject, uuid } from '../tabletop/shared.ts';
 import { IMPORTERS, type SheetImporter } from '../characters/import/importers.ts';
+import { SRD_CONDITION_RULES, defineModRule, modOfRule, normalizeModRule } from '../../../../packages/domain/combat/condition-rules.ts';
+import { defineModCampaignRule, modCampaignRule, modRuleValue, normalizeModCampaignRule } from '../campaign/mod-rules.ts';
+import type { Queryable } from '../db.ts';
+import { normalizeModFeat, normalizeModRace, normalizeModSubrace } from '../../../../packages/domain/character/mod-heroes.ts';
+import { defineModRace, defineModSubrace, modRaceOf } from '../../../../packages/domain/character/races.ts';
+import { defineModFeat, featCatalog } from '../../../../packages/domain/character/feats.ts';
+import { SRD_RACES } from '../../../../packages/domain/srd/heroes.ts';
+import { srdSpellList } from '../rules/srd-spells.ts';
+import { normalizeModMonster } from '../../../../packages/domain/world/mod-monsters.ts';
+import { challengeText, defineModMonster, findMonster } from '../../../../packages/domain/world/bestiary.ts';
+import { normalizeModForm, registerModFormRoutes, type ModForm } from './mod-forms.ts';
 
-export type ModKind = 'mechanics' | 'visual' | 'art';
+export type ModKind = 'mechanics' | 'visual' | 'art' | 'spells' | 'adventure';
 export type ModStatus = {
   id: string;
   name: string;
@@ -60,22 +71,44 @@ export type ModApi = {
   importers: {
     define: (importer: Pick<SheetImporter, 'id' | 'name' | 'parse'> & Partial<SheetImporter>) => void;
   };
+  conditions: {
+    define: (rule: Record<string, unknown>) => void;
+  };
+  rules: {
+    define: (rule: Record<string, unknown>) => void;
+    value: (q: Queryable, campaignId: string, key: string) => Promise<boolean | string | null>;
+  };
+  races: {
+    define: (race: Record<string, unknown>) => void;
+    subrace: (raceId: string, subrace: Record<string, unknown>) => void;
+  };
+  feats: {
+    define: (feat: Record<string, unknown>) => void;
+  };
+  bestiary: {
+    define: (monster: Record<string, unknown>) => void;
+  };
+  ui: {
+    form: (form: Record<string, unknown>) => void;
+  };
   routes: (register: (ctx: TableContext, kit: ModKit) => void) => void;
 };
 
 export type LoadedMods = {
   list: ModStatus[];
   routes: Array<{ status: ModStatus; register: (ctx: TableContext, kit: ModKit) => void }>;
+  forms?: ModForm[];
+  dirs?: { user: string | null; bundled: string | null };
 };
 
 const ID = /^[a-z0-9][a-z0-9-]{1,63}$/;
 const MANIFEST_LIMIT = 64 * 1024;
 
-function text(value: unknown, fallback = '') {
+export function text(value: unknown, fallback = '') {
   return typeof value === 'string' ? value.trim().slice(0, 500) : fallback;
 }
 
-function translations(raw: unknown): ModStatus['translations'] {
+export function translations(raw: unknown): ModStatus['translations'] {
   const out: ModStatus['translations'] = {};
   if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return out;
   for (const [code, value] of Object.entries(raw).slice(0, 20)) {
@@ -92,7 +125,7 @@ function translations(raw: unknown): ModStatus['translations'] {
 
 export type ModSources = { bundledDir?: string | null; enabled?: string[] };
 
-async function modFolders(dir: string | null | undefined, bundled: boolean) {
+export async function modFolders(dir: string | null | undefined, bundled: boolean) {
   if (!dir) return [];
   try {
     return (await readdir(dir, { withFileTypes: true })).filter(entry => entry.isDirectory()).map(entry => ({ folderName: entry.name, folder: path.join(dir, entry.name), bundled })).sort((a, b) => a.folderName.localeCompare(b.folderName));
@@ -102,7 +135,7 @@ async function modFolders(dir: string | null | undefined, bundled: boolean) {
 }
 
 export async function loadMods(dir: string | null | undefined, log: (message: string) => void = () => {}, sources: ModSources = {}): Promise<LoadedMods> {
-  const loaded: LoadedMods = { list: [], routes: [] };
+  const loaded: LoadedMods = { list: [], routes: [], forms: [], dirs: { user: dir ?? null, bundled: sources.bundledDir ?? null } };
   const folders = [...await modFolders(sources.bundledDir, true), ...await modFolders(dir, false)];
   const enabled = new Set(sources.enabled ?? []);
   const seen = new Set<string>();
@@ -123,7 +156,7 @@ export async function loadMods(dir: string | null | undefined, log: (message: st
     status.id = text(manifest?.id, folderName);
     status.name = text(manifest?.name, status.id);
     status.version = text(manifest?.version, '0.0.0');
-    status.kind = manifest?.kind === 'visual' || manifest?.kind === 'art' ? manifest.kind : 'mechanics';
+    status.kind = ['visual', 'art', 'spells', 'adventure'].includes(manifest?.kind) ? manifest.kind : 'mechanics';
     status.description = text(manifest?.description);
     status.author = text(manifest?.author);
     status.translations = translations(manifest?.translations);
@@ -137,6 +170,7 @@ export async function loadMods(dir: string | null | undefined, log: (message: st
     if (path.relative(folder, entry).startsWith('..') || path.isAbsolute(path.relative(folder, entry))) { status.error = 'entry — файл внутри папки мода'; loaded.list.push(status); continue; }
     const staged: Array<() => void> = [];
     const routes: Array<(ctx: TableContext, kit: ModKit) => void> = [];
+    const stagedRaces = new Map<string, string>();
     const note = (key: string, what: string) => {
       const before = ownerOf.get(key);
       status.changes.push(before && before !== status.id ? `${what} (заменяет мод «${before}»)` : what);
@@ -168,7 +202,7 @@ export async function loadMods(dir: string | null | undefined, log: (message: st
       },
       spellEffect: (index, effect) => {
         if (!effect || typeof effect.code !== 'string' || typeof effect.rounds !== 'number') throw new Error(`spellEffect('${index}'): нужны code и rounds`);
-        staged.push(() => { note(`spell:${index}`, `заклинание «${index}»: эффект ${SPELL_EFFECTS[index] ? 'заменён' : 'добавлен'}`); SPELL_EFFECTS[index] = effect; });
+        staged.push(() => { note(`spell:${index}`, `заклинание «${index}»: ${SPELL_EFFECTS[index] ? 'эффект другого мода заменён' : 'эффект заменяет готовый эффект таблицы'}`); SPELL_EFFECTS[index] = effect; });
       },
       importers: {
         define: importer => {
@@ -181,6 +215,82 @@ export async function loadMods(dir: string | null | undefined, log: (message: st
             translations: translations(importer.translations), parse: importer.parse,
           };
           staged.push(() => { note(`importer:${copy.id}`, `импорт листов «${copy.name}»: ${IMPORTERS.has(copy.id) ? 'своя версия' : 'новый'}`); IMPORTERS.set(copy.id, copy); });
+        },
+      },
+      conditions: {
+        define: input => {
+          const rule = normalizeModRule(input);
+          if (typeof rule === 'string') throw new Error(`conditions.define: ${rule}`);
+          staged.push(() => {
+            const before = modOfRule(rule.code);
+            note(`condition:${rule.code}`, `состояние «${rule.name}»: ${SRD_CONDITION_RULES.has(rule.code) && !before ? 'правила SRD заменены' : before ? 'правила заменены' : 'новое'}`);
+            defineModRule(rule, status.name);
+          });
+        },
+      },
+      rules: {
+        define: input => {
+          const rule = normalizeModCampaignRule(input, status.name);
+          if (typeof rule === 'string') throw new Error(`rules.define: ${rule}`);
+          staged.push(() => {
+            note(`rule:${rule.key}`, `правило кампании «${rule.label}»: ${modCampaignRule(rule.key) ? 'своя версия' : 'новое'}`);
+            defineModCampaignRule(rule);
+          });
+        },
+        value: (q, campaignId, key) => modRuleValue(q, campaignId, key),
+      },
+      races: {
+        define: input => {
+          const { race, traits } = withPrefix('races.define', () => normalizeModRace(input, status.name));
+          if (race.racialCantrip && srdSpellList().find(spell => spell.index === race.racialCantrip!.index)?.level !== 0) {
+            throw new Error(`races.define: «${race.nameRu}» — cantrip.index не заговор SRD (light, mage-hand…)`);
+          }
+          stagedRaces.set(race.id, race.nameRu);
+          staged.push(() => {
+            note(`race:${race.id}`, `раса «${race.nameRu}»: ${modRaceOf(race.id) ? 'своя версия' : 'новая'}${race.subraces.length ? `, подрас: ${race.subraces.length}` : ''}`);
+            defineModRace(race, traits);
+          });
+        },
+        subrace: (raceId, input) => {
+          const srd = SRD_RACES.find(race => race.id === raceId && !race.custom);
+          const raceName = srd?.nameRu ?? modRaceOf(raceId)?.nameRu ?? stagedRaces.get(raceId);
+          if (!raceName) throw new Error(`races.subrace: расы «${raceId}» нет — раса SRD (dwarf, elf…) или раса мода, подключённого раньше`);
+          const { subrace, traits } = withPrefix('races.subrace', () => normalizeModSubrace(raceId, input, status.name));
+          staged.push(() => {
+            note(`subrace:${raceId}:${subrace.id}`, `подраса «${subrace.nameRu}» для «${raceName}»`);
+            defineModSubrace(raceId, subrace, traits);
+          });
+        },
+      },
+      feats: {
+        define: input => {
+          const feat = withPrefix('feats.define', () => normalizeModFeat(input, status.name));
+          staged.push(() => {
+            note(`feat:${feat.id}`, `черта «${feat.nameRu}»: ${featCatalog().some(entry => entry.id === feat.id) ? 'своя версия' : 'новая'}`);
+            defineModFeat(feat);
+          });
+        },
+      },
+      bestiary: {
+        define: input => {
+          const monster = withPrefix('bestiary.define', () => normalizeModMonster(input, status.name));
+          const known = new Set(srdSpellList().map(spell => spell.index));
+          const unknown = (monster.spellcasting?.spells ?? []).filter(index => !known.has(index));
+          if (unknown.length) throw new Error(`bestiary.define: «${monster.nameRu}» — заклинаний ${unknown.join(', ')} нет в SRD`);
+          staged.push(() => {
+            note(`monster:${monster.index}`, `существо «${monster.nameRu}» (опасность ${challengeText(monster.cr)}): ${findMonster(monster.index) ? 'своя версия' : 'новое'}`);
+            defineModMonster(monster);
+          });
+        },
+      },
+      ui: {
+        form: input => {
+          const form = withPrefix('ui.form', () => normalizeModForm(input, status.id, status.name));
+          staged.push(() => {
+            note(`form:${form.id}`, `окно «${form.title}» (${form.who === 'gm' ? 'мастеру' : 'всем'})`);
+            const at = loaded.forms!.findIndex(entry => entry.modId === form.modId && entry.id === form.id);
+            if (at >= 0) loaded.forms![at] = form; else loaded.forms!.push(form);
+          });
         },
       },
       routes: register => {
@@ -209,15 +319,23 @@ export async function loadMods(dir: string | null | undefined, log: (message: st
   return loaded;
 }
 
+function withPrefix<T>(prefix: string, make: () => T): T {
+  try {
+    return make();
+  } catch (error) {
+    throw new Error(`${prefix}: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
 export function registerModRoutes(ctx: TableContext, mods: LoadedMods | undefined) {
-  if (!mods) return;
   const kit: ModKit = {
     getScene, loadPlacements, rollDie, insertRoll, reject, uuid, objectSchema,
     notify: withTable(ctx, notify),
     notifyCampaign: withTable(ctx, notifyCampaign),
     applyHpChange: withTable(ctx, applyHpChange),
   };
-  for (const { status, register } of mods.routes) {
+  registerModFormRoutes(ctx, kit, mods?.forms ?? []);
+  for (const { status, register } of mods?.routes ?? []) {
     try {
       register(ctx, kit);
     } catch (error) {

@@ -1,5 +1,4 @@
 import { type MetamagicId, METAMAGIC, overchannelSelfDice } from '../../../../../packages/domain/character/class-features.ts';
-import { spellShape, spellSummon } from '../../../../../packages/domain/spells/summons.ts';
 import { removeCondition, addCondition } from '../../rules/conditions.ts';
 import { rollDice } from '../../../../../packages/domain/dice/dice.ts';
 
@@ -18,11 +17,15 @@ import { castSpellParams, type CastSpellParams, objectSchema, reject, uuid } fro
 import { castAfterCounter, type CounterResult, probeCast, startCounter } from './counterspell.ts';
 import { mistyStep, SPELL_EFFECTS } from './rules.ts';
 import { prepareCast } from './prepare.ts';
-import { castAid, castShape, castSpellEffect, castSummon, castZone, type CastOutcome } from './outcomes.ts';
+import { castAid, castShape, castSpellEffect, castSummon, castZone, srdCastChecks, zoneAroundCaster, type CastOutcome } from './outcomes.ts';
+
 import { castDice } from './cast-dice.ts';
 import { aimCast } from './aim.ts';
 import { castEffects, type CastLog } from './effects.ts';
 import { resolveHealing, resolveHitPointPool, resolveSavingThrow, resolveSpellAttack, resolveSureDamage, rollUntargetedDamage, type CastRun } from './resolve.ts';
+import { castFollowUps, spellRunOf } from './runtime/follow-ups.ts';
+import { storeSpellCast } from './runtime/commands.ts';
+import { raiseWall } from './runtime/walls.ts';
 
 export type CastBody = {
   hidden?: boolean; slotLevel?: number; targetIds?: string[]; templateId?: string; sceneId?: string; pact?: boolean; inspiration?: boolean;
@@ -46,12 +49,17 @@ export async function castWithCounters(ctx: TableContext, userId: string, params
   const probe = body.metamagic === 'subtle' ? null : await probeCast(ctx, userId, params, body);
   if (!probe) return { status: 201, body: await performCast(ctx, userId, params, body) };
   let result: any = null;
+  // Nobody may counter → resume runs inside startCounter and the caster's client gets the result; otherwise it runs later.
+  let held = false;
   const pending = await startCounter(ctx, {
     campaignId: params.campaignId, sceneId: probe.sceneId, userId,
     casterId: params.characterId, casterName: probe.casterName, spellName: probe.spellName, spellLevel: probe.spellLevel,
-    resume: async countered => { result = await castAfterCounter(ctx, userId, params, body, probe.spellName, probe.casterName, countered); },
+    resume: async countered => { result = await castAfterCounter(ctx, userId, params, body, probe.spellName, probe.casterName, countered, held); },
   }, probe.reactors);
-  if (pending) return { status: 202, body: { pending } };
+  if (pending) {
+    held = true;
+    return { status: 202, body: { pending } };
+  }
   return { status: 201, body: result };
 }
 
@@ -80,11 +88,11 @@ export async function performCast(ctx: TableContext, userId: string, params: Cas
     const {
       character, known, spellName, spellRange, concentration, mechanics, castPlan,
       templateSpell, riders, pool, freeCast,
-      freeLeft, effectiveLevel, metamagicSpent, slot,
+      freeLeft, effectiveLevel, metamagicSpent, slot, itemSpent,
     } = setup;
 
     if (countered) {
-      return { slot, damageRoll: null, healingRoll: null, concentrating: null, targets: [], dc: null, attackBonus: null, mechanics, countered };
+      return { slot, damageRoll: null, healingRoll: null, concentrating: null, targets: [], dc: null, attackBonus: null, mechanics, countered, ...(itemSpent ? { item: itemSpent } : {}) };
     }
     if (body.inspiration) {
       if (!mechanics.attack) reject(400, `Вдохновение тратится на бросок: у «${spellName}» нет броска атаки (спасбросок бросает цель).`);
@@ -103,6 +111,7 @@ export async function performCast(ctx: TableContext, userId: string, params: Cas
     const {
       targets, zoneTemplate, areaBlocked,
     } = aim;
+    if (known.source === 'srd') srdCastChecks(known.srd_index as string, spellName, characterId, targets);
     let damageRoll = null;
     let healingRoll = null;
     const effects = await castEffects(ctx, q, userId, params, body, setup, dice, aim, log);
@@ -113,21 +122,28 @@ export async function performCast(ctx: TableContext, userId: string, params: Cas
 
     let hurlAfter: { rollId: string; targetName: string; left: number } | null = null;
     const run: CastRun = { ctx, q, userId, params, body, setup, dice, aim, effects, log, guarded, misses, inspirationSpent };
-    if (targets.length && mechanics.attack) ({ damageRoll, hurlAfter } = await resolveSpellAttack(run));
+    // A zone's own action strikes on entering or at a turn, never at the cast.
+    const zoneOnly = Boolean(castPlan?.followUps.zone);
+    if (zoneOnly) castPlan!.messages.splice(0);
+    if (zoneOnly) damageRoll = null;
+    else if (targets.length && mechanics.attack) ({ damageRoll, hurlAfter } = await resolveSpellAttack(run));
     else if (pool && targets.length) ({ damageRoll, hurlAfter } = await resolveHitPointPool(run));
     else if (targets.length && mechanics.save) ({ damageRoll, hurlAfter } = await resolveSavingThrow(run));
     else if (targets.length && resolvedDamage) ({ damageRoll, hurlAfter } = await resolveSureDamage(run));
     else if (resolvedDamage) ({ damageRoll, hurlAfter } = await rollUntargetedDamage(run));
 
-    if (resolvedHealing) healingRoll = (await resolveHealing(run)).healingRoll;
+    if (resolvedHealing && !zoneOnly) healingRoll = (await resolveHealing(run)).healingRoll;
 
-    if (targets.length && !mechanics.attack && !mechanics.save && !resolvedDamage && !resolvedHealing && mechanics.condition) {
+    if (!zoneOnly && targets.length && !mechanics.attack && !mechanics.save && !resolvedDamage && !resolvedHealing && mechanics.condition) {
       for (const target of targets) results.push({ characterId: target.id, name: target.name, condition: await putCondition(target.id) });
     }
-    const riderTargets = targets.length ? targets
-      : /^(self|на себя)/i.test((spellRange ?? '').trim()) || lightRider || darknessRider ? [{ id: characterId, name: character.name as string, kind: 'character', armor_class: 0 }] : [];
-    const templateEffects = Boolean(castPlan && (castPlan.mods.length || castPlan.conditions.length || castPlan.codes.length || castPlan.removals.length || castPlan.weapon));
-    if (riderTargets.length && !mechanics.attack && !mechanics.save && !resolvedDamage && !pool && (riders.length || templateEffects)) {
+    const modEffect = known.source === 'srd' ? SPELL_EFFECTS[known.srd_index as string] : undefined;
+    const templateEffects = !modEffect && Boolean(castPlan && (castPlan.mods.length || castPlan.conditions.length || castPlan.codes.length || castPlan.removals.length || castPlan.weapon));
+    const casterOnly = [{ id: characterId, name: character.name as string, kind: 'character', armor_class: 0 }];
+    const touchOnSelf = templateEffects && setup.spellTemplate?.casting.range === 'touch';
+    const riderTargets = castPlan?.mainWho === 'caster' ? casterOnly : targets.length ? targets
+      : /^(self|на себя)/i.test((spellRange ?? '').trim()) || lightRider || darknessRider || touchOnSelf ? casterOnly : [];
+    if (!zoneOnly && riderTargets.length && !mechanics.attack && !mechanics.save && !resolvedDamage && !pool && (riders.length || templateEffects)) {
       for (const target of riderTargets) {
         const effects = await applyRiders(target);
         if (!effects.length) continue;
@@ -177,29 +193,41 @@ export async function performCast(ctx: TableContext, userId: string, params: Cas
       }
     }
 
-    const outcome: CastOutcome = { userId, campaignId, characterId, sceneId, body, setup, targets, results, held, castingAbility, zoneTemplate, dc };
-    const effect = known.source === 'srd' && !castPlan ? SPELL_EFFECTS[known.srd_index as string] : undefined;
+    const spellRun = castPlan ? spellRunOf(userId, params, body, setup, dice, dc, attackBonus) : null;
+    const followed = spellRun
+      ? await castFollowUps(ctx, q, spellRun, setup, targets.map(target => ({ id: target.id, name: target.name })), results)
+      : null;
+    if (followed) {
+      hpChanges.push(...followed.hpChanges);
+      if (followed.moved) log.pushed = true;
+      castPlan!.manual.push(...followed.manual);
+      castPlan!.messages.push(...followed.messages.map(message => ({ audience: message.audience, text: message.text })));
+      for (const id of followed.changed) {
+        const entry = results.find(item => item.characterId === id);
+        if (entry) entry.condition = true;
+      }
+    }
+
+    const outcome: CastOutcome = { userId, campaignId, characterId, sceneId, body, setup, targets, results, held, castingAbility, zoneTemplate, dc, run: spellRun };
+    const effect = modEffect;
     if (effect) {
       await castSpellEffect(q, outcome, effect);
     }
 
-    const aid = known.source === 'srd' && !castPlan ? known.srd_index as string : '';
-    if (aid === 'spare-the-dying' || aid === 'revivify' || aid === 'raise-dead' || aid === 'greater-restoration') {
-      await castAid(q, outcome, aid);
-    }
+    if (castPlan?.restore) await castAid(q, outcome, castPlan.restore);
 
-    if (aid === 'misty-step' || castPlan?.teleportFeet) {
+    if (castPlan?.teleportFeet) {
       if (!sceneId || !body.place) reject(400, `«${spellName}»: куда шагнуть — щелчок по карте.`);
       const feet = await mistyStep(q, campaignId, sceneId!, characterId, body.place!, spellName, castPlan?.teleportFeet ?? 30);
       results.push({ characterId, name: character.name, notes: [`перенёсся на ${feet} фт.`] });
     }
 
-    const summonRule = known.source === 'srd' && !castPlan ? spellSummon(known.srd_index) : null;
+    const summonRule = castPlan?.summon ?? null;
     if (summonRule) {
       await castSummon(q, outcome, summonRule);
     }
 
-    const shapeRule = known.source === 'srd' && !castPlan ? spellShape(known.srd_index) : null;
+    const shapeRule = castPlan?.shape ?? null;
     if (shapeRule) {
       await castShape(q, outcome, shapeRule);
     }
@@ -236,12 +264,22 @@ export async function performCast(ctx: TableContext, userId: string, params: Cas
       concentrating = { spellName, replaced: previousConcentration };
     }
 
-    if (zoneTemplate && mechanics.createsZone) {
-      await castZone(q, outcome);
+    if (!outcome.zoneTemplate && castPlan?.followUps.zone?.follows && sceneId) {
+      outcome.zoneTemplate = await zoneAroundCaster(q, campaignId, sceneId, characterId, userId, castPlan.followUps.zone, spellName);
+    }
+    const zoneArea = outcome.zoneTemplate;
+    const zoneId = zoneArea && mechanics.createsZone ? await castZone(q, outcome) : null;
+    const wallIds = castPlan?.wall && zoneTemplate && sceneId ? await raiseWall(q, campaignId, await getScene(q, campaignId, sceneId, false), zoneTemplate, castPlan.wall, userId) : [];
+    if (wallIds.length) log.pushed = true;
+    if (spellRun && setup.spellTemplate) {
+      await storeSpellCast(q, spellRun, setup.spellTemplate, {
+        targets: targets.map(target => target.id), zoneIds: zoneId ? [zoneId] : [], templateIds: zoneId && zoneArea ? [zoneArea.id as string] : [], wallIds,
+      });
     }
 
     return {
       slot, damageRoll, healingRoll, concentrating, targets: results, dc, attackBonus, mechanics, ...(inspirationSpent ? { inspiration: true } : {}),
+      ...(itemSpent ? { item: itemSpent } : {}),
       ...(metamagicSpent ? { metamagic: { ...metamagicSpent, ...(dice.empowerRerolled ? { rerolled: dice.empowerRerolled } : {}) } } : {}),
       ...(dice.affinityAdded && affinityBonus ? { affinity: { bonus: affinityBonus, damageType: mechanics.damageType } } : {}),
       ...(dice.affinityAdded && evocationBonus ? { empoweredEvocation: evocationBonus } : {}),
@@ -249,6 +287,7 @@ export async function performCast(ctx: TableContext, userId: string, params: Cas
       ...(adept && damageRoll ? { elementalAdept: { damageType: mechanics.damageType, raised: dice.adeptRaised } } : {}),
       ...(freeCast ? { free: { kind: body.free, label: freeCast.label, ...(freeLeft !== null ? { left: freeLeft } : {}) } } : {}),
       ...(zoneTemplate ? { areaShape: zoneTemplate.shape } : {}),
+      ...(zoneId && zoneArea?.id === templateId ? { areaKept: true } : {}),
       ...(areaBlocked ? { areaBlocked } : {}),
       ...(overchannelUsed ? { overchannel: overchannelUsed } : {}),
       ...(hurlAfter ? { hurl: hurlAfter } : {}),

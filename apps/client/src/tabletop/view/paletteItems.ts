@@ -56,9 +56,9 @@ export function usePaletteItems({ hudHidden, scenes, sceneId, sceneDetail, actio
       ['template', 'Область заклинания', 'burst', 'template'], ['draw', 'Рисовать', 'quill', 'draw'], ['text', 'Подпись на карте', 'letter', 'text'], ['erase', 'Ластик', 'eraser', 'erase'],
     ];
     for (const [id, label, icon, value] of tools) items.push({ id: `tool:${id}`, group: 'Инструменты', label, icon, run: () => { tool.value = value; } });
-    items.push({ id: 'tool:camera', group: 'Инструменты', label: 'Камера: вся доска', icon: 'crosshair', keywords: 'вернуть камеру вписать', hotkey: cameraKeys.value.board, run: () => frameCamera('board') });
+    items.push({ id: 'tool:camera', group: 'Инструменты', label: 'Камера: вся доска', icon: 'cameraFit', keywords: 'вернуть камеру вписать', hotkey: cameraKeys.value.board, run: () => frameCamera('board') });
     items.push({ id: 'tool:camera-top', group: 'Инструменты', label: 'Камера: сверху', icon: 'map', keywords: 'карта вид сверху', run: () => frameCamera('top') });
-    if (combatantObjectIds.value.length) items.push({ id: 'tool:camera-combat', group: 'Инструменты', label: 'Камера: участники боя', icon: 'swords', keywords: 'бой камера', run: () => frameCamera('combat') });
+    if (combatantObjectIds.value.length) items.push({ id: 'tool:camera-combat', group: 'Инструменты', label: 'Камера: участники боя', icon: 'cameraCombat', keywords: 'бой камера', run: () => frameCamera('combat') });
     if (sceneDetail.value?.canManage) items.push({ id: 'tool:grid', group: 'Инструменты', label: 'Сетка сцены для всех: вид, скрыть', icon: 'grid', keywords: 'клетки сетка', run: () => { gridDialogOpen.value = true; } });
     items.push({ id: 'tool:sounds', group: 'Инструменты', label: 'Звук: музыка, разовые звуки, фон места, звуки событий', icon: 'speaker', keywords: 'звук музыка громкость шаги фон плейлист', run: () => openSoundWindow('music') });
     items.push({ id: 'tool:hud', group: 'Инструменты', label: 'Скрыть интерфейс', icon: 'eye', hotkey: 'H', run: () => { hudHidden.value = true; } });

@@ -13,6 +13,10 @@ export function createFog({ widthCells, heightCells, scene }: FogDeps) {
   );
   fogGround.position.y = 0.025;
   fogGround.isPickable = false;
+  // Transparent meshes write no depth and are sorted by their centre's distance, so a ground layer could land after the
+  // fog at some camera angles and shine through it. The ground layers (alphaIndex 0) always go first, the fog next,
+  // and overlays meant to stay on top of it (reach, areas) keep the default and come after.
+  fogGround.alphaIndex = 1;
   const fogTexture = new DynamicTexture(
     'fog-texture', { width: widthCells, height: heightCells }, scene, false,
   );

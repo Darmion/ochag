@@ -1,4 +1,4 @@
-// No Electron dependency: used by backups.cjs and apps/server/test/system/backup-core.test.ts.
+// Does not take bridge/runtime.cjs: used by backups.cjs and apps/server/test/system/backup-core.test.ts.
 const fs = require('node:fs/promises');
 const path = require('node:path');
 

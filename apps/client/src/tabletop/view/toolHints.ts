@@ -5,8 +5,10 @@ import type { BestiaryPlacement } from '../../components/rules/BestiaryModal.vue
 import type { GameIconName } from '../../ui/gameIcons';
 import GameActionBar from '../../components/game/actionBar/GameActionBar.vue';
 import type { WallTool } from './types';
+import type { ScatterPlan } from './scatter';
 
 export type ToolHintsDeps = {
+  scatterPlan: Ref<ScatterPlan | null>;
   placingEncounter: Ref<{ id: string; name: string; members: Array<{ dx: number; dz: number }> } | null>;
   placingBestiary: Ref<BestiaryPlacement | null>;
   actionBar: Ref<InstanceType<typeof GameActionBar> | null>;
@@ -28,8 +30,12 @@ export type ToolHintsDeps = {
   groupMoveActive: ComputedRef<boolean>;
 };
 
-export function useToolHints({ placingEncounter, placingBestiary, actionBar, targetingActive, pendingPinPoint, templateAsTrigger, wallTool, terrainMode, wallFirstPoint, table, movingTemplateId, tool, shareRuler, diagonalRule, pendingTextPoint, editingTextId, movingTextId, sendMeasureClear, groupMoveActive }: ToolHintsDeps) {
+export function useToolHints({ scatterPlan, placingEncounter, placingBestiary, actionBar, targetingActive, pendingPinPoint, templateAsTrigger, wallTool, terrainMode, wallFirstPoint, table, movingTemplateId, tool, shareRuler, diagonalRule, pendingTextPoint, editingTextId, movingTextId, sendMeasureClear, groupMoveActive }: ToolHintsDeps) {
   const toolHint = computed(() => {
+    if (scatterPlan.value) {
+      const names = [...new Set(scatterPlan.value.samples.map(sample => sample.name))].slice(0, 4).join(', ');
+      return `Рассыпать: зажмите и протяните прямоугольник — в него лягут копии (${names}). Esc — отмена.`;
+    }
     if (groupMoveActive.value) return 'Выделено: щёлкните по карте — всё переедет туда, расстановка та же. Стрелки — на клетку, Esc — снять выделение.';
     if (wallTool.value === 'chain') {
       return wallFirstPoint.value
@@ -39,9 +45,12 @@ export function useToolHints({ placingEncounter, placingBestiary, actionBar, tar
     if (wallTool.value === 'room') {
       return wallFirstPoint.value ? 'Комната: щёлкните противоположный угол. Esc — отмена.' : 'Комната: щёлкните первый угол прямоугольника. Esc — выйти.';
     }
+    if (wallTool.value === 'brush') {
+      return 'Кисть стен: зажмите и ведите — линия ляжет на сетку цепочкой стен (белая — что получится, зелёная — замкнётся). Конец у начала — замкнутая пещера. Esc — выйти.';
+    }
     if (wallTool.value === 'pick') return 'Правка стен: щёлкните по стене — вид, картинка, удалить. Esc — выйти.';
     if (terrainMode.value) {
-      return 'Местность: зажмите и протяните — прямоугольник клеток, щелчок — одна клетка. Начали с отмеченной — снимает. Esc — выйти.';
+      return 'Местность: зажмите и протяните — прямоугольник клеток, щелчок — одна клетка. Начали с клетки выбранного вида — снимает его. Esc — выйти.';
     }
     if (movingTemplateId.value) return 'Область: щёлкните по столу, куда её переставить. Esc — отмена.';
     if (tool.value === 'measure') {
@@ -70,14 +79,14 @@ export function useToolHints({ placingEncounter, placingBestiary, actionBar, tar
 
   const toolOptionsMeta = computed<{ label: string; icon: GameIconName; detail: string }>(() => {
     if (wallTool.value === 'opening') return { label: 'Двери и окна', icon: 'door', detail: 'Щелчок по участку стены — дверь, окно или снова стена' };
-    if (wallTool.value) return { label: 'Стены', icon: 'wall', detail: 'Цепочка, комната или правка; вид и картинка' };
-    if (terrainMode.value) return { label: 'Местность', icon: 'terrain', detail: 'Путь через клетки — вдвое дороже' };
+    if (wallTool.value) return { label: 'Стены', icon: 'wall', detail: 'Цепочка, комната, кисть или правка; вид и картинка' };
+    if (terrainMode.value) return { label: 'Местность', icon: 'terrain', detail: 'Труднопроходимая, вода или высота' };
     if (tool.value === 'template' && templateAsTrigger.value) return { label: 'Ловушка', icon: 'trap', detail: 'Область видит только мастер, срабатывает при входе' };
     if (tool.value === 'measure') return { label: 'Линейка', icon: 'ruler', detail: 'Расстояние и видимость измерения' };
     if (tool.value === 'template') return { label: 'Область', icon: 'burst', detail: 'Форма и размер эффекта' };
     if (tool.value === 'text') return { label: 'Подпись', icon: 'letter', detail: 'Текст и его видимость' };
     if (tool.value === 'erase') return { label: 'Ластик', icon: 'eraser', detail: 'Удаление разметки' };
-    return { label: 'Кисть', icon: 'quill', detail: 'Цвет и слой рисунка' };
+    return { label: 'Кисть', icon: 'brush', detail: 'Цвет и слой рисунка' };
   });
 
   watch(tool, next => {

@@ -53,7 +53,9 @@ async function request(path: string, method = 'GET', body?: unknown): Promise<an
   const result = response.status === 204 ? null
     : contentType.includes('application/json') ? await response.json()
       : response.ok && contentType.startsWith('image/') ? await response.blob() : null;
-  if (!response.ok) throw new Error(result?.message ?? `Сервер ответил ошибкой ${response.status}. Попробуйте ещё раз.`);
+  if (!response.ok) {
+    throw Object.assign(new Error(result?.message ?? `Сервер ответил ошибкой ${response.status}. Попробуйте ещё раз.`), { code: result?.error, details: result?.details });
+  }
   return result;
 }
 

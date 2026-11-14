@@ -1,6 +1,7 @@
 import { loadDrawings } from '../scene-drawings.ts';
 import { loadPins } from '../scene-pins.ts';
 import { loadStates, stateView } from '../object-states.ts';
+import { loadHeld } from '../held.ts';
 import { deadCreatures } from '../../combat/loot-routes.ts';
 import { viewerRights, placementRelations, placementFactions } from '../../../campaign/factions.ts';
 import { purgeGoneSummons } from '../../../rules/summons.ts';
@@ -16,7 +17,7 @@ import { characterClassText, classOf } from '../../../../../../packages/domain/c
 import { stealthHiddenIds } from '../../combat/stealth.ts';
 import type { TableContext } from '../../context.ts';
 import { getScene, packCell, unpackCell } from '../board.ts';
-import { flySpeedFrom } from '../movement.ts';
+import { climbSpeedFrom, flySpeedFrom, walkOf } from '../movement.ts';
 import { blockingPlacements, conditionsFor, controls, hitPointsFor, loadPlacements, rightsOf } from '../placements.ts';
 import { computeVisibleIndexSet, illuminationOf, partyVisionOn, visiblePlacementIds, visionSources, wallSeen } from '../vision.ts';
 import { wallForPlayer } from '../walls.ts';
@@ -157,14 +158,14 @@ export function registerSceneViewRoute(ctx: TableContext) {
         const hitPoints = await hitPointsFor(q, campaignId, visiblePlacements, userId, isControlled, placement => viewer.shares(placement.character_id, 'see-hp'));
         const states = await loadStates(q, campaignId, visiblePlacements.map(placement => placement.character_id));
         const conditions = await conditionsFor(q, campaignId, visiblePlacements, userId, isControlled);
-        const inspired = new Set(
-          (
-            await q.query(
-              'SELECT id FROM characters WHERE campaign_id=$1 AND id = ANY($2::uuid[]) AND inspiration',
-              [campaignId, visiblePlacements.map(placement => placement.character_id)],
-            )
-          ).rows.map(row => row.id as string),
-        );
+        const heroFlags = (
+          await q.query(
+            'SELECT id, inspiration, auto_death_saves FROM characters WHERE campaign_id=$1 AND id = ANY($2::uuid[]) AND (inspiration OR NOT auto_death_saves)',
+            [campaignId, visiblePlacements.map(placement => placement.character_id)],
+          )
+        ).rows as Array<{ id: string; inspiration: boolean; auto_death_saves: boolean }>;
+        const inspired = new Set(heroFlags.filter(row => row.inspiration).map(row => row.id));
+        const manualSaves = new Set(heroFlags.filter(row => !row.auto_death_saves).map(row => row.id));
         const npcIds = visiblePlacements.filter(placement => placement.kind === 'npc').map(placement => placement.character_id);
         const fallen = [...(await deadCreatures(q, campaignId, npcIds))];
         const lootCounts = new Map(
@@ -187,17 +188,24 @@ export function registerSceneViewRoute(ctx: TableContext) {
           [campaignId, visiblePlacements.map(placement => placement.character_id)],
         )).rows;
         const flyers = new Set(creatureRows.filter(row => flySpeedFrom(row.sheet_extra) > 0).map(row => row.id as string));
+        const climbers = new Set(creatureRows.filter(row => climbSpeedFrom(row.sheet_extra) > 0).map(row => row.id as string));
         const classes = new Map(creatureRows.map(row => [row.id as string, classOf(characterClassText(row))]));
         const heights = new Map(
           (await q.query(
             `SELECT character_id, MAX(COALESCE((parameters->>'height')::int, 0)) AS height FROM character_effects
-             WHERE campaign_id=$1 AND active AND effect_code IN ('flying', 'dragon_wings') AND character_id = ANY($2::uuid[]) GROUP BY character_id`,
+             WHERE campaign_id=$1 AND active AND effect_code IN ('flying', 'dragon_wings', 'climbing') AND character_id = ANY($2::uuid[]) GROUP BY character_id`,
             [campaignId, visiblePlacements.map(placement => placement.character_id)],
           )).rows.map(row => [row.character_id as string, Number(row.height)]),
         );
+        const held = await loadHeld(q, campaignId, visiblePlacements.filter(placement => placement.kind !== 'object').map(placement => placement.character_id));
+        const walkSeen = (placement: Placement) => {
+          const points = walkOf(ctx, placement);
+          return points && (!visibleIndexSet || points.every(([x, z]) => visibleIndexSet!.has(packCell(scene, x, z)))) ? points : null;
+        };
         const objects = visiblePlacements
           .map(placement => {
             const canEdit = isControlled(placement);
+            const walk = walkSeen(placement);
             const { factions_explicit: _explicit, ...shown } = placement;
             return {
               ...shown,
@@ -207,12 +215,17 @@ export function registerSceneViewRoute(ctx: TableContext) {
               ...(manager && placement.kind !== 'object' ? { factions: placementFactions(placement) } : {}),
               hp: hitPoints.get(placement.id) ?? null,
               ...(flyers.has(placement.character_id) ? { canFly: true } : {}),
+              ...(climbers.has(placement.character_id) ? { canClimb: true } : {}),
               ...(heights.has(placement.character_id) ? { flightHeight: heights.get(placement.character_id) } : {}),
               ...(classes.get(placement.character_id) && (placement.kind === 'character' || canEdit) ? { classId: classes.get(placement.character_id) } : {}),
               state: stateView(states.get(placement.character_id), canEdit),
+              ...(held.get(placement.character_id)?.items.length ? { held: held.get(placement.character_id)!.items } : {}),
+              ...(held.get(placement.character_id)?.light ? { heldLight: held.get(placement.character_id)!.light } : {}),
               conditions: conditions.get(placement.character_id) ?? [],
               loot: lootCounts.get(placement.character_id) ?? 0,
               inspired: inspired.has(placement.character_id),
+              ...(walk ? { walk } : {}),
+              ...(canEdit && manualSaves.has(placement.character_id) ? { manualDeathSaves: true } : {}),
               canEdit,
               canMove: canEdit || placement.shared === true,
               canShare: placement.owner_user_id === userId || manager || rights.characterManager,

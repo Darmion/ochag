@@ -15,9 +15,9 @@ function clientFiles(dir: string): string[] {
 }
 
 test('every external link the client opens is allowed by the desktop shell', () => {
-  const windows = readFileSync(join(root, 'apps/desktop/main/windows.cjs'), 'utf8');
-  const list = /const EXTERNAL_LINKS = new Set\(\[([^\]]+)\]\)/.exec(windows)?.[1] ?? '';
-  const allowed = new Set([...list.matchAll(/'(https:\/\/[^']+)'/g)].map(match => match[1]!));
+  const shell = readFileSync(join(root, 'apps/desktop/src-tauri/src/main.rs'), 'utf8');
+  const list = /const EXTERNAL_LINKS: \[&str; \d+\] = \[([^\]]+)\]/.exec(shell)?.[1] ?? '';
+  const allowed = new Set([...list.matchAll(/"(https:\/\/[^"]+)"/g)].map(match => match[1]!));
   const sources = clientFiles(join(root, 'apps/client/src')).map(file => readFileSync(file, 'utf8'));
   const opened = new Set(sources.flatMap(text => [
     ...[...text.matchAll(/href="(https:\/\/[^"]+)"[^>]*target="_blank"/g)].map(match => match[1]!),
@@ -26,4 +26,5 @@ test('every external link the client opens is allowed by the desktop shell', () 
   assert.ok(opened.has('https://github.com/Darmion/ochag/issues'), [...opened].join(', '));
   assert.ok(opened.has('https://aka.ms/vs/17/release/vc_redist.x64.exe'), [...opened].join(', '));
   assert.deepEqual([...opened].filter(url => !allowed.has(url)), [], 'links the shell would silently refuse to open');
+  assert.deepEqual([...allowed].filter(url => !opened.has(url)), [], 'links nothing in the client opens any more');
 });

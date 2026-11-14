@@ -34,8 +34,8 @@ const partyXp = defineModel<number>('partyXp', { required: true });
       <button type="button" :disabled="working" title="Все хиты, половина костей хитов, ячейки, ресурсы, истощение −1" @click="emit('rest-party', 'long')"><GameIcon class="ui-icon" name="moon" :size="20" />Долгий</button>
     </div>
     <div class="cast-buttons">
-      <button type="button" :disabled="working" title="Привал на час: бой его срывает — польза только по «Завершить»" @click="emit('begin-rest', 'short')"><GameIcon class="ui-icon" name="hourglass" :size="20" />Привал: короткий</button>
-      <button type="button" :disabled="working" title="Привал на 8 часов: срывает час напряжённого — польза по «Завершить»" @click="emit('begin-rest', 'long')"><GameIcon class="ui-icon" name="hourglass" :size="20" />Привал: долгий</button>
+      <button type="button" :disabled="working" title="Привал на час: бой его срывает — польза только по «Завершить»" @click="emit('begin-rest', 'short')"><GameIcon class="ui-icon" name="restShort" :size="20" />Привал: короткий</button>
+      <button type="button" :disabled="working" title="Привал на 8 часов: срывает час напряжённого — польза по «Завершить»" @click="emit('begin-rest', 'long')"><GameIcon class="ui-icon" name="restLong" :size="20" />Привал: долгий</button>
     </div>
     <div class="cast-buttons xp-row">
       <input v-model.number="partyXp" type="number" min="1" max="1000000" aria-label="Опыт отряду" :disabled="working" />

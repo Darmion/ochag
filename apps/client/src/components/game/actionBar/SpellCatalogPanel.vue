@@ -38,7 +38,8 @@ const emit = defineEmits<{ choose: [entry: SpellEntry] }>();
     <span v-else class="spell-level" :title="entry.spell!.level ? entry.spell!.level + ' круг' : 'Заговор'"><template v-if="entry.spell!.level">{{ entry.spell!.level }}</template><GameIcon v-else name="sparkle" :size="14" /></span>
     <span class="spell-copy"><strong><span v-if="favorite(entry)" class="spell-favorite" aria-label="Избранное"><GameIcon class="inline-icon" name="starFilled" :size="13" /> </span>{{ spellName(entry) }}</strong>
     <small v-if="describeSpellMechanics(entry.spell?.mechanics)">{{ describeSpellMechanics(entry.spell?.mechanics) }}</small>
-    <small v-if="!entry.prepared && entry.spell!.level > 0" class="unprepared">Не подготовлено</small></span><span class="command-arrow" aria-hidden="true">›</span>
+    <small v-if="entry.item" class="item-source"><GameIcon class="inline-icon" :name="entry.item.scroll ? 'scroll' : 'wand'" :size="13" /> {{ entry.item.name }}{{ entry.item.charges ? ` · ${entry.item.charges.current}/${entry.item.charges.max} зар.` : '' }}</small>
+    <small v-else-if="!entry.prepared && entry.spell!.level > 0" class="unprepared">Не подготовлено</small></span><span class="command-arrow" aria-hidden="true">›</span>
   </button>
   <p v-if="!known" class="command-empty">Заклинаний в листе нет.</p><p v-else-if="!spells.length" class="command-empty">Ничего не найдено. Измените поиск или круг.</p>
 </template>

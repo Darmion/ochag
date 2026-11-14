@@ -1,0 +1,23 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Очаг",
+  "bundle": {
+    "copyright": "© 2026 Jasip",
+    "publisher": "Jasip",
+    "resources": {
+      "target/stage/app/": "app/",
+      "target/stage/node/": "node/"
+    },
+    "windows": {
+      "webviewInstallMode": { "type": "downloadBootstrapper" },
+      "nsis": {
+        "installMode": "currentUser",
+        "languages": ["Russian", "English"],
+        "customLanguageFiles": { "Russian": "windows/Russian.nsh", "English": "windows/English.nsh" },
+        "displayLanguageSelector": true,
+        "installerIcon": "icons/icon.ico",
+        "installerHooks": "windows/hooks.nsh"
+      }
+    }
+  }
+}

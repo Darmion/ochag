@@ -18,6 +18,8 @@ import { createPins } from './board/pins';
 import { createFreehand } from './board/freehand';
 import { createFloatingText } from './board/floatingText';
 import { createAttackFx } from './board/attackFx';
+import { createHeldItems } from './board/heldItems';
+import type { AttackMotion } from '../../../../packages/domain/character/held';
 import { createFigureLabels } from './board/figureLabels';
 import { createAreaTiles } from './board/areaTiles';
 import { createAreaTemplates } from './board/areaTemplates';
@@ -28,6 +30,7 @@ import { createAim } from './board/aim';
 import { createRulers } from './board/rulers';
 import { createPings } from './board/pings';
 import { createTerrainBrush } from './board/terrainBrush';
+import { createWallBrush } from './board/wallBrush';
 import { createMeasure } from './board/measure';
 import { createMultiHighlight } from './board/multiHighlight';
 import { createMarquee } from './board/marquee';
@@ -37,6 +40,7 @@ import { createObjectContent } from './board/objectContent';
 import { createObjectPoses } from './board/objectPoses';
 import { createSelection } from './board/selection';
 import { createCameraPan } from './board/cameraPan';
+import { createWheelZoom } from './board/wheelZoom';
 import { createCameraInput } from './board/cameraInput';
 import { createObjectApply } from './board/objectApply';
 import type {
@@ -49,6 +53,7 @@ import type {
 import { createObjectDrag } from './board/objectDrag';
 import { createTableClicks } from './board/tableClicks';
 export type {
+  LabelIcon,
   ObjectSide,
   PlacedObject,
   ObjectTransform,
@@ -100,7 +105,6 @@ export function createTabletop(canvas: HTMLCanvasElement, options: TabletopOptio
   camera.upperRadiusLimit = Math.max(45, radius * 1.8);
   camera.lowerBetaLimit = 0.2;
   camera.upperBetaLimit = Math.PI / 2.1;
-  camera.wheelPrecision = 12;
   camera.panningSensibility = 100;
   camera.attachControl(canvas, true);
 
@@ -152,7 +156,8 @@ export function createTabletop(canvas: HTMLCanvasElement, options: TabletopOptio
   } = createSelection({ options, live, scene, objectEntries, contestedObject: () => contestedObject(), refreshLabel: id => refreshLabel(id) });
 
   // stopFlight is created further down, so it is passed lazily.
-  const { setCameraPan } = createCameraPan({ widthCells, heightCells, engine, scene, camera, stopFlight: () => stopFlight() });
+  const { setCameraPan } = createCameraPan({ widthCells, heightCells, canvas, engine, scene, camera, stopFlight: () => stopFlight() });
+  const { disposeWheelZoom } = createWheelZoom({ canvas, engine, scene, camera, halfWidth, halfHeight, reducedMotion });
 
   const {
     stopFlight, frameView, resetCamera, userCameraStamp, disposeFraming,
@@ -175,7 +180,13 @@ export function createTabletop(canvas: HTMLCanvasElement, options: TabletopOptio
     showFloatingText, showSpeech, stopFloatingText,
   } = createFloatingText({ reducedMotion, createLabel, setLabelText, removeLabel, objectEntries });
 
-  const { showAttack } = createAttackFx({ reducedMotion, scene, rootOf });
+  const attackFx = createAttackFx({ reducedMotion, scene, rootOf });
+  const { refreshHeld, dropHeld, playMotion } = createHeldItems({ scene, reducedMotion, loadImageUrl: options.loadImageUrl });
+  function showAttack(fromId: string, toId: string, style: 'arrow' | 'spell' | 'melee', effect: 'hit' | 'miss' | 'crit' | 'heal', motion?: AttackMotion) {
+    const target = rootOf(toId);
+    if (target && style !== 'spell') playMotion(fromId, motion ?? (style === 'arrow' ? 'shot' : 'swing'), target.position);
+    attackFx.showAttack(fromId, toId, style, effect);
+  }
 
   const LIGHTING = { bright: [0.9, 1.0], dim: [0.88, 0.9], dark: [0.85, 0.8] } as const;
   const SURROUND_LIGHT = { bright: 1, dim: 0.7, dark: 0.4 } as const;
@@ -204,7 +215,7 @@ export function createTabletop(canvas: HTMLCanvasElement, options: TabletopOptio
   } = createObjectApply({
     scene, removeLabel, objectEntries, animationIndex, appearanceKey, buildContent, selectedId,
     setActiveObject, refreshActiveObject, draggingId, syncHandleFromRoot, dropLivePose, isLivePosed,
-    moveRoot, makeLabel, makeHpBar, refreshLabel, refreshHpBar, refreshGlow, multi: () => multi,
+    moveRoot, makeLabel, makeHpBar, refreshLabel, refreshHpBar, refreshGlow, refreshHeld, dropHeld, multi: () => multi,
     refreshAim: () => refreshAim(), refreshMulti: () => refreshMulti(),
   });
 
@@ -213,7 +224,7 @@ export function createTabletop(canvas: HTMLCanvasElement, options: TabletopOptio
   const WALL_HEIGHT = 1;
   const WALL_DEPTH = 0.2;
 
-  const { setDifficultCells } = createTerrain({ widthCells, heightCells, scene });
+  const { setDifficultCells, setWaterCells, setElevationCells } = createTerrain({ widthCells, heightCells, scene, reducedMotion });
 
   const { setReachCells, setMoveFilter } = createReachCells({ widthCells, heightCells, scene });
 
@@ -324,22 +335,22 @@ export function createTabletop(canvas: HTMLCanvasElement, options: TabletopOptio
     clearPings();
   }
 
-  // consumeMarqueeEnd and isTerrainBrush are created further down, so they are passed lazily.
+  // consumeMarqueeEnd and the brushes are created further down, so they are passed lazily.
   createTableClicks({
     options, widthCells, heightCells, tools, scene, ground, isSelectionEnabled, wallUnderPointer,
     isWallPickMode, wallPointUnderPointer, wallList, isWallDrawMode, aimActive, aimTap,
     tool: () => tool, pickGroundPoint, firePing,
-    consumeMarqueeEnd: () => consumeMarqueeEnd(), isTerrainBrush: () => isTerrainBrush(),
+    consumeMarqueeEnd: () => consumeMarqueeEnd(), isBrushMode: () => isBrushMode(),
   });
 
-  // isTerrainBrush is created further down, so it is passed lazily.
+  // The brushes are created further down, so they are passed lazily.
   const {
     endObjectDrag, cancelObjectDrag,
   } = createObjectDrag({
     canvas, options, widthCells, heightCells, live, tools, scene, camera, cameraGesture, holdCamera,
     objectEntries, setDragging, isSelectionEnabled, selectedId, syncHandleFromRoot, contestedObject,
     isWallPickMode, isWallDrawMode, tool: () => tool, clampX, clampZ, pickGroundPoint,
-    createPathLine, createRuler, measureText, isTerrainBrush: () => isTerrainBrush(), cancelGesture,
+    createPathLine, createRuler, measureText, isBrushMode: () => isBrushMode(), cancelGesture,
   });
 
 
@@ -370,13 +381,13 @@ export function createTabletop(canvas: HTMLCanvasElement, options: TabletopOptio
   });
 
   const { refreshMulti } = createMultiHighlight({ scene, objectEntries, multi: () => multi, refreshWallOutlines, highlightTemplates });
-  // isTerrainBrush is created further down, so it is passed lazily.
+  // The brushes are created further down, so they are passed lazily.
   const {
     marqueeActive, consumeMarqueeEnd, cancelMarquee, disposeMarquee,
   } = createMarquee({
     canvas, tools, scene, camera, cameraScheme, cameraGesture, holdCamera,
     objectEntries, isWallPickMode, wallList, isWallDrawMode, templateList, tool: () => tool,
-    isTerrainBrush: () => isTerrainBrush(),
+    isBrushMode: () => isBrushMode(),
   });
 
   const {
@@ -385,6 +396,10 @@ export function createTabletop(canvas: HTMLCanvasElement, options: TabletopOptio
     canvas, widthCells, heightCells, tools, scene, camera, cameraGesture, holdCamera, tintMaterial,
     pickGroundPoint,
   });
+  const {
+    isWallBrush, setWallBrush, wallStrokeActive, cancelWallStroke,
+  } = createWallBrush({ canvas, widthCells, heightCells, tools, scene, camera, cameraGesture, holdCamera, pickGroundPoint });
+  const isBrushMode = () => isTerrainBrush() || isWallBrush();
   function abortGestures() {
     endObjectDrag();
     if (strokeActive()) cancelStroke();
@@ -392,12 +407,13 @@ export function createTabletop(canvas: HTMLCanvasElement, options: TabletopOptio
     cancelTemplateDrag();
     cancelMarquee();
     cancelTerrainDrag();
+    cancelWallStroke();
   }
   const onLostCapture = () => setTimeout(abortGestures, 0);
 
   function cancelGesture(): boolean {
     if (cancelObjectDrag()) return true;
-    const busy = Boolean(strokeActive() || measureActive() || templateDragActive() || marqueeActive() || terrainDragActive());
+    const busy = Boolean(strokeActive() || measureActive() || templateDragActive() || marqueeActive() || terrainDragActive() || wallStrokeActive());
     if (strokeActive()) cancelStroke();
     if (measureActive()) clearOwnMeasure(true);
     abortGestures();
@@ -442,6 +458,8 @@ export function createTabletop(canvas: HTMLCanvasElement, options: TabletopOptio
     setLighting,
     setWeather,
     setDifficultCells,
+    setWaterCells,
+    setElevationCells,
     setReachCells,
     setMoveFilter,
     setRangeFrame,
@@ -475,6 +493,7 @@ export function createTabletop(canvas: HTMLCanvasElement, options: TabletopOptio
     setAimCursor,
     setWallPickMode,
     setTerrainBrush,
+    setWallBrush,
     setMultiSelection,
     setPlacePreview,
     setGroupPreview,
@@ -496,6 +515,7 @@ export function createTabletop(canvas: HTMLCanvasElement, options: TabletopOptio
     invalidateLabelSizes,
     dispose() {
       disposeFraming();
+      disposeWheelZoom();
       stopWeather();
       stopFloatingText();
       clearPings();

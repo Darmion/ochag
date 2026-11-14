@@ -1,3 +1,4 @@
+import { itemCastPlan } from '../../spells/item-spells.ts';
 import { randomUUID } from 'node:crypto';
 import type { Queryable } from '../../db.ts';
 import { classFeaturesFor } from '../../../../../packages/domain/character/class-features.ts';
@@ -12,13 +13,13 @@ import { findSrdSpell, srdSpellName } from '../../rules/srd-data.ts';
 
 import { askControllers, type ReactionCandidate, reactionCandidates } from '../combat/reactions.ts';
 import type { TableContext } from '../context.ts';
-import { notifyCampaign, notifyUsers } from '../live/notify.ts';
+import { notify, notifyCampaign, notifyUsers } from '../live/notify.ts';
 import { insertRoll, rollDie } from '../rolls/dice.ts';
 import { d20Formula, freeCastRule, ownRollState, rulingOutcome } from '../rolls/modifiers.ts';
 import { canManageCharacter } from '../scene/placements.ts';
 import { type CampaignParams, canManage, type CastSpellParams, objectSchema, reject, uuid } from '../shared.ts';
 import { type CastBody, performCast } from './cast.ts';
-import { assertSpellTargets } from './rules.ts';
+import { assertSpellTargets, assertTemplateTargets, srdTablePlan } from './rules.ts';
 
 export const counterParams = objectSchema({ campaignId: uuid, windowId: uuid });
 
@@ -232,7 +233,28 @@ export async function safeResume(ctx: TableContext, window: { campaignId: string
   }
 }
 
-export async function castAfterCounter(ctx: TableContext, userId: string, params: CastSpellParams, body: CastBody, spellName: string, casterName: string, countered: CounterResult | null) {
+// The caster's own client clears its aiming area only after a cast that resolved at once; a cast held for a counterspell
+// resolves here, so its area is cleared here, whether the spell went off, was countered or failed — unless the area became
+// a zone's drawn area (`areaKept`), which goes when the spell ends.
+async function dropAimArea(ctx: TableContext, campaignId: string, sceneId: string, templateId: string) {
+  const removed = (await ctx.db.query('DELETE FROM scene_templates WHERE campaign_id=$1 AND scene_id=$2 AND id=$3 RETURNING id', [campaignId, sceneId, templateId])).rows.length;
+  if (!removed) return;
+  await ctx.db.query('UPDATE scenes SET revision=revision+1 WHERE campaign_id=$1 AND id=$2', [campaignId, sceneId]);
+  void notify(ctx, campaignId, sceneId);
+}
+
+export async function castAfterCounter(ctx: TableContext, userId: string, params: CastSpellParams, body: CastBody, spellName: string, casterName: string, countered: CounterResult | null, held: boolean) {
+  let kept = false;
+  try {
+    const result = await resolveHeldCast(ctx, userId, params, body, spellName, casterName, countered);
+    kept = 'areaKept' in result && Boolean(result.areaKept);
+    return result;
+  } finally {
+    if (held && !kept && body.templateId && body.sceneId) await dropAimArea(ctx, params.campaignId, body.sceneId, body.templateId);
+  }
+}
+
+async function resolveHeldCast(ctx: TableContext, userId: string, params: CastSpellParams, body: CastBody, spellName: string, casterName: string, countered: CounterResult | null) {
   if (countered) {
     void notifyCampaign(ctx, params.campaignId, {
       type: 'notice', title: `«${spellName}» прервано`, tone: 'info',
@@ -247,7 +269,7 @@ export async function castAfterCounter(ctx: TableContext, userId: string, params
 export async function probeCast(ctx: TableContext, userId: string, params: CastSpellParams, body: CastBody): Promise<ProbeResult> {
   const { actionEconomy, db, membership } = ctx;
   const { campaignId, characterId, characterSpellId } = params;
-  const { slotLevel, pact } = body;
+  const { pact } = body;
   let probe: ProbeResult = null;
   try {
     await db.transaction(async q => {
@@ -265,15 +287,20 @@ export async function probeCast(ctx: TableContext, userId: string, params: CastS
       if (state.codes.has('wild_shape') && !classFeaturesFor(characterClassLevels(character).classes).some(feature => feature.id === 'beast-spells')) {
         reject(400, `${character.name} в зверином облике — колдовать нельзя.`);
       }
-      const known = (
-        await q.query('SELECT source, srd_index, custom_spell_id, slotless FROM character_spells WHERE campaign_id=$1 AND character_id=$2 AND id=$3', [campaignId, characterId, characterSpellId])
-      ).rows[0];
+      const itemCast = await itemCastPlan(q, campaignId, characterId, characterSpellId, body.slotLevel);
+      const slotLevel = itemCast ? undefined : body.slotLevel;
+      const known = itemCast
+        ? { source: 'srd', srd_index: itemCast.spell, custom_spell_id: null, slotless: true }
+        : (
+          await q.query('SELECT source, srd_index, custom_spell_id, slotless FROM character_spells WHERE campaign_id=$1 AND character_id=$2 AND id=$3', [campaignId, characterId, characterSpellId])
+        ).rows[0];
       if (!known) reject(404, 'Заклинание не найдено у этого персонажа.');
       let spellName: string;
       let level: number;
       let castingTime: string | null;
       let desc: string;
       let mechanics: EffectiveSpellMechanics;
+      let tablePlan: Awaited<ReturnType<typeof srdTablePlan>> = null;
       if (known.source === 'srd') {
         const srdSpell = findSrdSpell(known.srd_index);
         if (!srdSpell) reject(404, 'Заклинание SRD не найдено.');
@@ -281,8 +308,8 @@ export async function probeCast(ctx: TableContext, userId: string, params: CastS
         castingTime = srdSpell.castingTime ?? null;
         desc = srdSpell.desc ?? '';
         spellName = srdSpellName(known.srd_index);
-        const overlay = (await q.query('SELECT * FROM srd_spell_mechanics WHERE srd_index=$1', [known.srd_index])).rows[0] as any;
-        mechanics = mergeSpellMechanics(deriveSpellMechanics(srdSpell), overlay ?? null);
+        tablePlan = await srdTablePlan(q, campaignId, known.srd_index, itemCast?.level ?? body.slotLevel ?? srdSpell.level, Number(character.level ?? 1));
+        mechanics = tablePlan?.mechanics ?? mergeSpellMechanics(deriveSpellMechanics(srdSpell), null);
       } else {
         const custom = (await q.query('SELECT * FROM campaign_spells WHERE campaign_id=$1 AND id=$2', [campaignId, known.custom_spell_id])).rows[0];
         if (!custom) reject(404, 'Заклинание кампании не найдено.');
@@ -296,7 +323,8 @@ export async function probeCast(ctx: TableContext, userId: string, params: CastS
         if (!mechanics.attack) reject(400, `Вдохновение тратится на бросок: у «${spellName}» нет броска атаки (спасбросок бросает цель).`);
         if (!character.inspiration) reject(400, `У «${character.name}» нет вдохновения.`);
       }
-      await assertSpellTargets(q, campaignId, characterId, body.sceneId ?? null, body.targetIds ?? [], spellName, desc);
+      if (tablePlan) await assertTemplateTargets(q, campaignId, characterId, body.sceneId ?? null, body.targetIds ?? [], spellName, tablePlan.rules);
+      else await assertSpellTargets(q, campaignId, characterId, body.sceneId ?? null, body.targetIds ?? [], spellName, desc);
       if (body.metamagic === 'quickened' && castingUse(castingTime) !== 'action') reject(400, '«Ускоренное заклинание» — для заклинаний, что творятся действием.');
       await actionEconomy.spend(q, campaignId, characterId, body.metamagic === 'quickened' ? 'bonus' : castingUse(castingTime), { kind: 'spell', spellLevel: level }, {
         enforce: await actionEconomy.enforceFor(q, campaignId, await canManage(q, member, userId)), sceneId: body.sceneId ?? null,
@@ -320,7 +348,7 @@ export async function probeCast(ctx: TableContext, userId: string, params: CastS
       }
       if (slotLevel !== undefined && level === 0) reject(400, 'Заговоры не тратят ячейки — повысить нечего.');
       if (slotLevel !== undefined && slotLevel < level) reject(400, 'Ячейка не может быть ниже уровня заклинания.');
-      let effectiveLevel = legacy && legacy.castAt > level ? legacy.castAt : slotLevel ?? level;
+      let effectiveLevel = itemCast ? itemCast.level : legacy && legacy.castAt > level ? legacy.castAt : slotLevel ?? level;
       const ritualProbe = body.ritual === true;
       if (pact) {
         if (level === 0) reject(400, 'Заговоры не тратят ячейки.');

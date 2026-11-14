@@ -104,7 +104,7 @@ export function useReactions({ props, sceneId, objects, pushToast, run, currentE
       if (!controlsCreature(reactor.characterId) || counterPrompts.value.some(prompt => prompt.key === key)) continue;
       const choices = reactionSlotChoices(reactor.slots, reactor.pact);
       counterPrompts.value.push({
-        key, windowId: event.windowId, casterName: event.casterName, spellName: event.spellName, spellLevel: event.spellLevel,
+        key, windowId: event.windowId, casterId: event.casterId, casterName: event.casterName, spellName: event.spellName, spellLevel: event.spellLevel,
         reactorId: reactor.characterId, reactorName: reactor.name, choices, choice: choices[0]?.value ?? '', deadline,
       });
     }

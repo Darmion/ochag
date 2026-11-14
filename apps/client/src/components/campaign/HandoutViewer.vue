@@ -44,7 +44,7 @@ onBeforeUnmount(() => {
     <article class="handout-card">
       <header>
         <h2 translate="no">{{ handout.title }}</h2>
-        <button type="button" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button class="icon-only" type="button" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
       <img v-if="imageUrl" :src="imageUrl" :alt="handout.title" class="handout-image" />
       <p v-else-if="failed" class="muted">Картинку не удалось загрузить.</p>

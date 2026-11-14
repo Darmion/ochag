@@ -7,6 +7,7 @@ import { conditionInfo } from '../../rules/conditions';
 import type { SheetEffects } from '../../characterSheet/effects';
 import type { CharacterDTO, SheetRequest } from '../../characterSheet/types';
 import GameIcon from '../game/GameIcon.vue';
+import ConditionIcon from '../conditions/ConditionIcon.vue';
 
 const props = defineProps<{
   character: CharacterDTO;
@@ -29,9 +30,9 @@ const effectsOpen = ref(false);
 <template>
   <div class="sheet-conditions">
     <span v-for="effect in recordEffects" :key="effect.id" class="effect-badge" :title="conditionInfo(effect.effect_code).rule">
-      <GameIcon class="inline-icon" :name="conditionInfo(effect.effect_code).icon" :size="16" />
+      <ConditionIcon class="inline-icon" :name="conditionInfo(effect.effect_code).icon" :image="conditionInfo(effect.effect_code).image" :size="16" />
       {{ effects.effectLabel(effect.effect_code) }}
-      <button v-if="!readOnly" type="button" class="effect-x" :aria-label="`Снять: ${effects.effectLabel(effect.effect_code)}`" :disabled="busy" @click="effects.removeEffect(effect.id)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+      <button v-if="!readOnly" type="button" class="effect-x icon-only" :aria-label="`Снять: ${effects.effectLabel(effect.effect_code)}`" :disabled="busy" @click="effects.removeEffect(effect.id)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
     </span>
     <small v-if="!recordEffects.length" class="muted">без состояний</small>
     <span v-if="!readOnly" class="effects-wrap">
@@ -45,12 +46,13 @@ const effectsOpen = ref(false);
               :key="effect.id"
               :label="effects.effectLabel(effect.effect_code)"
               :icon="conditionInfo(effect.effect_code).icon"
+              :image="conditionInfo(effect.effect_code).image"
               :active="effect.active"
               :read-only="busy || readOnly"
               @toggle="effects.toggleEffect(effect)"
             >
               <template v-if="!readOnly" #default>
-                <button type="button" class="badge-remove" :aria-label="`Удалить эффект: ${effects.effectLabel(effect.effect_code)}`" :disabled="busy" @click="effects.removeEffect(effect.id)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+                <button type="button" class="badge-remove icon-only" :aria-label="`Удалить эффект: ${effects.effectLabel(effect.effect_code)}`" :disabled="busy" @click="effects.removeEffect(effect.id)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
                 <VisibilityControl
                   :field-key="`effect:${effect.id}`"
                   :campaign-id="campaignId"

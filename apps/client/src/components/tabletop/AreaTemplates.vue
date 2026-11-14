@@ -7,6 +7,7 @@ export type TemplateRow = {
   shape: 'circle' | 'cone' | 'square' | 'line';
   size_feet: number;
   width_feet?: number | null;
+  height_feet?: number | null;
   direction?: number;
   label: string | null;
   color: string;

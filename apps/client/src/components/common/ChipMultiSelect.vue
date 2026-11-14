@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 import { lockNearestScroll } from '../../ui/scrollLock';
+import GameIcon from '../game/GameIcon.vue';
 
 // Popover teleported to body with position:fixed, as in VisibilityControl.vue, so scrolling parents do not clip it.
 type Option = { id: string; label: string };
@@ -92,7 +93,7 @@ const summary = computed(() => {
     >
       <span class="chip-label">{{ label }}</span>
       <span class="chip-summary">{{ summary }}</span>
-      <span class="chip-caret" aria-hidden="true">▾</span>
+      <span class="chip-caret" aria-hidden="true"><GameIcon name="chevron" :size="12" /></span>
     </button>
 
     <teleport to="body">
@@ -112,7 +113,7 @@ const summary = computed(() => {
 .chip-trigger.filled{border-color:var(--gold-light)}
 .chip-label{font-weight:600;white-space:nowrap}
 .chip-summary{color:var(--ink);opacity:.8;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
-.chip-caret{opacity:.7;font-size:11px}
+.chip-caret{display:inline-grid;place-items:center;opacity:.7}
 .chip-popover{position:fixed;z-index:5000;display:grid;grid-template-columns:repeat(2,minmax(120px,1fr));gap:2px 12px;padding:10px;max-width:min(360px,92vw);max-height:60vh;overflow-y:auto;background:var(--parchment-background);color:var(--ink);border:1px solid var(--brass);border-radius:4px;box-shadow:0 8px 20px #0006}
 .chip-popover .checkbox-label{margin:0;font-size:12px;font-weight:400}
 </style>

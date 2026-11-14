@@ -2,8 +2,8 @@ import { loadEffects } from '../conditions.ts';
 import { uuid } from '../../tabletop/scene-feature.ts';
 import { CLASS_LABELS, SUBCLASSES } from '../../../../../packages/domain/character/classes.ts';
 import { classFeaturesFor, unarmoredDefense, hasProtectionStyle, PROTECTION_STYLE } from '../../../../../packages/domain/character/class-features.ts';
-import { characterRace, raceTraits, dragonAncestry, breathWeaponDice, INFERNAL_LEGACY } from '../../../../../packages/domain/character/races.ts';
-import { knownFeats, FEATS, knownFightingStyles, STYLE_PATTERNS } from '../../../../../packages/domain/character/feats.ts';
+import { characterRaceTraits, dragonAncestry, breathWeaponDice, INFERNAL_LEGACY } from '../../../../../packages/domain/character/races.ts';
+import { knownFeats, featCatalog, knownFightingStyles, STYLE_PATTERNS } from '../../../../../packages/domain/character/feats.ts';
 import { proficiencyBonusForLevel, abilityModifier } from '../../../../../packages/domain/dice/dice.ts';
 import { conditionState, incapacitatedReason } from '../../../../../packages/domain/combat/conditions.ts';
 import { DRAGON_ANCESTRIES } from '../../../../../packages/domain/srd/heroes.ts';
@@ -59,14 +59,13 @@ export function registerFeatureListRoutes(ctx: ClassFeatureContext) {
           }
           features.push({
             id: feature.id, name: feature.name, text: feature.text, use: feature.use, detail, active,
-            resource: resource ? { name: resource.name, current: resource.current, max: resource.max } : null,
+            resource: resource ? { name: resource.name, current: resource.current, max: resource.max, recharge: resource.recharge ?? null } : null,
             available: reason === null, reason, ...(choices ? { choices } : {}), ...(limit !== null ? { limit } : {}), ...(ready ? { ready } : {}),
           });
         }
-        const race = characterRace(row);
-        for (const trait of raceTraits(race)) {
+        for (const trait of characterRaceTraits(row)) {
           let detail = '';
-          let traitResource: { name: string; current: number; max: number } | null = null;
+          let traitResource: { name: string; current: number; max: number; recharge: 'short' | 'long' } | null = null;
           let use: 'action' | 'passive' = 'passive';
           let reason: string | null = null;
           let choices: Array<{ value: string; label: string; active?: boolean }> | undefined;
@@ -75,7 +74,7 @@ export function registerFeatureListRoutes(ctx: ClassFeatureContext) {
           if (trait.id === 'breath-weapon') {
             use = 'action';
             const kept = (await q.query(`SELECT current, max FROM character_resources WHERE campaign_id=$1 AND character_id=$2 AND name='Оружие дыхания'`, [campaignId, characterId])).rows[0] as any;
-            traitResource = { name: 'Оружие дыхания', current: kept ? Number(kept.current) : 1, max: kept ? Number(kept.max) : 1 };
+            traitResource = { name: 'Оружие дыхания', current: kept ? Number(kept.current) : 1, max: kept ? Number(kept.max) : 1, recharge: 'short' };
             choices = DRAGON_ANCESTRIES.map(item => ({ value: item.id, label: `${item.nameRu} (${ANCESTRY_DAMAGE_RU[item.damage] ?? item.damage}, ${item.breath})`, ...(ancestry?.id === item.id ? { active: true } : {}) }));
             const dc = 8 + abilityModifier(Number(row.constitution ?? 10)) + proficiencyBonusForLevel(Math.max(1, row.level ?? 1));
             detail = ancestry
@@ -107,7 +106,7 @@ export function registerFeatureListRoutes(ctx: ClassFeatureContext) {
           }
           if (trait.id === 'relentless-endurance') {
             const kept = (await q.query(`SELECT current, max FROM character_resources WHERE campaign_id=$1 AND character_id=$2 AND name='Непоколебимость'`, [campaignId, characterId])).rows[0] as any;
-            traitResource = { name: 'Непоколебимость', current: kept ? Number(kept.current) : 1, max: kept ? Number(kept.max) : 1 };
+            traitResource = { name: 'Непоколебимость', current: kept ? Number(kept.current) : 1, max: kept ? Number(kept.max) : 1, recharge: 'long' };
             detail = traitResource.current > 0 ? 'наготове' : 'потрачено — до долгого отдыха';
           }
           features.push({
@@ -119,9 +118,11 @@ export function registerFeatureListRoutes(ctx: ClassFeatureContext) {
         if (row.kind === 'character' || feats.length) {
           features.push({
             id: 'feats', name: 'Черты', text: 'Черты, которые считает автоматика. Отмеченное — сильнее текста листа.', use: 'passive' as const,
-            detail: feats.length ? FEATS.filter(feat => feats.includes(feat.id)).map(feat => feat.nameRu).join(', ') : 'не отмечены', active: false,
+            detail: feats.length ? featCatalog().filter(feat => feats.includes(feat.id)).map(feat => feat.nameRu).join(', ') : 'не отмечены', active: false,
             resource: null, available: true, reason: null,
-            choices: FEATS.map(feat => ({ value: feat.id, label: feat.nameRu, hint: feat.en, ...(feats.includes(feat.id) ? { active: true } : {}) })),
+            choices: featCatalog().map(feat => ({
+              value: feat.id, label: feat.nameRu, hint: feat.modName ? `мод «${feat.modName}»` : feat.en, ...(feats.includes(feat.id) ? { active: true } : {}),
+            })),
             ready: (row.auto_reactions ?? []).filter((entry: string) => entry === 'lucky'),
           });
         }

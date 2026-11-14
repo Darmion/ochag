@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount } from 'vue';
+import { computed, onBeforeUnmount, ref } from 'vue';
 
+import CampaignFilesPanel from '../campaign/CampaignFilesPanel.vue';
 import CampaignMembersPanel from '../campaign/CampaignMembersPanel.vue';
 import CampaignTransfer from '../campaign/CampaignTransfer.vue';
 import InvitePanel from '../connection/InvitePanel.vue';
 import GameIcon from './GameIcon.vue';
 import LobbyCampaignList from './lobby/LobbyCampaignList.vue';
+import AdventuresDialog from './lobby/AdventuresDialog.vue';
+import type { AdventureCampaign } from '../../lobby/adventures';
 import LobbyAppearance from './lobby/LobbyAppearance.vue';
 import LobbyOverview from './lobby/LobbyOverview.vue';
 import { cropStyle } from '../../art/imageCrop';
@@ -41,7 +44,14 @@ const emit = defineEmits<{
   importCharacter: [];
   imported: [report: CampaignImportReport];
   appearanceChanged: [campaignId: string];
+  adventureCreated: [result: AdventureCampaign];
 }>();
+
+const adventuresOpen = ref(false);
+function onAdventureCreated(result: AdventureCampaign) {
+  adventuresOpen.value = false;
+  emit('adventureCreated', result);
+}
 
 const selected = computed(() => props.campaigns.find(campaign => campaign.id === props.campaignId) ?? null);
 const isOwner = computed(() => selected.value?.owner_user_id === props.currentUserId);
@@ -72,8 +82,9 @@ onBeforeUnmount(() => {
       :image-urls="imageUrls"
       @update:campaign-id="id => emit('update:campaignId', id)" @enter="enter"
       @update:invitation-code="text => emit('update:invitationCode', text)" @update:campaign-name="name => emit('update:campaignName', name)"
-      @create="emit('create')" @join="emit('join')" @switch-server="emit('switchServer')"
+      @create="emit('create')" @join="emit('join')" @switch-server="emit('switchServer')" @adventures="adventuresOpen = true"
     />
+    <AdventuresDialog v-if="adventuresOpen" :request="props.request" @close="adventuresOpen = false" @created="onAdventureCreated" />
 
     <div v-if="selected" class="lobby-detail g-frame">
       <header class="campaign-hero" :class="`variant-${campaignVariant(selected)}`">
@@ -113,7 +124,7 @@ onBeforeUnmount(() => {
 
       <div class="management-heading">
         <span><GameIcon name="gear" :size="18" /></span>
-        <div><strong>{{ isOwner ? 'Управление кампанией' : 'Материалы кампании' }}</strong><small>{{ isOwner ? 'Приглашения, участники и перенос между серверами' : 'Доступные действия и перенос кампании' }}</small></div>
+        <div><strong>{{ isOwner ? 'Управление кампанией' : 'Материалы кампании' }}</strong><small>{{ isOwner ? 'Приглашения, участники, файлы и перенос между серверами' : 'Доступные действия и перенос кампании' }}</small></div>
       </div>
 
       <InvitePanel
@@ -129,6 +140,7 @@ onBeforeUnmount(() => {
         :owner-id="props.currentUserId"
         :request="props.request"
       />
+      <CampaignFilesPanel v-if="isOwner" :campaign-id="selected.id" :request="props.request" />
       <CampaignTransfer
         :campaign-id="selected.id"
         :campaign-name="selected.name"

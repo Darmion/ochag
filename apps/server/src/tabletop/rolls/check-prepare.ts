@@ -1,4 +1,5 @@
 import { reject, canManage } from '../shared.ts';
+import { attackBan } from '../../../../../packages/domain/combat/conditions.ts';
 import { canManageCharacter } from '../scene/placements.ts';
 import { guardFriendlyFire } from '../../campaign/factions.ts';
 import { superiorityDie, classLevelOf } from '../../../../../packages/domain/character/class-features.ts';
@@ -24,10 +25,17 @@ import type { Queryable } from '../../db.ts';
 import type { ActionUse } from '../../rules/action-economy.ts';
 import type { Opportunity } from '../combat/opportunity.ts';
 import type { CheckBody, CheckInternal } from './roll-check.ts';
+import { campaignFlag } from './dice.ts';
+import { AMMO_LABELS, itemAmmo, weaponAmmo } from '../../../../../packages/domain/character/inventory.ts';
+import { ITEM_COLUMNS, asItem, linkedTwoHanded } from '../../characters/inventory-state.ts';
+import { purgeObject } from '../scene/objects/remove.ts';
 
 export async function prepareCheck(ctx: TableContext, q: Queryable, member: any, userId: string, campaignId: string, body: CheckBody, internal: CheckInternal, using: ActionUse | undefined, opportunityEntry: Opportunity | undefined) {
   const { actionEconomy } = ctx;
-  const { characterId, kind, key, bonusFormula, targetCharacterId, sceneId, power, twoHanded, inspiration, hidden, sense, opportunity } = body;
+  const { characterId, kind, key, bonusFormula, targetCharacterId, sceneId, power, inspiration, hidden, sense, opportunity } = body;
+  const weaponKey = kind === 'attack' && typeof key === 'string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(key) ? key : null;
+  const twoHanded = body.twoHanded ?? (weaponKey ? await linkedTwoHanded(q, campaignId, characterId, weaponKey) : undefined);
+  if (twoHanded !== undefined) body.twoHanded = twoHanded;
   let economyScene: string | null = null;
   let ammoSpent = false;
   let extraGuard: { id: string; name: string } | null = null;
@@ -136,6 +144,25 @@ export async function prepareCheck(ctx: TableContext, q: Queryable, member: any,
       await q.query('UPDATE character_resources SET current=current-1 WHERE id=$1', [ammo.id]);
       ammoSpent = true;
     }
+    if (!ammo && (await campaignFlag(q, campaignId, 'ammo_use')) === true) {
+      const weapon = (await q.query(
+        `SELECT w.name, w.srd_index, w.properties, c.kind FROM character_weapons w JOIN characters c ON c.campaign_id=w.campaign_id AND c.id=w.character_id
+         WHERE w.campaign_id=$1 AND w.character_id=$2 AND w.id=$3`,
+        [campaignId, characterId, key],
+      )).rows[0] as any;
+      const needed = weapon?.kind === 'character' ? weaponAmmo(weapon) : null;
+      if (needed) {
+        const stack = (await q.query(`SELECT ${ITEM_COLUMNS} FROM characters c WHERE c.campaign_id=$1 AND c.container_id=$2 AND c.kind='object' FOR UPDATE`, [campaignId, characterId])).rows
+          .filter(row => itemAmmo(asItem(row)) === needed && (row.infinite || Number(row.quantity) > 0))
+          .sort((a, b) => Number(b.equipped_slot === 'ammo') - Number(a.equipped_slot === 'ammo'))[0];
+        if (!stack) reject(400, `Нет боеприпасов для «${weapon.name}»: ${AMMO_LABELS[needed].toLowerCase()} кончились. Добавьте их в снаряжение.`);
+        if (!stack.infinite) {
+          if (Number(stack.quantity) <= 1) await purgeObject(q, campaignId, stack.id);
+          else await q.query('UPDATE characters SET quantity=quantity-1, revision=revision+1 WHERE campaign_id=$1 AND id=$2', [campaignId, stack.id]);
+        }
+        ammoSpent = true;
+      }
+    }
   }
   if (inspiration) {
     const spent = (
@@ -154,14 +181,10 @@ export async function prepareCheck(ctx: TableContext, q: Queryable, member: any,
     ).rows[0] as any ?? null;
     if (!target) reject(404, 'Цель не найдена.');
     if (target.id === characterId) reject(400, 'Нельзя атаковать самого себя — выберите целью другое существо.');
-    const charmedBy = (
-      await q.query(
-        `SELECT 1 FROM character_effects WHERE campaign_id=$1 AND character_id=$2 AND active
-               AND effect_code='charmed' AND parameters->>'sourceCharacterId' = $3`,
-        [campaignId, characterId, target.id],
-      )
-    ).rows[0];
-    if (charmedBy) reject(400, `${character.name} очарован «${target.name}» и не может его атаковать.`);
+    if (kind === 'attack') {
+      const ban = attackBan(await loadConditionState(q, campaignId, characterId), target.id);
+      if (ban) reject(400, `${character.name}: «${ban.name}» — атаковать «${target.name}» нельзя.`);
+    }
     if (kind === 'attack') {
       const ward = (
         await q.query(`SELECT parameters FROM character_effects WHERE campaign_id=$1 AND character_id=$2 AND effect_code='sanctuary' AND active LIMIT 1`, [campaignId, target.id])

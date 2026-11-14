@@ -41,9 +41,15 @@ test('a stored template comes back whole: the loader adds the texts, the default
   assert.equal(srdTemplateOf('no-such-spell'), null);
 });
 
+// Hand-built tables where the text parser was wrong: Web's 2d4 is the burning web's damage, not the web's;
+// Protection from Poison ends poisoning instead of poisoning; Heal's 70 hit points were never found.
+const TEXT_MISREAD = new Set(['web', 'protection-from-poison', 'heal']);
+
 test('the plan of the template does what the text parser did (attack, save, damage, healing, condition)', () => {
   for (const spell of list) {
-    if (effectsOf(convert(spell.index)).some(effect => effect.kind === 'preset')) continue;
+    if (TEXT_MISREAD.has(spell.index)) continue;
+    const made = effectsOf(convert(spell.index));
+    if (made.some(effect => effect.kind === 'preset') || made.every(effect => effect.kind === 'special')) continue;
     const plan = templateCastPlan(convert(spell.index), { slotLevel: Math.max(1, spell.level), characterLevel: 5, mode: null });
     const legacy = deriveSpellMechanics(spell as never) as Record<string, unknown>;
     const m = plan.mechanics as unknown as Record<string, unknown>;
@@ -61,7 +67,9 @@ test('the server’s special cases become effects: presets, senses, AC, teleport
   const values = (index: string, kind: string) => effectsOf(convert(index)).find(effect => effect.kind === kind)?.values;
   assert.equal(values('haste', 'preset')?.preset, 'haste');
   assert.equal(values('sanctuary', 'preset')?.preset, 'sanctuary');
-  assert.deepEqual([values('barkskin', 'ac')?.mode, values('barkskin', 'ac')?.value], ['floor', 16]);
+  assert.equal(values('barkskin', 'preset')?.preset, 'barkskin', 'the same barkskin effect the text path puts');
+  assert.equal(values('true-strike', 'preset')?.lasts, 'caster-next-end');
+  assert.deepEqual([values('find-familiar', 'summon')?.rules, values('animal-shapes', 'shape')?.consent], ['familiar', 'willing']);
   assert.deepEqual([values('true-seeing', 'senses')?.sense, values('true-seeing', 'senses')?.feet], ['truesight', 120]);
   assert.deepEqual([values('misty-step', 'move')?.mode, values('misty-step', 'move')?.feet], ['teleport', 30]);
   assert.equal(values('invisibility', 'invisible')?.breaks, 'attack-or-spell');

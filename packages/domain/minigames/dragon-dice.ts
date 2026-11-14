@@ -1,14 +1,18 @@
+import type { Wager } from './wagers.ts';
+
 export type DragonAction = 'join' | 'leave' | 'start' | 'roll' | 'bank' | 'cancel';
 export type DragonPlayer = { id: string; name: string; score: number };
 export type DragonGame = {
   revision: number; hostId: string; phase: 'lobby' | 'playing' | 'finished' | 'cancelled';
   players: DragonPlayer[]; round: number; rounds: number; turn: number;
   pot: number; dragons: number; rolls: number; lastDie: number | null; message: string;
+  cheatDc?: number; cheated?: string[]; wager?: Wager | null; effect?: string | null;
 };
 const fail = (message: string): never => { throw new Error(message); };
-export function createDragonGame(id: string, name: string, revision = 1): DragonGame {
+export const CHEAT_DC = 13;
+export function createDragonGame(id: string, name: string, revision = 1, cheatDc = CHEAT_DC): DragonGame {
   return { revision, hostId: id, phase: 'lobby', players: [{ id, name, score: 0 }],
-    round: 1, rounds: 3, turn: 0, pot: 0, dragons: 0, rolls: 0, lastDie: null, message: 'Стол открыт. Присоединяйтесь к партии.' };
+    round: 1, rounds: 3, turn: 0, pot: 0, dragons: 0, rolls: 0, lastDie: null, message: 'Стол открыт. Присоединяйтесь к партии.', cheatDc, cheated: [] };
 }
 function advance(game: DragonGame) {
   game.turn += 1;
@@ -67,4 +71,28 @@ export function dragonWinners(game: DragonGame): DragonPlayer[] {
   if (game.phase !== 'finished') return [];
   const best = Math.max(...game.players.map(player => player.score));
   return game.players.filter(player => player.score === best);
+}
+
+// Once a game, a player may hide the first dragon of their turn with their hero's Sleight of Hand. Caught, they lose
+// the turn's pot. It is allowed before the dice roll.
+export function cheatAllowed(game: DragonGame, user: { id: string }) {
+  if (game.phase !== 'playing') fail('Сейчас нет активного хода.');
+  if (game.players[game.turn]!.id !== user.id) fail('Сейчас ход другого игрока.');
+  if (game.dragons !== 1) fail('Прятать нечего: в этом ходу на столе нет дракона.');
+  if ((game.cheated ?? []).includes(user.id)) fail('Подменить кость можно один раз за партию.');
+}
+export function applyCheat(current: DragonGame, user: { id: string }, success: boolean): DragonGame {
+  cheatAllowed(current, user);
+  const game = structuredClone(current);
+  const player = game.players[game.turn]!;
+  game.cheated = [...(game.cheated ?? []), user.id];
+  if (success) {
+    game.dragons = 0;
+    game.message = `${player.name} незаметно прячет дракона. Ход продолжается.`;
+  } else {
+    game.message = `${player.name}: подмену кости заметили! ${game.pot} очков хода сгорели.`;
+    advance(game);
+  }
+  game.revision += 1;
+  return game;
 }

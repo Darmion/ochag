@@ -130,7 +130,7 @@ test('dispel magic and lesser restoration from the text; the Champion crit range
   const { attackOutcome } = await import('../combat/conditions.ts');
   const { hitChance } = await import('../dice/dice.ts');
   assert.deepEqual(spellRiders(spell('dispel-magic').desc), [{ kind: 'dispel', upTo: 3 }]);
-  assert.deepEqual(spellRiders(spell('lesser-restoration').desc), [{ kind: 'restore', conditions: ['blinded', 'deafened', 'paralyzed', 'poisoned'] }]);
+  assert.deepEqual(spellRiders(spell('lesser-restoration').desc), [{ kind: 'restore', conditions: ['blinded', 'deafened', 'paralyzed', 'poisoned'], kinds: ['disease'] }]);
   const restoration = spell('lesser-restoration') as any;
   assert.equal(deriveSpellMechanics(restoration).condition, null, 'it ends conditions, it does not blind');
   assert.equal(deriveSpellMechanics(spell('blindness-deafness') as any).condition, 'blinded');

@@ -116,4 +116,33 @@ test('counterspell chains and the ready counterspell', async t => {
     const shielded = (await pg.query<any>(`SELECT 1 FROM character_effects WHERE character_id=$1 AND effect_code='shield_spell' AND active`, [wizard.id])).rows.length;
     assert.equal(shielded, 0);
   });
+
+  await t.test('an area spell held for a counterspell clears its aiming area once it resolves', async () => {
+    await request('PUT', `${base}/characters/${mage.id}/reactions`, gm.token, {counterspell: false});
+    const shatter = await learn(alice.token, wizard.id, 'shatter');
+    await slots(wizard.id, 2, 3);
+    const area = (await request('POST', `${base}/scenes/${sceneId}/templates`, alice.token, {shape: 'circle', x: 3, z: 0.5, direction: 0, sizeFeet: 10, color: '#c8553d', label: 'Дребезги'})).json();
+    const cast = await request('POST', `${base}/characters/${wizard.id}/spells/${shatter}/cast`, alice.token, {templateId: area.id, sceneId});
+    assert.equal(cast.statusCode, 202, `the enemies may counter: ${cast.body}`);
+    const windowId = cast.json().pending.windowId;
+    const areas = async () => (await pg.query<any>('SELECT id FROM scene_templates WHERE id=$1', [area.id])).rows.length;
+    assert.equal(await areas(), 1, 'the area stays while the counterspell is open');
+    assert.equal((await decline(windowId, gm.token, mage.id)).statusCode, 204);
+    assert.equal((await decline(windowId, gm.token, pupil.id)).statusCode, 204);
+    assert.equal(await areas(), 0, 'the spell went off and its area is gone');
+  });
+
+  await t.test('a zone held for a counterspell keeps its area as the zone is drawn', async () => {
+    const web = await learn(alice.token, wizard.id, 'web');
+    await slots(wizard.id, 2, 3);
+    const area = (await request('POST', `${base}/scenes/${sceneId}/templates`, alice.token, {shape: 'square', x: 3, z: 0.5, direction: 0, sizeFeet: 20, color: '#c8553d', label: 'Паутина'})).json();
+    const cast = await request('POST', `${base}/characters/${wizard.id}/spells/${web}/cast`, alice.token, {templateId: area.id, sceneId});
+    assert.equal(cast.statusCode, 202, `the enemies may counter: ${cast.body}`);
+    const windowId = cast.json().pending.windowId;
+    assert.equal((await decline(windowId, gm.token, mage.id)).statusCode, 204);
+    assert.equal((await decline(windowId, gm.token, pupil.id)).statusCode, 204);
+    const zones = (await pg.query<any>(`SELECT spell FROM scene_triggers WHERE scene_id=$1 AND spell->>'templateId'=$2`, [sceneId, area.id])).rows;
+    assert.equal(zones.length, 1, 'the web is a zone on that area');
+    assert.equal((await pg.query<any>('SELECT id FROM scene_templates WHERE id=$1', [area.id])).rows.length, 1, 'its area stays drawn');
+  });
 });

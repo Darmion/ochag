@@ -61,6 +61,8 @@ export function useSheetEditForm({ props, character, busy, error, dirty, canMana
   const editTruesight = ref<number | ''>('');
   const editBlindsight = ref<number | ''>('');
   const editFlySpeed = ref<number | ''>('');
+  const editSwimSpeed = ref<number | ''>('');
+  const editClimbSpeed = ref<number | ''>('');
   const editCreatureType = ref('');
   const editExtraText = ref('{}');
 
@@ -103,6 +105,8 @@ export function useSheetEditForm({ props, character, busy, error, dirty, canMana
     editTruesight.value = typeof data.sheet_extra?.truesightFeet === 'number' && data.sheet_extra.truesightFeet > 0 ? data.sheet_extra.truesightFeet : '';
     editBlindsight.value = typeof data.sheet_extra?.blindsightFeet === 'number' && data.sheet_extra.blindsightFeet > 0 ? data.sheet_extra.blindsightFeet : '';
     editFlySpeed.value = typeof data.sheet_extra?.flySpeedFeet === 'number' && data.sheet_extra.flySpeedFeet > 0 ? data.sheet_extra.flySpeedFeet : '';
+    editSwimSpeed.value = typeof data.sheet_extra?.swimSpeedFeet === 'number' && data.sheet_extra.swimSpeedFeet > 0 ? data.sheet_extra.swimSpeedFeet : '';
+    editClimbSpeed.value = typeof data.sheet_extra?.climbSpeedFeet === 'number' && data.sheet_extra.climbSpeedFeet > 0 ? data.sheet_extra.climbSpeedFeet : '';
     editCreatureType.value = typeof data.sheet_extra?.creatureType === 'string' ? data.sheet_extra.creatureType : '';
     editExtraText.value = JSON.stringify(data.sheet_extra ?? {}, null, 2);
   }
@@ -124,7 +128,7 @@ export function useSheetEditForm({ props, character, busy, error, dirty, canMana
       else delete sheetExtra.darkvisionFeet;
       if (editCreatureType.value) sheetExtra.creatureType = editCreatureType.value;
       else delete sheetExtra.creatureType;
-      for (const [field, value] of [['truesightFeet', editTruesight.value], ['blindsightFeet', editBlindsight.value], ['flySpeedFeet', editFlySpeed.value]] as const) {
+      for (const [field, value] of [['truesightFeet', editTruesight.value], ['blindsightFeet', editBlindsight.value], ['flySpeedFeet', editFlySpeed.value], ['swimSpeedFeet', editSwimSpeed.value], ['climbSpeedFeet', editClimbSpeed.value]] as const) {
         const feet = value === '' ? 0 : Math.max(0, Math.min(1000, Math.round(Number(value))));
         if (feet > 0) sheetExtra[field] = feet;
         else delete sheetExtra[field];
@@ -197,7 +201,7 @@ export function useSheetEditForm({ props, character, busy, error, dirty, canMana
     hitDie: editHitDie, className: editClassName, attacks: editAttacks, experience: editExperience,
     challenge: editChallenge, xpAward: editXpAward, defenses: editDefenses, speedFeet: editSpeedFeet,
     priceGold: editPriceGold, weight: editWeight, merchant: editMerchant, darkvision: editDarkvision,
-    truesight: editTruesight, blindsight: editBlindsight, flySpeed: editFlySpeed, creatureType: editCreatureType,
+    truesight: editTruesight, blindsight: editBlindsight, flySpeed: editFlySpeed, swimSpeed: editSwimSpeed, climbSpeed: editClimbSpeed, creatureType: editCreatureType,
     extraText: editExtraText, hintMaterial, hintDurability, objectHintValue, applyObjectHint, fillFromCharacter, save,
   });
 }

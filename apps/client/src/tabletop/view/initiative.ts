@@ -65,6 +65,7 @@ export function useInitiative({ props, sceneDetail, objects, pushToast, initiati
 
   const canAutoTurn = computed(() => {
     const characterId = currentEntry.value?.character_id;
+    if (sceneDetail.value?.canManage && currentEntry.value?.event_kind) return true;
     return Boolean(sceneDetail.value?.canManage && characterId && objects.value.some(object => object.character_id === characterId && object.kind === 'npc'));
   });
 

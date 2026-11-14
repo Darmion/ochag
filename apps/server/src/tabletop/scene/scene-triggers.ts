@@ -30,6 +30,9 @@ export type TriggerContext = SceneFeatureContext & {
   rollDie: (sides: number) => number;
   notifyManagers: (campaignId: string, message: Record<string, unknown>) => Promise<void>;
   fall?: (q: Queryable, campaignId: string, userId: string, characterId: string, feet: number, hidden: boolean) => Promise<{ message: string } | null>;
+  spellZone?: (
+    q: Queryable, campaignId: string, userId: string, trigger: any, sceneId: string, actor: { characterId: string; name: string }, moment: 'enter' | 'start' | 'end',
+  ) => Promise<{ parts: string[] } | null>;
 };
 
 const ABILITIES = ['strength', 'dexterity', 'constitution', 'intelligence', 'wisdom', 'charisma'];
@@ -44,7 +47,7 @@ export const DAMAGE_TYPE_RU: Record<string, string> = {
 
 const COLUMNS = `id, kind, shape, x, z, direction, size_feet::float8 AS size_feet, object_id, name, message,
   check_kind, check_key, dc, damage_formula, damage_type, half_on_success, once, enabled, secret, fired_count, on_turn, caster_id, fall_feet,
-  height_feet::float8 AS height_feet`;
+  height_feet::float8 AS height_feet, spell, scene_id`;
 
 export function pathPoints(from: { x: number; z: number }, to: { x: number; z: number }) {
   const dx = to.x - from.x, dz = to.z - from.z;
@@ -55,7 +58,7 @@ export function pathPoints(from: { x: number; z: number }, to: { x: number; z: n
   }));
 }
 
-function areaOf(trigger: any, feetPerUnit: number): Area {
+export function areaOf(trigger: any, feetPerUnit: number): Area {
   return {
     shape: trigger.shape as AreaShape,
     x: Number(trigger.x),
@@ -68,7 +71,7 @@ function areaOf(trigger: any, feetPerUnit: number): Area {
 }
 
 export function createTriggerEngine(ctx: TriggerContext) {
-  const { app, db, auth, membership, canManage, getScene, notify, notifyCampaign, rollCheckFor, insertRoll, rollDie, notifyManagers, hpChange, fall } = ctx;
+  const { app, db, auth, membership, canManage, getScene, notify, notifyCampaign, rollCheckFor, insertRoll, rollDie, notifyManagers, hpChange, fall, spellZone } = ctx;
 
   async function applyDamage(
     q: Queryable, campaignId: string, userId: string, characterId: string, amount: number, parts: string[], experience: ExperienceEvent[] = [],
@@ -91,9 +94,14 @@ export function createTriggerEngine(ctx: TriggerContext) {
     return change.applied;
   }
 
-  async function fire(q: Queryable, campaignId: string, userId: string, trigger: any, actor: Actor | null): Promise<Notice> {
+  async function fire(q: Queryable, campaignId: string, userId: string, trigger: any, actor: Actor | null, moment: 'enter' | 'start' | 'end' = 'enter'): Promise<Notice> {
     const parts: string[] = [];
     const experience: ExperienceEvent[] = [];
+    if (trigger.spell && actor && spellZone) {
+      const ran = await spellZone(q, campaignId, userId, trigger, trigger.scene_id, actor, moment);
+      await q.query('UPDATE scene_triggers SET fired_count=fired_count+1 WHERE id=$1', [trigger.id]);
+      return { title: `Сработало: ${trigger.name}`, detail: ran?.parts.join(' ') || 'Без последствий.', secret: trigger.secret, characterId: actor.characterId };
+    }
     if (trigger.fall_feet && actor) {
       const flying = (await q.query(`SELECT 1 FROM character_effects WHERE campaign_id=$1 AND character_id=$2 AND effect_code IN ('dragon_wings', 'flying') AND active`, [campaignId, actor.characterId])).rows[0];
       if (flying) return { title: `${trigger.name}: ${actor.name} пролетает над ямой`, detail: 'Летящему яма не страшна.', secret: trigger.secret };
@@ -168,11 +176,26 @@ export function createTriggerEngine(ctx: TriggerContext) {
     const row = (
       await q.query(
         `SELECT MAX(COALESCE((parameters->>'height')::float8, 0)) AS height FROM character_effects
-         WHERE campaign_id=$1 AND character_id=$2 AND active AND effect_code IN ('flying', 'dragon_wings')`,
+         WHERE campaign_id=$1 AND character_id=$2 AND active AND effect_code IN ('flying', 'dragon_wings', 'climbing')`,
         [campaignId, characterId],
       )
     ).rows[0];
     return Number(row?.height ?? 0);
+  }
+
+  async function moveZonesOf(
+    q: Queryable, campaignId: string, casterId: string, which: string,
+    to: (zone: { x: number; z: number; spell: any }) => { x: number; z: number },
+  ) {
+    const zones = (await q.query(
+      `SELECT id, x::float8 AS x, z::float8 AS z, spell FROM scene_triggers WHERE campaign_id=$1 AND caster_id=$2 AND enabled AND spell IS NOT NULL AND ${which}`,
+      [campaignId, casterId],
+    )).rows as Array<{ id: string; x: number; z: number; spell: any }>;
+    for (const zone of zones) {
+      const next = to(zone);
+      await q.query('UPDATE scene_triggers SET x=$2, z=$3 WHERE id=$1', [zone.id, next.x, next.z]);
+      if (zone.spell?.templateId) await q.query('UPDATE scene_templates SET x=$3, z=$4 WHERE campaign_id=$1 AND id=$2', [campaignId, zone.spell.templateId, next.x, next.z]);
+    }
   }
 
   async function fireEnter(
@@ -180,6 +203,7 @@ export function createTriggerEngine(ctx: TriggerContext) {
     actor: { characterId: string; name: string; size: string }, from: { x: number; z: number }, to: { x: number; z: number },
   ): Promise<Notice[]> {
     if (from.x === to.x && from.z === to.z) return [];
+    await moveZonesOf(q, campaignId, actor.characterId, `spell->>'follows' = 'true'`, () => to);
     const triggers = (
       await q.query(
         `SELECT ${COLUMNS} FROM scene_triggers WHERE campaign_id=$1 AND scene_id=$2 AND kind='enter' AND enabled
@@ -192,6 +216,7 @@ export function createTriggerEngine(ctx: TriggerContext) {
     const path = pathPoints(from, to);
     const altitude = triggers.length ? await altitudeOf(q, campaignId, actor.characterId) : 0;
     for (const trigger of triggers) {
+      if (trigger.spell?.follows && trigger.caster_id === actor.characterId) continue;
       const area = areaOf(trigger, scene.feet_per_unit);
       if (touches(area, scene, { world_x: from.x, world_z: from.z, size: actor.size, altitude_feet: altitude })) continue;
       if (path.some(point => touches(area, scene, { ...point, size: actor.size, altitude_feet: altitude }))) notices.push(await fire(q, campaignId, userId, trigger, actor));
@@ -209,6 +234,13 @@ export function createTriggerEngine(ctx: TriggerContext) {
       )
     ).rows[0];
     if (!placement) return [];
+    const unit = Number(scene.feet_per_unit || 5);
+    await moveZonesOf(q, campaignId, characterId, `(spell->>'drift')::numeric > 0`, zone => {
+      const dx = zone.x - Number(placement.x), dz = zone.z - Number(placement.z);
+      const length = Math.hypot(dx, dz);
+      const step = Number(zone.spell?.drift ?? 0) / unit;
+      return length > 1e-6 ? { x: zone.x + (dx / length) * step, z: zone.z + (dz / length) * step } : { x: zone.x + step, z: zone.z };
+    });
     const triggers = (
       await q.query(
         `SELECT ${COLUMNS} FROM scene_triggers WHERE campaign_id=$1 AND scene_id=$2 AND kind='enter' AND enabled AND on_turn
@@ -220,7 +252,34 @@ export function createTriggerEngine(ctx: TriggerContext) {
     const altitude = triggers.length ? await altitudeOf(q, campaignId, characterId) : 0;
     for (const trigger of triggers) {
       if (!touches(areaOf(trigger, scene.feet_per_unit), scene, { world_x: Number(placement.x), world_z: Number(placement.z), size: placement.size, altitude_feet: altitude })) continue;
-      notices.push(await fire(q, campaignId, userId, trigger, { characterId, name: placement.name }));
+      notices.push(await fire(q, campaignId, userId, trigger, { characterId, name: placement.name }, 'start'));
+    }
+    if (notices.length) await bumpScene(q, scene.id);
+    return notices;
+  }
+
+  async function fireTurnEnd(q: Queryable, campaignId: string, scene: any, userId: string, characterId: string): Promise<Notice[]> {
+    const triggers = (
+      await q.query(
+        `SELECT ${COLUMNS} FROM scene_triggers WHERE campaign_id=$1 AND scene_id=$2 AND kind='enter' AND enabled AND spell IS NOT NULL
+         ORDER BY created_at, id FOR UPDATE`,
+        [campaignId, scene.id],
+      )
+    ).rows.filter(trigger => (trigger.spell?.actions ?? []).some((action: any) => action.when === 'zone-end'));
+    if (!triggers.length) return [];
+    const placement = (
+      await q.query(
+        `SELECT p.x, p.z, c.name, c.size FROM scene_objects p JOIN characters c ON c.campaign_id=p.campaign_id AND c.id=p.character_id
+         WHERE p.campaign_id=$1 AND p.scene_id=$2 AND p.character_id=$3 AND p.parent_object_id IS NULL LIMIT 1`,
+        [campaignId, scene.id, characterId],
+      )
+    ).rows[0];
+    if (!placement) return [];
+    const notices: Notice[] = [];
+    const altitude = await altitudeOf(q, campaignId, characterId);
+    for (const trigger of triggers) {
+      if (!touches(areaOf(trigger, scene.feet_per_unit), scene, { world_x: Number(placement.x), world_z: Number(placement.z), size: placement.size, altitude_feet: altitude })) continue;
+      notices.push(await fire(q, campaignId, userId, trigger, { characterId, name: placement.name }, 'end'));
     }
     if (notices.length) await bumpScene(q, scene.id);
     return notices;
@@ -460,7 +519,7 @@ export function createTriggerEngine(ctx: TriggerContext) {
     },
   );
 
-  return { fireEnter, fireOpen, fireTurnStart, send };
+  return { fireEnter, fireOpen, fireTurnStart, fireTurnEnd, send };
 }
 
 export async function loadTriggers(q: Queryable, campaignId: string, sceneId: string) {

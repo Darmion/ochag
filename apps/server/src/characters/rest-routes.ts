@@ -31,6 +31,7 @@ export type RestContext = SceneFeatureContext & {
   applyHpChange: HpChange;
   announceHpChange: (campaignId: string, characterId: string, mode: 'damage' | 'heal', change: { applied: number; blocked: string | null; notices: any[] }) => void;
   campaignFlag: (q: Queryable, campaignId: string, key: string) => Promise<boolean | null>;
+  restSaves: (q: Queryable, campaignId: string, userId: string, characterId: string) => Promise<Array<{ short: string }>>;
 };
 
 const DAY_MINUTES = 24 * 60;
@@ -47,6 +48,7 @@ export type RestResult = {
   slots: number;
   resources: string[];
   exhaustion: { before: number; after: number } | null;
+  conditions?: string[];
   arcaneRecovery?: string;
   song?: { bard: string; value: number };
 };
@@ -251,6 +253,11 @@ export function registerRestRoutes(ctx: RestContext) {
       if (restored) result.resources.push(`очки чародейства → ${restored.current}/${restored.max} (чародейское восстановление)`);
     }
 
+    if (kind === 'long') {
+      const saves = await ctx.restSaves(q, campaignId, userId, characterId);
+      if (saves.length) result.conditions = saves.map(entry => entry.short);
+    }
+
     await q.query(
       'UPDATE characters SET hit_dice_spent=$3, hit_dice_spent_by_die=$4, long_rest_at=$5, revision=revision+1 WHERE campaign_id=$1 AND id=$2',
       [campaignId, characterId, pools.reduce((sum, pool) => sum + pool.spent, 0), pools.length > 1 ? spentByDieOf(pools) : null, longRestAt],
@@ -271,6 +278,7 @@ export function registerRestRoutes(ctx: RestContext) {
     if (result.slots) parts.push('ячейки восстановлены');
     if (result.resources.length) parts.push(result.resources.join(', '));
     if (result.exhaustion) parts.push(`истощение ${result.exhaustion.before} → ${result.exhaustion.after}`);
+    if (result.conditions?.length) parts.push(...result.conditions);
     if (result.arcaneRecovery) parts.push(`можно «${result.arcaneRecovery}» (в «Умениях»)`);
     return `${result.name}: ${parts.join(', ') || 'всё и так полно'}`;
   }
@@ -366,7 +374,7 @@ export function registerRestRoutes(ctx: RestContext) {
         if (!(await canManage(q, member, userId))) reject(403, 'Отдых отряда объявляет мастер сцен.');
         await ctx.getScene(q, campaignId, sceneId);
         const rested = await restParty(q, campaignId, userId, sceneId, kind, autoHitDice, events);
-        clock = await advanceWorldTime(q, campaignId, kind === 'long' ? 480 : 60);
+        clock = await advanceWorldTime(q, campaignId, kind === 'long' ? 480 : 60, userId);
         return rested;
       });
 
@@ -428,7 +436,7 @@ export function registerRestRoutes(ctx: RestContext) {
           reject(400, 'Идёт бой — сначала завершите его.');
         }
         const remaining = Math.max(0, DURATION[rest.kind] - (Number(scene.world_minutes) - rest.startedMinutes));
-        if (remaining) clock = await advanceWorldTime(q, campaignId, remaining);
+        if (remaining) clock = await advanceWorldTime(q, campaignId, remaining, userId);
         return { kind: rest.kind, interrupted: null, results: await restParty(q, campaignId, userId, sceneId, rest.kind, request.body?.autoHitDice, events) };
       });
       void notifyCampaign(campaignId, { type: 'changed' });

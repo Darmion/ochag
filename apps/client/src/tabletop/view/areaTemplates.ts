@@ -6,7 +6,8 @@ import { cssZoom } from '../../settings/uiScale';
 import { openGameWindow } from '../layout/gameHud';
 import type { TemplateRow } from '../../components/tabletop/AreaTemplates.vue';
 import type { TriggerRow } from '../../components/tabletop/TriggersPanel.vue';
-import { inAreaAt, type AreaShape } from '../areas';
+import { inAreaRelative, type AreaShape } from '../areas';
+import { groundAtPoint, groundUnder, heightMap } from '../../../../../packages/domain/map/relief';
 import { conditionInfo } from '../../rules/conditions';
 import type { TableHistory, HistoryEntry } from '../history';
 import type { TemplateData, TrapData } from './mapHistory';
@@ -45,20 +46,25 @@ export function useAreaTemplates({ props, sceneDetail, objects, templates, templ
     direction: template.direction,
     size: template.size_feet / feetPerUnit.value,
     width: (template.width_feet ?? 5) / feetPerUnit.value,
+    ...(template.shape === 'circle' && template.height_feet != null ? { height: template.height_feet / feetPerUnit.value } : {}),
     color: template.color,
     label: template.label,
   })));
 
+  const heights = computed(() => heightMap(sceneDetail.value?.elevation_cells));
   const templateRows = computed<TemplateRow[]>(() => templates.value.map((template, index) => {
     const area = templateAreas.value[index]!;
+    const detail = sceneDetail.value;
+    const base = detail ? groundAtPoint(heights.value, detail, area.x, area.z) : 0;
     const affected = objects.value
       .filter(object => object.kind !== 'object')
       .filter(object => {
         const n = footprintCells(object.size);
-        const up = (object.flightHeight ?? 0) / feetPerUnit.value;
+        const ground = detail ? groundUnder(heights.value, detail, object.world_x, object.world_z, n) : 0;
+        const up = (ground - base + (object.flightHeight ?? 0)) / feetPerUnit.value;
         for (let dz = 0; dz < n; dz += 1) {
           for (let dx = 0; dx < n; dx += 1) {
-            if (inAreaAt(area, object.world_x - n / 2 + 0.5 + dx, object.world_z - n / 2 + 0.5 + dz, up)) return true;
+            if (inAreaRelative(area, object.world_x - n / 2 + 0.5 + dx, object.world_z - n / 2 + 0.5 + dz, up)) return true;
           }
         }
         return false;

@@ -29,6 +29,7 @@ export function registerCreateRoute(ctx: RouteContext) {
       armorClass?: number;
       speedFeet?: number;
       imageAssetId?: string;
+      imageOpenAssetId?: string;
       modelAssetId?: string;
       className?: string;
     };
@@ -64,6 +65,7 @@ export function registerCreateRoute(ctx: RouteContext) {
             armorClass: { type: 'integer' },
             speedFeet: { type: 'number', minimum: 0 },
             imageAssetId: uuid,
+            imageOpenAssetId: uuid,
             modelAssetId: uuid,
             className: { type: 'string', maxLength: 100 },
           },
@@ -105,6 +107,7 @@ export function registerCreateRoute(ctx: RouteContext) {
         }
 
         if (body.imageAssetId) await assertAsset(q, campaignId, body.imageAssetId, 'object_image');
+        if (body.imageOpenAssetId) await assertAsset(q, campaignId, body.imageOpenAssetId, 'object_image');
         if (body.modelAssetId) await assertAsset(q, campaignId, body.modelAssetId, 'object_model');
 
         const hpMax = body.hpMax ?? 0;
@@ -113,9 +116,9 @@ export function registerCreateRoute(ctx: RouteContext) {
              campaign_id, owner_user_id, name, kind, disposition, size, level,
              strength, dexterity, constitution, intelligence, wisdom, charisma,
              hp_max, hp_current, armor_class, speed_feet,
-             image_asset_id, model_asset_id, class_name
+             image_asset_id, model_asset_id, class_name, image_open_asset_id
            )
-           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
            RETURNING id`,
           [
             campaignId, ownerUserId, body.name.trim(), body.kind,
@@ -128,6 +131,7 @@ export function registerCreateRoute(ctx: RouteContext) {
             body.speedFeet ?? (body.kind === 'object' ? 0 : 30),
             body.imageAssetId ?? null, body.modelAssetId ?? null,
             body.kind === 'object' ? null : body.className?.trim() || null,
+            body.imageOpenAssetId ?? null,
           ],
         );
 

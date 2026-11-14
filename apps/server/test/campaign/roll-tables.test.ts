@@ -86,7 +86,7 @@ test('random tables', async t => {
     const rolled = (await request('POST', `${tables}/${pack.json().table.id}/roll`, gm.token)).json();
     assert.deepEqual(rolled.monsters, [{index: 'wolf', nameRu: 'Волк', count: 3}, {index: 'dire-wolf', nameRu: 'Лютоволк', count: 1}]);
     assert.deepEqual(rolled.roll.outcome.monsters, rolled.monsters);
-    assert.equal((await request('POST', tables, gm.token, {name: 'Чудо', formula: '1d2', entries: [{from: 1, to: 2, text: 'x', monsters: [{index: 'tarrasque', count: '1'}]}]})).statusCode, 400);
+    assert.equal((await request('POST', tables, gm.token, {name: 'Чудо', formula: '1d2', entries: [{from: 1, to: 2, text: 'x', monsters: [{index: 'beholder', count: '1'}]}]})).statusCode, 400);
   });
 
   await t.test('deleting a table', async () => {

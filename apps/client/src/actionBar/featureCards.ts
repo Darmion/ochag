@@ -17,10 +17,10 @@ export type CardFeature = {
 export type FeatureButtonCard = { icon: GameIconName; label: string; note: string; active: boolean; blocked: boolean };
 
 const BUTTON_ICONS: Record<string, GameIconName> = {
-  'rage': 'flame', 'second-wind': 'heartPlus', 'action-surge': 'bolt', 'wholeness-of-body': 'yinYang', 'stillness-of-mind': 'ghost', 'divine-intervention': 'sun',
-  'hide-in-plain-sight': 'leaf', 'eldritch-master': 'sparkle', 'turn-undead': 'holy', 'turn-the-unholy': 'sun', 'sacred-weapon': 'holy',
-  'flurry-of-blows': 'burst', 'patient-defense': 'shield', 'countercharm': 'music', 'intimidating-presence': 'skull',
-  'empty-body': 'ghost', 'holy-nimbus': 'sun', 'dragon-wings': 'dragonEye',
+  'rage': 'flame', 'second-wind': 'heartPlus', 'action-surge': 'bolt', 'wholeness-of-body': 'yinYang', 'stillness-of-mind': 'stillness', 'divine-intervention': 'divineIntervention',
+  'hide-in-plain-sight': 'leaf', 'eldritch-master': 'sparkle', 'turn-undead': 'turnUndead', 'turn-the-unholy': 'sun', 'sacred-weapon': 'sacredWeapon',
+  'flurry-of-blows': 'burst', 'patient-defense': 'patientDefense', 'countercharm': 'countercharm', 'intimidating-presence': 'skull',
+  'empty-body': 'emptyBody', 'holy-nimbus': 'sun', 'dragon-wings': 'wings',
 };
 
 export const FEATURE_BUTTONS = new Set(Object.keys(BUTTON_ICONS));
@@ -35,7 +35,7 @@ const uses = (feature: CardFeature, count = left) => (feature.resource ? ` · ${
 const why = (reason: string | null | false, fallback = '') => (reason ? ` · ${reason}` : fallback);
 
 export function featureButton(feature: CardFeature, rageFrenzy: boolean): FeatureButtonCard {
-  const icon = BUTTON_ICONS[feature.id] ?? 'bolt';
+  const icon = BUTTON_ICONS[feature.id] ?? 'feature';
   const base = { icon, active: false, blocked: !feature.available };
   if (feature.id === 'rage') {
     return {
@@ -82,19 +82,19 @@ export function featureButton(feature: CardFeature, rageFrenzy: boolean): Featur
 
 export function passiveIcon(feature: { id: string; name: string }): GameIconName {
   if (feature.id === 'sneak-attack') return 'dagger';
-  if (feature.id.startsWith('unarmored')) return 'shield';
-  return feature.name.startsWith('Раса:') ? 'person' : 'sparkle';
+  if (feature.id.startsWith('unarmored')) return 'unarmored';
+  return feature.name.startsWith('Раса:') ? 'race' : 'feature';
 }
 
 export type FeatureHeadCard = { icon: GameIconName; label: string; note: string | null };
 
 const HEAD_ICONS: Record<string, GameIconName> = {
   'bardic-inspiration': 'music', 'step-of-the-wind': 'wind', 'breath-weapon': 'dragonEye', 'infernal-legacy': 'horns', 'cleansing-touch': 'sparkle',
-  'lay-on-hands': 'hand', 'wild-shape': 'paw', 'flexible-casting': 'swap', 'draconic-presence': 'dragonEye', 'quivering-palm': 'yinYang',
-  'fiendish-resilience': 'sparkle', 'preserve-life': 'heartPlus', 'reckless-attack': 'swords', 'frenzy': 'flame', 'open-hand-technique': 'yinYang',
-  'arcane-recovery': 'sparkle', 'natural-recovery': 'sparkle', 'cunning-action': 'dash',
-  'feats': 'star', 'fighting-styles': 'swords', 'spell-mastery': 'sparkle', 'signature-spells': 'sparkle',
-  'metamagic': 'sparkle', 'combat-superiority': 'swords', 'hunters-prey': 'target', 'defensive-tactics': 'shield', 'hunter-multiattack': 'dash',
+  'lay-on-hands': 'hand', 'wild-shape': 'paw', 'flexible-casting': 'swap', 'draconic-presence': 'dragonEye', 'quivering-palm': 'quiveringPalm',
+  'fiendish-resilience': 'fiendishResilience', 'preserve-life': 'preserveLife', 'reckless-attack': 'reckless', 'frenzy': 'frenzy', 'open-hand-technique': 'yinYang',
+  'arcane-recovery': 'sparkle', 'natural-recovery': 'sparkle', 'cunning-action': 'cunningAction',
+  'feats': 'feat', 'fighting-styles': 'fightingStyle', 'spell-mastery': 'spellMastery', 'signature-spells': 'signatureSpells',
+  'metamagic': 'metamagic', 'combat-superiority': 'swords', 'hunters-prey': 'huntersMark', 'defensive-tactics': 'defensiveTactics', 'hunter-multiattack': 'multiattack',
 };
 
 const SUBCLASS_HEADS = new Set(['draconic-presence', 'quivering-palm', 'open-hand-technique', 'fiendish-resilience', 'frenzy']);
@@ -118,7 +118,7 @@ const HEAD_NOTES: Record<string, (feature: CardFeature) => string | null> = {
   'cunning-action': noNote, 'feats': noNote, 'fighting-styles': noNote, 'spell-mastery': noNote, 'signature-spells': noNote,
 };
 
-export const headIcon = (id: string) => HEAD_ICONS[id] ?? 'sparkle';
+export const headIcon = (id: string) => HEAD_ICONS[id] ?? 'feature';
 
 export function featureHead(feature: CardFeature): FeatureHeadCard {
   const note = HEAD_NOTES[feature.id] ?? (() => feature.detail);
@@ -169,12 +169,12 @@ export type RowCall =
   | { kind: 'feature'; id: 'draconic-presence'; mode: 'fear' | 'charm' }
   | { kind: 'standard'; action: 'dash' | 'disengage'; using: 'bonus' }
   | { kind: 'stealth'; action: 'hide'; using: 'bonus' };
-export type RowAction = { label: string; icon: 'run' | 'door' | 'eye' | null; call: RowCall };
+export type RowAction = { label: string; icon: 'run' | 'disengage' | 'hide' | null; call: RowCall };
 
 const ROW_ACTIONS: Record<string, RowAction[]> = {
   'step-of-the-wind': [
     { label: 'Рывок', icon: 'run', call: { kind: 'feature', id: 'step-of-the-wind', mode: 'dash' } },
-    { label: 'Отход', icon: 'door', call: { kind: 'feature', id: 'step-of-the-wind', mode: 'disengage' } },
+    { label: 'Отход', icon: 'disengage', call: { kind: 'feature', id: 'step-of-the-wind', mode: 'disengage' } },
   ],
   'draconic-presence': [
     { label: 'Аура страха', icon: null, call: { kind: 'feature', id: 'draconic-presence', mode: 'fear' } },
@@ -182,8 +182,8 @@ const ROW_ACTIONS: Record<string, RowAction[]> = {
   ],
   'cunning-action': [
     { label: 'Рывок', icon: 'run', call: { kind: 'standard', action: 'dash', using: 'bonus' } },
-    { label: 'Отход', icon: 'door', call: { kind: 'standard', action: 'disengage', using: 'bonus' } },
-    { label: 'Спрятаться', icon: 'eye', call: { kind: 'stealth', action: 'hide', using: 'bonus' } },
+    { label: 'Отход', icon: 'disengage', call: { kind: 'standard', action: 'disengage', using: 'bonus' } },
+    { label: 'Спрятаться', icon: 'hide', call: { kind: 'stealth', action: 'hide', using: 'bonus' } },
   ],
 };
 
@@ -224,7 +224,7 @@ export function featureChips(feature: CardFeature): ChipsCard {
 export type FeatureToggleCard = { icon: GameIconName; label: string; note: string | null; active: boolean };
 
 const TOGGLE_ICONS: Record<string, GameIconName> = {
-  'protection-style': 'shield', 'deflect-missiles': 'hand', 'retaliation': 'swords', 'uncanny-dodge': 'bolt', 'cutting-words': 'music',
+  'protection-style': 'shield', 'deflect-missiles': 'hand', 'retaliation': 'retaliation', 'uncanny-dodge': 'uncannyDodge', 'cutting-words': 'cuttingWords',
 };
 
 export const FEATURE_TOGGLES = new Set(Object.keys(TOGGLE_ICONS));
@@ -232,7 +232,7 @@ export const FEATURE_TOGGLES = new Set(Object.keys(TOGGLE_ICONS));
 const readyDetail = (feature: CardFeature) => feature.detail.replace(/^(не )?наготове: /, '');
 
 export function featureToggle(feature: CardFeature): FeatureToggleCard {
-  const card = { icon: TOGGLE_ICONS[feature.id] ?? 'sparkle', label: feature.name, active: feature.active };
+  const card = { icon: TOGGLE_ICONS[feature.id] ?? 'feature', label: feature.name, active: feature.active };
   if (feature.id === 'deflect-missiles') return { ...card, note: readyDetail(feature) };
   if (feature.id === 'retaliation') return { ...card, label: feature.name.replace('Путь берсерка: ', ''), note: 'ранили в 5 фт. — реакцией удар' };
   if (feature.id === 'uncanny-dodge') return { ...card, note: 'урон попавшей атаки вдвое, реакцией' };

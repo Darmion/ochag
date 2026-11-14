@@ -14,6 +14,7 @@ import { insertRoll, rollDie } from '../rolls/dice.ts';
 import { checkModifier, d20Formula } from '../rolls/modifiers.ts';
 import { assertLatticePoint, getScene } from './board.ts';
 import { blockingPlacements, canManageCharacter, controls, loadPlacements, rightsOf, sheetContext } from './placements.ts';
+import { runeLockHolds } from '../../campaign/minigame-links.ts';
 import { canManage, objectSchema, reject, sceneParams, type SceneParams, uuid, WALL_COLUMNS, wallParams, type WallParams, WALLS_MOVE } from '../shared.ts';
 
 export const WALL_STYLES = ['stone', 'brick', 'wood', 'hedge', 'rock', 'plain', 'image'] as const;
@@ -325,7 +326,11 @@ export function registerWallRoutes(ctx: TableContext) {
           if (changes.some(key => key !== 'open')) reject(403, 'Стены правит мастер; игрок только открывает и закрывает двери.');
           if (wall.kind !== 'door') reject(400, 'Это не дверь.');
           if (wall.broken) reject(400, 'Двери нет — разрушена.');
-          if (wall.locked && body.open) reject(400, 'Дверь заперта. Открыть её может мастер — или её можно выбить.');
+          if (wall.locked && body.open) {
+            reject(400, (await runeLockHolds(q, campaignId, { sceneId, wall }))
+              ? 'Дверь заперта рунным замком. Разгадайте его в «Мини-играх» или выбейте дверь.'
+              : 'Дверь заперта. Открыть её может мастер — или её можно выбить.');
+          }
           const rights = await rightsOf(q, member, userId);
           const placements = await loadPlacements(q, campaignId, sceneId);
           const near = placements.some(placement => placement.kind !== 'object' && !placement.parent_object_id

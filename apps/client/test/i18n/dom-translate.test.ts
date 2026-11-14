@@ -66,6 +66,13 @@ test('ordinary words inside a name people gave stay too, even inside a longer me
   assert.equal(translator.translate('Лист персонажа'), 'Character sheet', 'a short name inside another word is not a name');
 });
 
+test('a name that holds another hero\'s name stays whole', () => {
+  const names = new Set(['Аэлин', 'Аэлин Проба']);
+  const translator = createTranslator(buildIndex([['Проба', 'Try it'], ['Лежит в «{value}»', 'Lies in “{value}”']]), {isProtected: text => names.has(text), shielded: () => names});
+  assert.equal(translator.translate(' Аэлин Проба '), null, 'not «Аэлин Try it»');
+  assert.equal(translator.translate('Лежит в «Аэлин Проба»'), 'Lies in “Аэлин Проба”');
+});
+
 test('the core of a key with icons around is known too', () => {
   const translator = createTranslator(buildIndex([[' · ⚱ добыча', ' · ⚱ loot']]));
   assert.equal(translator.translate('Жертва ✝ · ⚱ добыча'), 'Жертва ✝ · ⚱ loot');

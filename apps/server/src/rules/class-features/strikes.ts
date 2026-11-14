@@ -193,8 +193,8 @@ export function registerStrikeRoutes(ctx: ClassFeatureContext) {
           effect = save?.success ? 'устоял на ногах' : 'сбит с ног';
         } else if (maneuver === 'pushing') {
           save = await saveOf('strength', 'СИЛ');
-          const moved = save && !save.success && entry?.scene_id && ctx.pushAway ? await ctx.pushAway(q, campaignId, entry.scene_id, attacker.id, target.id, 15) : 0;
-          effect = save?.success ? 'устоял' : moved ? `отброшен на ${moved} фт.` : 'отбросить некуда';
+          const moved = save && !save.success && entry?.scene_id && ctx.pushAway ? await ctx.pushAway(q, campaignId, entry.scene_id, attacker.id, target.id, 15, userId) : { feet: 0, drop: 0 };
+          effect = save?.success ? 'устоял' : !moved.feet ? 'отбросить некуда' : moved.drop ? `отброшен на ${moved.feet} фт. и падает с уступа (${moved.drop} фт.)` : `отброшен на ${moved.feet} фт.`;
         } else if (maneuver === 'menacing') {
           save = await saveOf('wisdom', 'МДР', 'frightened');
           if (save && !save.success) {

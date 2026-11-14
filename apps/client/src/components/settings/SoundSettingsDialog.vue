@@ -155,7 +155,7 @@ async function reset() {
         </label>
         <div v-for="group in SFX_GROUPS" :key="group.id" class="group">
           <button type="button" class="group-head" :aria-expanded="openGroup === group.id" @click="openGroup = openGroup === group.id ? '' : group.id">
-            <span>{{ openGroup === group.id ? '▾' : '▸' }} {{ t(group.label) }}</span>
+            <span><GameIcon class="inline-icon" :name="openGroup === group.id ? 'chevron' : 'chevronRight'" :size="12" /> {{ t(group.label) }}</span>
           </button>
           <div v-if="openGroup === group.id" class="events">
             <div v-for="entry in SFX_EVENTS.filter(item => item.group === group.id)" :key="entry.id" class="event">
@@ -176,7 +176,7 @@ async function reset() {
                 :disabled="sfxChoice(entry.id) === 'off'"
                 @input="setSfxPref(entry.id, { volume: Number(($event.target as HTMLInputElement).value) / 100 })"
               >
-              <button type="button" class="play" :title="t('Послушать')" :aria-label="t('Послушать')" :disabled="sfxChoice(entry.id) === 'off'" @click="preview(entry.id)"><GameIcon name="play" :size="14" /></button>
+              <button type="button" class="play icon-only" :title="t('Послушать')" :aria-label="t('Послушать')" :disabled="sfxChoice(entry.id) === 'off'" @click="preview(entry.id)"><GameIcon name="play" :size="14" /></button>
               <div v-if="customSoundNames[entry.id] && sfxChoice(entry.id) === 'custom'" class="custom-line">
                 <button type="button" class="link" @click="replaceFile(entry.id)">{{ t('Другой файл') }}</button>
                 <button type="button" class="link" @click="clearCustomSound(entry.id)">{{ t('Убрать свой файл') }}</button>

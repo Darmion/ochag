@@ -1,4 +1,4 @@
-const {app, net} = require('electron');
+const {app, net} = require('../bridge/runtime.cjs');
 const path = require('node:path');
 const fs = require('node:fs');
 const fsp = require('node:fs/promises');

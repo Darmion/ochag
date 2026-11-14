@@ -29,7 +29,7 @@ export const GAME_WINDOW_ICON: Record<PanelId, GameIconName> = {
   triggers: 'trap',
   quests: 'scroll',
   vision: 'flame',
-  chat: 'quill',
+  chat: 'chat',
 };
 
 export const GAME_WINDOW_LABEL: Record<PanelId, string> = {

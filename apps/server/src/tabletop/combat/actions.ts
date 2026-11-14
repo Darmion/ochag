@@ -159,8 +159,8 @@ export function registerCombatActionRoutes(ctx: TableContext) {
             await addCondition(q, campaignId, target.id, 'prone', { source: 'shove', sourceCharacterId: characterId, sourceName: actor.name });
             outcome = 'сбит с ног';
           } else if (won) {
-            const moved = await pushAway(q, campaignId, sceneId!, characterId, target.id, 5);
-            outcome = moved > 0 ? `оттолкнут на ${moved} фт.` : 'некуда толкнуть';
+            const moved = await pushAway(q, campaignId, sceneId!, characterId, target.id, 5, false, (id, feet) => ctx.featureApi.fall(q, campaignId, userId, id, feet, false));
+            outcome = moved.feet <= 0 ? 'некуда толкнуть' : moved.drop ? `оттолкнут на ${moved.feet} фт. и падает с уступа (${moved.drop} фт.)` : `оттолкнут на ${moved.feet} фт.`;
           }
           return {
             won, targetIds: [target.id], economyScene: spent?.sceneId ?? null, mine: mine.total, theirs: theirs.total,

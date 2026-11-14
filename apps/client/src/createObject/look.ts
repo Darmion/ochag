@@ -1,6 +1,7 @@
 import { ref, onMounted, computed, type Ref } from 'vue';
 import type { ObjectKind } from '../campaign/objects';
 import { heroPortraitPaths, npcPortraitPath, artFile, libraryUrl } from '../art/portraitArt';
+import { openArtFor } from '../art/openPairs';
 import type { Look, LibraryAsset } from './types';
 
 export type ObjectLookDeps = {
@@ -12,6 +13,7 @@ export type ObjectLookDeps = {
 export function useObjectLook({ props, kind, name }: ObjectLookDeps) {
   const look = ref<Look>('default');
   const imageFile = ref<File | null>(null);
+  const openImageFile = ref<File | null>(null);
   const imagePreview = ref('');
   const modelFile = ref<File | null>(null);
   const modelAssetId = ref('');
@@ -29,6 +31,7 @@ export function useObjectLook({ props, kind, name }: ObjectLookDeps) {
     const file = input.files?.[0] ?? null;
     if (imagePreview.value.startsWith('blob:')) URL.revokeObjectURL(imagePreview.value);
     imageFile.value = file;
+    openImageFile.value = null;
     imagePreview.value = file ? URL.createObjectURL(file) : '';
   }
 
@@ -47,6 +50,8 @@ export function useObjectLook({ props, kind, name }: ObjectLookDeps) {
     artError.value = '';
     try {
       const file = await artFile(path);
+      const pair = kind.value === 'object' ? openArtFor(path) : null;
+      openImageFile.value = pair ? await artFile(pair) : null;
       if (imagePreview.value.startsWith('blob:')) URL.revokeObjectURL(imagePreview.value);
       imageFile.value = file;
       imagePreview.value = libraryUrl(path);
@@ -64,5 +69,5 @@ export function useObjectLook({ props, kind, name }: ObjectLookDeps) {
     if (modelFile.value) modelAssetId.value = '';
   }
 
-  return { look, imageFile, imagePreview, modelFile, modelAssetId, library, onImageChange, artPickerOpen, artBusy, artError, artSuggested, onLibraryArt, onModelChange };
+  return { look, imageFile, openImageFile, imagePreview, modelFile, modelAssetId, library, onImageChange, artPickerOpen, artBusy, artError, artSuggested, onLibraryArt, onModelChange };
 }

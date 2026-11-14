@@ -5,8 +5,8 @@ Ochag is a desktop app built from three parts that run on the GM's computer, plu
 | Part | Where | Role |
 |---|---|---|
 | Server | `apps/server` | Fastify API and the `/live` WebSocket over PostgreSQL. The source of truth: it checks every permission and applies the game rules |
-| Client | `apps/client` | Vue 3 and TypeScript; the 3D table is built on Babylon.js. Runs in the Electron window, and a reduced phone version runs in a browser |
-| Desktop shell | `apps/desktop` | Electron main process: starts the embedded PostgreSQL and the server, keeps settings, opens windows and Windows dialogs |
+| Client | `apps/client` | Vue 3 and TypeScript; the 3D table is built on Babylon.js. Runs in the desktop window (WebView2), and a reduced phone version runs in a browser |
+| Desktop shell | `apps/desktop` | A Tauri shell in Rust opens windows and Windows dialogs; its Node.js host starts the embedded PostgreSQL and the server and keeps settings |
 | Rules | `packages/domain` | game rules and SRD 5.1 data, with no server, database or DOM |
 | Import format | `packages/importer` | the common character sheet format that import mods produce |
 | Mods | `mods`, the mods folder | optional mechanics, visual and art mods (see [MODS.md](MODS.md)) |
@@ -113,6 +113,16 @@ The feature itself (id, class, level) is described in `packages/domain/character
 | `i18n/` | the translation core (copied into the client) |
 | `srd/` | SRD 5.1 data and its attribution |
 
+### A core first, the game system on top
+
+The app plays D&D 5e (2014) today. Later it will also play other systems, such as World of Darkness, Pathfinder, Rogue Trader and Shadowrun (owner's decision, 12 November 2026).
+
+New mechanics are therefore built in two layers:
+- **A system-neutral core** in `packages/domain`: a turn slot, a resource, a modifier, a check against a target, a per-round option list.
+- **The D&D 5e rules on top**, as data or a thin layer. Rule numbers (an initiative count, dice, limits) live in data or campaign settings, not in core code.
+
+`combat/initiative-events.ts` is the pattern. The core knows an initiative event: a slot with a count, a tie order, a no-repeat rule and options. The D&D lair is its data, `LAIR_RULES_5E`.
+
 ## Database
 
 PostgreSQL. The migrations are numbered SQL files in `db/migrations`; `scripts/migrations.ts` lists them, `scripts/migrate.ts` applies them, and the server checks the schema version at startup. The app connects as the restricted role `ttrpg_app` (`db/provision_runtime.sql`). The desktop app runs an embedded PostgreSQL and applies missing migrations itself. Its Windows binaries need the Microsoft Visual C++ runtime, so `apps/desktop/host/vc-runtime.cjs` checks for it before the database starts and the window offers Microsoft's installer when it is missing. Tests run against an in-memory PostgreSQL (PGlite) and never touch a real database.
@@ -152,4 +162,4 @@ The client receives changes over the `/live` WebSocket (`tabletop/live.ts`) and 
 - `npm test` runs every `*.test.ts` under `packages`, `apps/client/test`, `apps/server/test` and `mods`. Server tests build the app in memory; client tests import modules without Vue or the DOM.
 - `npm run i18n:extract` updates the string list and `en.json` after any text change, and `npm run i18n:check` fails while any string has no English (see [I18N.md](I18N.md)).
 - `.github/workflows/ci.yml` runs on every push and pull request, on Windows: the type checks, the tests, the client build, and checks that the strings are extracted and all have English.
-- Comments are rare and in English, only where the code alone cannot explain a decision: a workaround for Chromium, Electron or PostgreSQL, a race, a security check, an unusual edge case.
+- Comments are rare and in English, only where the code alone cannot explain a decision: a workaround for Chromium, WebView2 or PostgreSQL, a race, a security check, an unusual edge case.

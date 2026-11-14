@@ -29,7 +29,7 @@ async function characterManager(q: Queryable, member: any, userId: string) {
   ).rows.length > 0;
 }
 
-type FileAsset = { kind: 'object_image' | 'object_model'; contentType: string; filename: string | null; data: string };
+type FileAsset = { kind: 'object_image' | 'object_model'; role?: 'open'; contentType: string; filename: string | null; data: string };
 
 export const objectFileRoutes: FastifyPluginAsync<Options> = async (app, options) => {
   const { db, auth, membership } = options;
@@ -42,7 +42,7 @@ export const objectFileRoutes: FastifyPluginAsync<Options> = async (app, options
       const { campaignId, characterId } = request.params;
       const member = await membership(db, campaignId, userId);
       const row = (
-        await db.query('SELECT name, owner_user_id, model_asset_id, image_asset_id FROM characters WHERE campaign_id=$1 AND id=$2', [campaignId, characterId])
+        await db.query('SELECT name, owner_user_id, model_asset_id, image_asset_id, image_open_asset_id FROM characters WHERE campaign_id=$1 AND id=$2', [campaignId, characterId])
       ).rows[0];
       if (!row) reject(404, 'Объект не найден.');
       if (row.owner_user_id !== userId && !(await characterManager(db, member, userId))) {
@@ -57,13 +57,13 @@ export const objectFileRoutes: FastifyPluginAsync<Options> = async (app, options
       snapshot.spells = snapshot.spells.filter(spell => spell.source === 'srd');
 
       const assets: FileAsset[] = [];
-      for (const [kind, assetId] of [['object_image', row.image_asset_id], ['object_model', row.model_asset_id]] as const) {
+      for (const [kind, assetId, role] of [['object_image', row.image_asset_id, null], ['object_model', row.model_asset_id, null], ['object_image', row.image_open_asset_id, 'open']] as const) {
         if (!assetId) continue;
         const asset = (await db.query('SELECT content_type, storage_key, original_filename FROM assets WHERE campaign_id=$1 AND id=$2', [campaignId, assetId])).rows[0];
         if (!asset) continue;
         try {
           const bytes = await readFile(path.join(ASSETS_DIR, asset.storage_key));
-          assets.push({ kind, contentType: asset.content_type, filename: asset.original_filename ?? null, data: bytes.toString('base64') });
+          assets.push({ kind, ...(role ? { role } : {}), contentType: asset.content_type, filename: asset.original_filename ?? null, data: bytes.toString('base64') });
         } catch {
         }
       }
@@ -119,6 +119,7 @@ export const objectFileRoutes: FastifyPluginAsync<Options> = async (app, options
           snapshot.spells = snapshot.spells.filter(spell => spell.source === 'srd');
 
           character.image_asset_id = null;
+          character.image_open_asset_id = null;
           character.model_asset_id = null;
           for (const asset of Array.isArray(file.assets) ? file.assets as FileAsset[] : []) {
             if (asset?.kind !== 'object_image' && asset?.kind !== 'object_model') continue;
@@ -136,8 +137,9 @@ export const objectFileRoutes: FastifyPluginAsync<Options> = async (app, options
                VALUES ($1,$2,$3,$4,$5,$6,$7,$8)`,
               [assetId, campaignId, asset.kind, signature.contentType, bytes.length, storageKey, typeof asset.filename === 'string' ? asset.filename.slice(0, 200) : null, userId],
             );
-            if (asset.kind === 'object_image') character.image_asset_id = assetId;
-            else character.model_asset_id = assetId;
+            if (asset.kind === 'object_model') character.model_asset_id = assetId;
+            else if (asset.role === 'open') character.image_open_asset_id = assetId;
+            else character.image_asset_id = assetId;
           }
 
           const id = await createFromSnapshot(q, campaignId, snapshot, name, userId);

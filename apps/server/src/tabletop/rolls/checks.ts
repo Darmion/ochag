@@ -5,7 +5,9 @@ import { classFeaturesFor, darkLuckCanSave } from '../../../../../packages/domai
 import { characterClassLevels } from '../../../../../packages/domain/character/classes.ts';
 import { rollMods } from '../../../../../packages/domain/spells/spell-mods.ts';
 import { type Ability as ConditionAbility, d20Ruling } from '../../../../../packages/domain/combat/conditions.ts';
-import { type SaveAgainst, raceSaveAdvantages, characterRace } from '../../../../../packages/domain/character/races.ts';
+import type { SaveAgainst } from '../../../../../packages/domain/character/races.ts';
+import { characterTraitEffects } from '../../../../../packages/domain/character/hero-traits.ts';
+import { traitSaveAdvantages } from '../../../../../packages/domain/character/traits.ts';
 import { abilityModifier, rollCheck } from '../../../../../packages/domain/dice/dice.ts';
 import { findSrdSkill } from '../../rules/srd-data.ts';
 
@@ -47,8 +49,9 @@ export async function saveReroll(ctx: TableContext, q: Queryable, campaignId: st
   return null;
 }
 
+// The table context only serves saves (rerolls, legendary resistance notices); a skill check outside the table passes null.
 export async function rollCheckFor(
-  ctx: TableContext, q: Queryable, campaignId: string, userId: string, characterId: string,
+  ctx: TableContext | null, q: Queryable, campaignId: string, userId: string, characterId: string,
   kind: 'save' | 'skill', key: string, label: string, hidden: boolean, log = true, dc: number | null = null,
   extraDisadvantages: string[] = [], bonus: SaveBonus | null = null,
   against: SaveAgainst | null = null,
@@ -81,12 +84,11 @@ export async function rollCheckFor(
   const rollAbility = (kind === 'save' ? key : skillInfo ? ABILITY_BY_SRD_ABBREVIATION[skillInfo.ability] : 'dexterity') as ConditionAbility;
   const own = await ownRollState(q, campaignId, actor.id);
   const aids = kind === 'save' ? await saveAids(q, campaignId, actor.id, rollAbility, own) : null;
-  const raceAdvantages = kind === 'save' ? raceSaveAdvantages(characterRace(actor), rollAbility, against) : [];
+  const raceAdvantages = kind === 'save' ? traitSaveAdvantages(characterTraitEffects(actor), rollAbility, against) : [];
   if (kind === 'skill') {
     const helped = await consumeHelp(q, campaignId, actor.id);
     if (helped) raceAdvantages.push(helped);
   }
-  if (kind === 'save' && against?.concentration && hasFeat(actor.sheet_extra, 'war-caster')) raceAdvantages.push('боевой заклинатель');
   if (kind === 'save' && against?.nearCaster && hasFeat(actor.sheet_extra, 'mage-slayer')) raceAdvantages.push('убийца магов');
   if (kind === 'save' && against?.condition === 'frightened' && await hunterTactic(q, campaignId, actor.id, 'steel-will')) raceAdvantages.push('стальная воля');
   if (kind === 'save' && (against?.condition === 'frightened' || against?.condition === 'charmed')) {
@@ -127,7 +129,7 @@ export async function rollCheckFor(
     total = might.total;
     ruling.reasons.push(might.note);
   }
-  if (kind === 'save' && dc !== null && !ruling.autoFail && total < dc) {
+  if (kind === 'save' && ctx && dc !== null && !ruling.autoFail && total < dc) {
     const spent = await saveReroll(ctx, q, campaignId, actor);
     if (spent) {
       const again = d20Traits(actor, kind, rollCheck(modifier, ruling.advantage, rollDie).results, ruling.advantage, proficient);
@@ -174,7 +176,7 @@ export async function rollCheckFor(
       ruling.reasons.push(`легендарное сопротивление: провал → успех (осталось ${legendaryLeft})`);
     }
   }
-  if (legendaryLeft !== null) {
+  if (legendaryLeft !== null && ctx) {
     void notifyCampaign(ctx, campaignId, { type: 'character', characterId: actor.id });
     if (!hidden) {
       void notifyCampaign(ctx, campaignId, {
@@ -194,6 +196,11 @@ export async function rollCheckFor(
     }),
   );
   return { total, roll, autoFail: ruling.autoFail, success };
+}
+
+// A skill check against a DC away from the table (mini-games): the same modifiers, advantages and roll log entry.
+export function rollSkillAgainst(q: Queryable, campaignId: string, userId: string, characterId: string, skill: string, label: string, dc: number) {
+  return rollCheckFor(null, q, campaignId, userId, characterId, 'skill', skill, label, false, true, dc);
 }
 
 export async function rollSaveAgainst(

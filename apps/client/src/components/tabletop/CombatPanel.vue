@@ -146,9 +146,21 @@ function applyRoll(rollId: string, mode: 'damage' | 'heal') {
       <summary>Бросить кубики</summary>
 
       <label>
-        Формула: 1d20+3, 1d8+1d6+2, 4d6kh3, 2d6! (взрывающиеся), d20+@str (переменные — от имени персонажа)
+        Формула: 1d20+3, 1d8+1d6+2, 4d6kh3, d20+@str (переменные — от имени персонажа)
         <input v-model="rollFormula" maxlength="100" :disabled="busy" />
       </label>
+      <details class="formula-help">
+        <summary>Модификаторы костей</summary>
+        <dl>
+          <dt>kh3, kl1</dt><dd>оставить лучшие или худшие кости: 4d6kh3, 2d20kl1</dd>
+          <dt>!</dt><dd>взрыв: максимум бросается ещё раз и прибавляется — 2d6!</dd>
+          <dt>r1, r&lt;3</dt><dd>переброс один раз: 1d20r1, 2d6r&lt;3 (ro — то же)</dd>
+          <dt>rr&lt;3</dt><dd>переброс, пока выпадает такое: 1d8rr1</dd>
+          <dt>min2, max5</dt><dd>предел грани: 4d6min2 — меньше 2 не бывает</dd>
+          <dt>cs&gt;=8, cf=1</dt><dd>пул: считать успехи и вычесть провалы — 10d10!cs&gt;=8cf=1, 6d6cs&gt;=5</dd>
+        </dl>
+        <small class="muted">Сравнения: =, &lt;, &gt;, &lt;=, &gt;=.</small>
+      </details>
 
       <label>
         Подпись
@@ -265,12 +277,12 @@ function applyRoll(rollId: string, mode: 'damage' | 'heal') {
         <span class="name">{{ entry.name }}</span>
         <span v-if="entry.character_id && entry.action_used !== undefined" class="economy" aria-label="Действие, бонусное действие, реакция">
           <button
-            v-for="pip in ([['action', '●', 'Действие'], ['bonus', '▲', 'Бонусное действие'], ['reaction', '⟲', 'Реакция']] as const)"
-            :key="pip[0]" type="button" class="pip" :class="{ spent: entry[`${pip[0]}_used`] }"
+            v-for="pip in ([['action', 'econAction', 'Действие'], ['bonus', 'econBonus', 'Бонусное действие'], ['reaction', 'econReaction', 'Реакция']] as const)"
+            :key="pip[0]" type="button" class="pip icon-only" :class="{ spent: entry[`${pip[0]}_used`] }"
             :disabled="busy || !(canManage || (mayDash(entry) && !entry[`${pip[0]}_used`]))"
             :title="`${pip[2]}: ${entry[`${pip[0]}_used`] ? 'потрачено' : 'есть'}${canManage ? ' — щелчок меняет' : ''}`"
             @click="emit('economy', entry.id, pip[0], !entry[`${pip[0]}_used`])"
-          >{{ pip[1] }}</button>
+          ><GameIcon :name="pip[1]" :size="14" /></button>
         </span>
         <span v-if="entry.is_current && entry.character_id && entry.speed_feet" class="movement muted" title="Пройдено в этот ход из скорости (с Рывками)">
           {{ entry.moved_feet ?? 0 }}/{{ (entry.speed_feet ?? 0) * (1 + (entry.dashes ?? 0)) }} фут.
@@ -335,7 +347,7 @@ function applyRoll(rollId: string, mode: 'damage' | 'heal') {
           <GameIcon class="inline-icon" name="cup" :size="16" /> Короткий отдых отряда
         </button>
         <button type="button" :disabled="busy" title="Отряд на сцене: все хиты, половина костей хитов, ячейки, ресурсы, истощение −1" @click="emit('restParty', 'long')">
-          <GameIcon class="inline-icon" name="moon" :size="16" /> Долгий отдых отряда
+          <GameIcon class="inline-icon" name="restLong" :size="16" /> Долгий отдых отряда
         </button>
         <button type="button" :disabled="busy" title="Урон, попадания, повергнутые и опыт последнего боя на этой сцене" @click="emit('summary')">
           Итоги последнего боя
@@ -351,7 +363,7 @@ function applyRoll(rollId: string, mode: 'damage' | 'heal') {
         <input v-model.number="partyXp" type="number" min="1" max="1000000" :disabled="busy" />
       </label>
       <button type="button" :disabled="busy || !(partyXp > 0)" title="Поровну между персонажами игроков на сцене; новый уровень — сам" @click="emit('awardParty', Math.round(partyXp))">
-        <GameIcon class="inline-icon" name="starFilled" :size="16" /> Выдать поровну
+        <GameIcon class="inline-icon" name="split" :size="16" /> Выдать поровну
       </button>
     </div>
   </div>
@@ -359,6 +371,10 @@ function applyRoll(rollId: string, mode: 'damage' | 'heal') {
 
 <style scoped>
 .combat-panel details{margin-bottom:14px}
+.formula-help summary{font-size:13px;padding:4px 0}
+.formula-help dl{display:grid;grid-template-columns:auto 1fr;gap:4px 10px;margin:4px 0;font-size:13px}
+.formula-help dt{font-family:ui-monospace,Consolas,monospace;font-weight:700}
+.formula-help dd{margin:0}
 .combat-panel .eyebrow{margin-top:18px}
 .roll-feed{list-style:none;padding:0;margin:0 0 14px;max-height:220px;overflow-y:auto}
 .roll-feed li{padding:6px 0;border-bottom:1px solid var(--brass-light);font-size:14px}

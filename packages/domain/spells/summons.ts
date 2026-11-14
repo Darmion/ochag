@@ -1,4 +1,5 @@
-import { SRD_MONSTERS, type MonsterSize, type SrdMonster } from '../srd/monsters.ts';
+import type { MonsterSize, SrdMonster } from '../srd/monsters.ts';
+import { bestiaryMonsters } from '../world/bestiary.ts';
 
 export type SummonKind = 'familiar' | 'steed' | 'conjure-animals';
 export type SpellSummon = { kind: SummonKind; forms: string[]; concentration: boolean };
@@ -12,7 +13,7 @@ export const CONJURE_OPTIONS: ReadonlyArray<{ cr: number; count: number }> = [
   { cr: 2, count: 1 }, { cr: 1, count: 2 }, { cr: 0.5, count: 4 }, { cr: 0.25, count: 8 },
 ];
 
-const beasts = () => SRD_MONSTERS.filter(monster => monster.type === 'зверь');
+export const beasts = () => bestiaryMonsters().filter(monster => monster.type === 'зверь');
 
 export function spellSummon(index: string | null | undefined): SpellSummon | null {
   if (index === 'find-familiar') return { kind: 'familiar', forms: FAMILIAR_FORMS, concentration: false };

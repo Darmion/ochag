@@ -90,7 +90,7 @@ onMounted(() => {
     <div class="modal-card">
       <header class="modal-header">
         <h3 id="permissions-title">Разрешения — {{ account.displayName }}</h3>
-        <button type="button" class="modal-close" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="modal-close icon-only" aria-label="Закрыть" @click="emit('close')"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </header>
 
       <p class="muted">Логин: {{ account.username }}</p>

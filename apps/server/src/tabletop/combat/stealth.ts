@@ -1,5 +1,6 @@
 import type { Queryable } from '../../db.ts';
-import { hasFeat } from '../../../../../packages/domain/character/feats.ts';
+import { characterTraitEffects } from '../../../../../packages/domain/character/hero-traits.ts';
+import { traitPassive } from '../../../../../packages/domain/character/traits.ts';
 import { loadStates } from '../scene/object-states.ts';
 import { deadCreatures } from './loot-routes.ts';
 import { coverBetween } from '../../../../../packages/domain/combat/targeting.ts';
@@ -45,7 +46,7 @@ export async function perceptionModifier(q: Queryable, campaignId: string, chara
   ).rows[0];
   if (!actor) return null;
   if ((await loadConditionState(q, campaignId, characterId)).codes.has('blinded')) return null;
-  const observant = hasFeat(actor.sheet_extra, 'observant') ? 5 : 0;
+  const observant = traitPassive(characterTraitEffects(actor), 'perception');
   try {
     return (await checkModifier(q, campaignId, actor, 'skill', 'perception')).modifier + observant;
   } catch {

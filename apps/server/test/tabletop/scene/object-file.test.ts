@@ -77,4 +77,30 @@ test('object file export and import', async t => {
     assert.equal(wrong.statusCode, 400);
     assert.match(wrong.json().message, /не файл объекта/);
   });
+
+  await t.test('a chest keeps its second picture for the open lid — on the scene, in the file and in another campaign', async () => {
+    const lid = (await request('POST', `/campaigns/${campaignA}/assets?kind=object_image`, gmA.token, body, {'content-type': `multipart/form-data; boundary=${boundary}`})).json();
+    const chest = (await request('POST', `/campaigns/${campaignA}/characters`, gmA.token, {kind: 'object', name: 'Сундук', imageAssetId: asset.id, imageOpenAssetId: lid.id})).json();
+    assert.equal(chest.image_open_asset_id, lid.id, JSON.stringify(chest));
+    const foreign = await request('PATCH', `/campaigns/${campaignA}/characters/${chest.id}`, gmA.token, {revision: chest.revision, imageOpenAssetId: '00000000-0000-4000-8000-000000000000'});
+    assert.equal(foreign.statusCode, 400, 'only a picture of this campaign');
+    const cleared = (await request('PATCH', `/campaigns/${campaignA}/characters/${chest.id}`, gmA.token, {revision: chest.revision, imageOpenAssetId: null})).json();
+    assert.equal(cleared.image_open_asset_id, null);
+    assert.equal(cleared.image_asset_id, asset.id, 'the closed picture stays');
+    const again = (await request('PATCH', `/campaigns/${campaignA}/characters/${chest.id}`, gmA.token, {revision: cleared.revision, imageOpenAssetId: lid.id})).json();
+    assert.equal(again.image_open_asset_id, lid.id);
+
+    const sceneId = (await request('POST', `/campaigns/${campaignA}/scenes`, gmA.token, {name: 'Кладовая', widthCells: 6, heightCells: 6})).json().id;
+    await request('POST', `/campaigns/${campaignA}/scenes/${sceneId}/objects`, gmA.token, {characterId: chest.id, x: 0.5, z: 0.5});
+    await request('PUT', `/campaigns/${campaignA}/characters/${chest.id}/state`, gmA.token, {openable: true, open: true});
+    const shown = (await request('GET', `/campaigns/${campaignA}/scenes/${sceneId}`, gmA.token)).json().objects.find((entry: any) => entry.character_id === chest.id);
+    assert.deepEqual([shown.image_asset_id, shown.image_open_asset_id, shown.state?.open], [asset.id, lid.id, true]);
+
+    const chestFile = (await request('GET', `/campaigns/${campaignA}/characters/${chest.id}/export`, gmA.token)).json();
+    assert.deepEqual(chestFile.assets.map((entry: any) => entry.role ?? 'closed'), ['closed', 'open']);
+    const imported = await request('POST', `/campaigns/${campaignB}/objects/import`, gmB.token, {file: chestFile});
+    assert.equal(imported.statusCode, 201, imported.body);
+    const row = (await pg.query<any>('SELECT image_asset_id, image_open_asset_id FROM characters WHERE id=$1', [imported.json().characterId])).rows[0];
+    assert.ok(row.image_open_asset_id && row.image_open_asset_id !== lid.id && row.image_open_asset_id !== row.image_asset_id, 'a fresh open picture in campaign B');
+  });
 });

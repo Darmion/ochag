@@ -1,5 +1,7 @@
 <script setup lang="ts">
 import ItemArt from '../rpg/ItemArt.vue';
+import GameIcon from '../game/GameIcon.vue';
+import { abilityIcon, skillIcon } from '../../rules/skillIcons';
 import { ABILITIES, ABILITY_LABELS, formatSigned, modifier } from '../../characterSheet/abilities';
 import type { useHeroTab } from '../../characterSheet/heroTab';
 import type { Proficiencies } from '../../characterSheet/proficiencies';
@@ -26,7 +28,7 @@ const rollCheck = (kind: RollKind, key: string) => emit('roll', kind, key);
     <div class="hero-abilities">
       <div v-for="key in ABILITIES" :key="key" class="hero-ability">
         <button type="button" class="ability-roll" :disabled="readOnly || rollBusy || isHidden(key)" :title="`${ABILITY_LABELS[key]}: проверка характеристики`" @click="rollCheck('ability', key)">
-          <small>{{ ABILITY_LABELS[key] }}</small>
+          <small><GameIcon v-if="abilityIcon(key)" class="inline-icon" :name="abilityIcon(key)!" :size="15" /> {{ ABILITY_LABELS[key] }}</small>
           <b>{{ isHidden(key) ? '?' : modifier(character[key]) }}</b>
           <span>{{ isHidden(key) ? 'скрыто' : `Значение ${character[key]}` }}</span>
         </button>
@@ -35,7 +37,7 @@ const rollCheck = (kind: RollKind, key: string) => emit('roll', kind, key);
           :disabled="readOnly || rollBusy || proficiencies.saveFor(key).hidden" :title="`Спасбросок: ${ABILITY_LABELS[key]}${proficiencies.saveFor(key).proficient ? ' (владение)' : ''}`"
           @click="rollCheck('save', key)"
         >
-          {{ proficiencies.saveFor(key).proficient ? '●' : '○' }} спасбр. {{ proficiencies.saveTotal(proficiencies.saveFor(key)) === null ? '—' : formatSigned(proficiencies.saveTotal(proficiencies.saveFor(key))!) }}
+          {{ proficiencies.saveFor(key).proficient ? '●' : '○' }} <GameIcon class="inline-icon" name="savingThrow" :size="13" /> спасбр. {{ proficiencies.saveTotal(proficiencies.saveFor(key)) === null ? '—' : formatSigned(proficiencies.saveTotal(proficiencies.saveFor(key))!) }}
         </button>
       </div>
     </div>
@@ -49,6 +51,7 @@ const rollCheck = (kind: RollKind, key: string) => emit('roll', kind, key);
             :disabled="readOnly || rollBusy" :title="`${skill.nameRu} (${skill.abilityRu}) — бросить проверку`" @click="rollCheck('skill', skill.index)"
           >
             <span class="mark">{{ proficiencies.skillMark(skill.index) }}</span>
+            <GameIcon v-if="skillIcon(skill.index)" class="skill-icon" :name="skillIcon(skill.index)!" :size="17" />
             <span class="skill-name">{{ skill.nameRu }} <small>{{ skill.abilityRu }}</small></span>
             <b>{{ proficiencies.skillTotal(skill) === null ? '—' : formatSigned(proficiencies.skillTotal(skill)!) }}</b>
           </button>
@@ -102,6 +105,7 @@ const rollCheck = (kind: RollKind, key: string) => emit('roll', kind, key);
 .hero-skills{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,230px),1fr));gap:4px 16px}
 .skill-roll{display:flex;align-items:center;gap:6px;justify-content:flex-start;padding:4px 8px;min-height:32px;text-align:left}
 .skill-roll .mark{width:12px;color:var(--brass)}
+.skill-roll .skill-icon{flex:none;color:var(--brass)}
 .skill-roll .skill-name{flex:1;font:400 13px "Segoe UI",Arial,sans-serif;letter-spacing:0;overflow-wrap:normal;opacity:.8}
 .skill-roll .skill-name small{font-size:10px;color:var(--muted-ink);text-transform:uppercase;margin-left:4px}
 .skill-roll.proficient .skill-name{font-weight:700;opacity:1}

@@ -23,11 +23,11 @@ function addScaling() {
     <div v-else class="wide steps-editor">
       <span v-for="(stepRow, stepIndex) in rule.steps" :key="stepIndex" class="pair">
         круг <input v-model.number="stepRow[0]" type="number" min="0" max="9" :disabled="locked" /> → <input v-model="stepRow[1]" maxlength="120" :disabled="locked" />
-        <button type="button" class="link-button icon-button" :disabled="locked" aria-label="Убрать ступень" @click="rule.steps.splice(stepIndex, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+        <button type="button" class="link-button icon-button icon-only" :disabled="locked" aria-label="Убрать ступень" @click="rule.steps.splice(stepIndex, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
       </span>
       <button type="button" class="add-button" :disabled="locked" @click="rule.steps.push([template.passport.level + rule.steps.length + 1, ''])">＋ ступень</button>
     </div>
-    <button type="button" class="link-button danger-link icon-button" :disabled="locked" aria-label="Убрать правило" @click="template.scaling.splice(index, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
+    <button type="button" class="link-button danger-link icon-button icon-only" :disabled="locked" aria-label="Убрать правило" @click="template.scaling.splice(index, 1)"><GameIcon class="inline-icon" name="close" :size="16" /></button>
   </div>
   <button type="button" class="add-button" :disabled="locked" @click="addScaling">＋ правило усиления</button>
 </template>

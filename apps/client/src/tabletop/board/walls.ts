@@ -1,6 +1,7 @@
 import { Mesh, StandardMaterial, Color3, HighlightLayer, Vector4, MeshBuilder, Scene } from '@babylonjs/core';
 import type { Position } from '../grid';
 import type { WallSegment } from '../sceneTypes';
+import { buildRockWall } from './rockWall';
 
 export type WallsDeps = {
   scene: Scene;
@@ -69,6 +70,7 @@ export function createWalls({ scene, WALL_HEIGHT, WALL_DEPTH, wallMaterial, mult
     wallExtras = [];
 
     const posts = new Map<string, { x: number; z: number; material: StandardMaterial }>();
+    const shadows: Mesh[] = [];
     for (const wall of walls) {
       const length = Math.hypot(wall.x2 - wall.x1, wall.z2 - wall.z1);
       if (length <= 0) continue;
@@ -91,8 +93,12 @@ export function createWalls({ scene, WALL_HEIGHT, WALL_DEPTH, wallMaterial, mult
         piece.rotation.y = angle;
         return piece;
       };
+      const rocky = (wall.style ?? 'stone') === 'rock' && kind === 'wall' && !wall.broken;
+      const rock = rocky ? buildRockWall(scene, wall, mat, WALL_HEIGHT, WALL_DEPTH) : null;
       let mesh: Mesh;
-      if (wall.broken) {
+      if (rock) {
+        mesh = rock;
+      } else if (wall.broken) {
         mesh = slab(`wall-${wall.id}`, 0, 0.14, rubbleMaterial, WALL_DEPTH * 1.8);
       } else if (kind === 'window') {
         mesh = slab(`wall-${wall.id}`, 0, 0.42, mat);
@@ -118,23 +124,33 @@ export function createWalls({ scene, WALL_HEIGHT, WALL_DEPTH, wallMaterial, mult
         shadow.isPickable = false;
         shadow.position.set(midX, 0.006, midZ);
         shadow.rotation.y = angle;
-        wallExtras.push(shadow);
+        shadows.push(shadow);
       }
 
-      if (wall.broken) continue;
+      if (wall.broken || rock) continue;
       for (const [x, z] of [[wall.x1, wall.z1], [wall.x2, wall.z2]] as const) {
         const postKey = `${x}:${z}`;
         if (!posts.has(postKey)) posts.set(postKey, { x, z, material: mat });
       }
     }
+    const postsByLook = new Map<StandardMaterial, Mesh[]>();
     for (const post of posts.values()) {
       const faceUV = Array.from({ length: 6 }, () => new Vector4(0, 0, 0.28, 1.06));
       const mesh = MeshBuilder.CreateBox('wall-post', { width: 0.28, height: WALL_HEIGHT + 0.06, depth: 0.28, faceUV }, scene);
       mesh.material = post.material;
       mesh.isPickable = false;
       mesh.position.set(post.x, (WALL_HEIGHT + 0.06) / 2, post.z);
-      wallExtras.push(mesh);
+      postsByLook.set(post.material, [...(postsByLook.get(post.material) ?? []), mesh]);
     }
+    // Shadows and posts never get picked or highlighted one by one: one mesh per look keeps a big map to a few draw calls.
+    for (const group of [shadows, ...postsByLook.values()]) {
+      const merged = group.length > 1 ? Mesh.MergeMeshes(group, true, true) : group[0];
+      if (!merged) continue;
+      merged.isPickable = false;
+      wallExtras.push(merged);
+    }
+    // Walls stand still until the next rebuild, so their world matrices need no work every frame.
+    for (const mesh of [...wallNodes.values(), ...wallExtras]) mesh.freezeWorldMatrix();
     refreshWallOutlines();
   }
 

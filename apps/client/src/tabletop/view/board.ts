@@ -60,6 +60,7 @@ export type BoardDeps = {
   livePull: (kind: LiveKind, id: string, point: LivePoint) => void;
   onObjectTransform: (objectId: string, transform: ObjectTransform) => void;
   paintTerrain: (from: { col: number; row: number; }, to: { col: number; row: number; }) => Promise<void> | undefined;
+  brushWalls: (segments: Array<{ x1: number; z1: number; x2: number; z2: number }>, closed: boolean) => Promise<void> | undefined;
   setWallOpening: (wall: WallSegment, tile: number) => Promise<void> | undefined;
   toggleDoor: (wallId: string) => Promise<void> | undefined;
   saveDrawing: (points: Position[]) => Promise<void>;
@@ -83,7 +84,7 @@ export type BoardDeps = {
   handleGroundClick: (point: Position) => void;
 };
 
-export function useBoard({ props, viewOnly, canvas, sceneDetail, placingBestiary, actionBar, targetingActive, objects, activeObjectId, walls, pendingPinPoint, templateShape, templateSizeFeet, pendingPinNoteId, wallTool, wallPopover, notes, sceneError, feetPerUnit, table, setTable, disposed, backgroundObjectUrl, showHpBars, showGizmo, showWeather, multiSelection, tool, overlay, loadModelFile, loadImageUrl, assetBlob, drawColor, measureLabel, sendMeasure, sendMeasureClear, onPinClick, sendPing, boardColors, surroundingsColors, gridLook, resetFraming, applyBuildModes, liveGrab, livePull, onObjectTransform, paintTerrain, setWallOpening, toggleDoor, saveDrawing, onTextPoint, eraseAt, placeTemplate, onMultiPick, onMarquee, groupMoveActive, groupCenter, spawnBestiaryAt, deployEncounterAt, aimAreaNames, aimHovered, loadDragReach, showDragFilter, hideDragFilter, dragLabel, dragPath, onTableContext, handleGroundClick }: BoardDeps) {
+export function useBoard({ props, viewOnly, canvas, sceneDetail, placingBestiary, actionBar, targetingActive, objects, activeObjectId, walls, pendingPinPoint, templateShape, templateSizeFeet, pendingPinNoteId, wallTool, wallPopover, notes, sceneError, feetPerUnit, table, setTable, disposed, backgroundObjectUrl, showHpBars, showGizmo, showWeather, multiSelection, tool, overlay, loadModelFile, loadImageUrl, assetBlob, drawColor, measureLabel, sendMeasure, sendMeasureClear, onPinClick, sendPing, boardColors, surroundingsColors, gridLook, resetFraming, applyBuildModes, liveGrab, livePull, onObjectTransform, paintTerrain, brushWalls, setWallOpening, toggleDoor, saveDrawing, onTextPoint, eraseAt, placeTemplate, onMultiPick, onMarquee, groupMoveActive, groupCenter, spawnBestiaryAt, deployEncounterAt, aimAreaNames, aimHovered, loadDragReach, showDragFilter, hideDragFilter, dragLabel, dragPath, onTableContext, handleGroundClick }: BoardDeps) {
   let renderedWidth = -1;
   let renderedHeight = -1;
   let renderedBackgroundAssetId: string | null = null;
@@ -154,6 +155,7 @@ export function useBoard({ props, viewOnly, canvas, sceneDetail, placingBestiary
           onPlacePoint: point => void (placingBestiary.value ? spawnBestiaryAt(point) : deployEncounterAt(point)),
           onTemplatePlace: placed => void placeTemplate(placed),
           onTerrainRect: (from, to) => void paintTerrain(from, to),
+          onWallBrush: (segments, closed) => void brushWalls(segments, closed),
           onWallPick: (wallId, screen, point) => {
             const wall = wallId ? walls.value.find(entry => entry.id === wallId) : undefined;
             if (wallTool.value === 'opening') {

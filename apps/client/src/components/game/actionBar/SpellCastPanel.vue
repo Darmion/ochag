@@ -4,7 +4,9 @@ import { RIDER_TEXT } from '../../../actionBar/constants';
 import { spellName } from '../../../actionBar/spellCatalog';
 import { ELEMENT_LABELS, crLabel } from '../../../actionBar/summonChoices';
 import { PROJECTILE_NOUN } from '../../../actionBar/spellTargets';
-import type { CastView, Metamagic, SpellEntry } from '../../../actionBar/types';
+import type { CastView, ItemSpellView, Metamagic, SpellEntry } from '../../../actionBar/types';
+import type { SummaryLine } from '../../../actionBar/castSummary';
+import CastSummary from './CastSummary.vue';
 
 const castMode = defineModel<string>('castMode', { required: true });
 const castElement = defineModel<string>('castElement', { required: true });
@@ -12,6 +14,11 @@ const conjureOption = defineModel<number>('conjureOption', { required: true });
 const castBeast = defineModel<string>('castBeast', { required: true });
 const warnFriendly = defineModel<boolean>('warnFriendly', { required: true });
 const castSlot = defineModel<number>('castSlot', { required: true });
+const itemNote = (item: ItemSpellView) => [
+  item.scroll ? `Свиток «${item.name}» — после прочтения рассыпается` : `Из предмета «${item.name}», без ячейки`,
+  item.charges ? `зарядов ${item.charges.current} из ${item.charges.max}` : '',
+  item.dc ? `СЛ ${item.dc}` : '', item.attack ? `атака +${item.attack}` : '',
+].filter(Boolean).join(' · ') + '.';
 const castMetamagic = defineModel<Metamagic>('castMetamagic', { required: true });
 const castHeightened = defineModel<string>('castHeightened', { required: true });
 const castEmpowered = defineModel<boolean>('castEmpowered', { required: true });
@@ -20,7 +27,7 @@ const castOverchannel = defineModel<boolean>('castOverchannel', { required: true
 const useFree = defineModel<boolean>('useFree', { required: true });
 const useRacial = defineModel<boolean>('useRacial', { required: true });
 const usePact = defineModel<boolean>('usePact', { required: true });
-defineProps<{ entry: SpellEntry; view: CastView; working: boolean; inCombat: boolean }>();
+defineProps<{ entry: SpellEntry; view: CastView; working: boolean; inCombat: boolean; summary: SummaryLine[] }>();
 const emit = defineEmits<{ aim: []; cast: []; back: []; shots: [id: string, delta: number] }>();
 </script>
 
@@ -77,14 +84,22 @@ const emit = defineEmits<{ aim: []; cast: []; back: []; shots: [id: string, delt
       </div>
     </template>
   </div>
-  <label v-if="view.slots.length > 1 && !usePact && !(useFree && view.freeCast)" class="target-select">
+  <label v-if="entry.item && view.slots.length > 1" class="target-select">
+    Уровень
+    <select v-model.number="castSlot" :disabled="working">
+      <option :value="0">{{ view.slots[0]?.level }} ур. — {{ view.slots[0]?.cost }} зар.</option>
+      <option v-for="slot in view.slots.slice(1)" :key="slot.level" :value="slot.level">{{ slot.level }} ур. — {{ slot.cost }} зар.</option>
+    </select>
+  </label>
+  <label v-else-if="!entry.item && view.slots.length > 1 && !usePact && !(useFree && view.freeCast)" class="target-select">
     Ячейка
     <select v-model.number="castSlot" :disabled="working">
       <option :value="0">наименьшая свободная ({{ view.slots[0]?.level }} ур.)</option>
       <option v-for="slot in view.slots" :key="slot.level" :value="slot.level">{{ slot.level }} ур. — осталось {{ slot.current }} из {{ slot.max }}</option>
     </select>
   </label>
-  <small v-if="entry.slotless" class="muted">Сотворяется без ячейки.</small>
+  <small v-if="entry.item" class="muted">{{ itemNote(entry.item) }}</small>
+  <small v-else-if="entry.slotless" class="muted">Сотворяется без ячейки.</small>
   <label v-if="view.metamagic.length" class="target-select" title="Метамагия чародея: очки чародейства">
     Метамагия
     <select v-model="castMetamagic" :disabled="working">
@@ -123,6 +138,7 @@ const emit = defineEmits<{ aim: []; cast: []; back: []; shots: [id: string, delt
     <input v-model="usePact" type="checkbox" :disabled="working || !view.pactSlots?.current" />
     ячейкой договора ({{ view.pactSlots?.slotLevel }} ур., осталось {{ view.pactSlots?.current }} из {{ view.pactSlots?.max }})
   </label>
+  <CastSummary :lines="summary" />
   <div class="cast-buttons">
     <button v-if="!entry.spell?.summon" type="button" class="primary" :disabled="working" @click="emit('cast')">Сотворить{{ view.chosen.length || view.hasArea ? '' : ' без целей' }}</button>
     <button type="button" :disabled="working" @click="emit('back')">Назад</button>

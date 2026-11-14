@@ -67,7 +67,8 @@
   --heading-font: var(--g-title-font);
 
   --game-top: 56px;
-  --game-bottom: 156px;
+  --game-bottom-base: 156px;
+  --game-bottom: var(--game-bottom-base);
 
   font-family: var(--g-body-font);
   color: var(--g-text);

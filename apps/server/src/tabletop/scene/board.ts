@@ -3,6 +3,7 @@ import { cellCutByWall } from '../../../../../packages/domain/map/blockers.ts';
 import { type WallSegment, isLatticePoint } from '../../../../../packages/domain/map/los.ts';
 import { effectiveLighting } from '../../../../../packages/domain/world/clock.ts';
 import { isFootprintCenter, occupiedCells, footprintCells } from '../../../../../packages/domain/map/footprint.ts';
+import { groundUnder, heightMap } from '../../../../../packages/domain/map/relief.ts';
 
 import { type Placement, reject, WALLS_MOVE, WALLS_SIGHT } from '../shared.ts';
 
@@ -16,7 +17,7 @@ export async function getScene(
     `SELECT id, name, revision, width_cells, height_cells,
               feet_per_unit::float8 AS feet_per_unit, background_asset_id, background_rotation,
               default_vision_radius_feet::float8 AS default_vision_radius_feet,
-              combat_round, playlist, mood_playlists, lighting, difficult_cells, sky, weather, rest, grid, ambience,
+              combat_round, playlist, mood_playlists, lighting, difficult_cells, water_cells, elevation_cells, sky, weather, rest, grid, ambience,
               (SELECT world_minutes FROM campaigns c WHERE c.id = scenes.campaign_id) AS world_minutes
        FROM scenes
        WHERE campaign_id=$1
@@ -122,12 +123,28 @@ export function formatFeet(feet: number) {
   return Number.isInteger(feet) ? String(feet) : feet.toFixed(1).replace('.', ',');
 }
 
+const heightsOf = new WeakMap<object, Map<string, number>>();
+
+export function sceneHeights(scene: any): Map<string, number> {
+  const cells = Array.isArray(scene?.elevation_cells) ? scene.elevation_cells : [];
+  let map = heightsOf.get(cells);
+  if (!map) {
+    map = heightMap(cells);
+    heightsOf.set(cells, map);
+  }
+  return map;
+}
+
+export function groundOfPlacement(scene: any, placement: { world_x: number; world_z: number; size: string | null }) {
+  return groundUnder(sceneHeights(scene), scene, placement.world_x, placement.world_z, footprintCells(placement.size));
+}
+
 export function feetBetween(scene: any, a: Placement, b: Placement) {
   const side = (placement: Placement) => footprintCells(placement.size);
   const gapX = Math.max(0, Math.abs(a.world_x - b.world_x) - side(a) / 2 - side(b) / 2);
   const gapZ = Math.max(0, Math.abs(a.world_z - b.world_z) - side(a) / 2 - side(b) / 2);
-  const lowA = Number(a.altitude_feet ?? 0) / scene.feet_per_unit;
-  const lowB = Number(b.altitude_feet ?? 0) / scene.feet_per_unit;
+  const lowA = (groundOfPlacement(scene, a) + Number(a.altitude_feet ?? 0)) / scene.feet_per_unit;
+  const lowB = (groundOfPlacement(scene, b) + Number(b.altitude_feet ?? 0)) / scene.feet_per_unit;
   const gapY = Math.max(0, Math.max(lowA, lowB) - Math.min(lowA + side(a), lowB + side(b)));
   return Math.round((Math.max(gapX, gapZ, gapY) + 1) * scene.feet_per_unit * 1000) / 1000;
 }
